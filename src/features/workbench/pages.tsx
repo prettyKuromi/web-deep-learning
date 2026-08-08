@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
 import { DatasetPanel } from '../datasets/DatasetPanel'
 import type { Dataset } from '../datasets/dataset'
+import { workbenchStages, type WorkbenchStage } from '../../app/workbenchTypes'
 import './pages.css'
 
 export type ModelId = 'knn' | 'logistic-regression' | 'linear-svm'
@@ -83,4 +84,31 @@ function PageShell({ eyebrow, title, description, children }: { eyebrow: string;
     <header className="page-heading"><p className="eyebrow">{eyebrow}</p><h2 id={`page-${title}`}>{title}</h2><p>{description}</p></header>
     {children}
   </section>
+}
+
+
+export interface WorkbenchNavigationProps {
+  activeStage: WorkbenchStage
+  onStageChange: (stage: WorkbenchStage) => void
+  stages?: readonly WorkbenchStage[]
+}
+
+export function WorkbenchNavigation({ activeStage, onStageChange, stages = workbenchStages }: WorkbenchNavigationProps) {
+  return <nav className="workbench-navigation" aria-label="工作台阶段">
+    {stages.map((stage, index) => <button key={stage} type="button" role="tab" aria-selected={activeStage === stage} aria-controls={`stage-panel-${index}`} className={activeStage === stage ? 'active' : ''} onClick={() => onStageChange(stage)}>{`${String(index + 1).padStart(2, '0')} ${stage}`}</button>)}
+  </nav>
+}
+
+export interface WorkbenchStageViewProps {
+  activeStage: WorkbenchStage
+  onStageChange: (stage: WorkbenchStage) => void
+  pages: Partial<Record<WorkbenchStage, ReactNode>>
+}
+
+export function WorkbenchStageView({ activeStage, onStageChange, pages }: WorkbenchStageViewProps) {
+  const index = workbenchStages.indexOf(activeStage)
+  return <div className="workbench-stage-view">
+    <WorkbenchNavigation activeStage={activeStage} onStageChange={onStageChange} />
+    <section id={`stage-panel-${index}`} role="tabpanel" aria-label={activeStage} className="workbench-stage-panel">{pages[activeStage]}</section>
+  </div>
 }

@@ -45,4 +45,26 @@ describe('ModelParameterPanel', () => {
     expect(onChange).not.toHaveBeenCalled()
     expect(screen.getByRole('alert')).toHaveTextContent('邻居数（k）应为 1 到 99 的整数')
   })
+
+  it('逻辑回归和线性 SVM 参数使用紧凑网格布局', () => {
+    const { rerender } = render(
+      <ModelParameterPanel
+        model="logistic-regression"
+        value={{ learningRate: 0.1, iterations: 100, regularization: 0 }}
+        onChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('model-parameter-grid')).toHaveClass('model-parameter-grid--compact')
+    expect(screen.getAllByTestId('model-parameter-row')).toHaveLength(3)
+
+    rerender(
+      <ModelParameterPanel
+        model="linear-svm"
+        value={{ learningRate: 0.01, iterations: 100, regularization: 0, margin: 1 }}
+        onChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('model-parameter-grid')).toHaveClass('model-parameter-grid--compact')
+    expect(screen.getAllByTestId('model-parameter-row')).toHaveLength(4)
+  })
 })
