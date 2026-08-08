@@ -1,25 +1,33 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
+import { useWorkbenchStore } from './app/workbenchStore'
 
-describe('实验工作台壳层', () => {
+describe('实验工作台', () => {
   afterEach(() => cleanup())
-  it('显示四个流程阶段并能切换当前阶段', async () => {
-    const user = userEvent.setup()
-    render(<App />)
-
-    expect(screen.getByRole('button', { name: /01 数据集/ })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /03 训练/ }))
-    expect(screen.getByRole('button', { name: /03 训练/ })).toHaveClass('active')
+  beforeEach(() => {
+    localStorage.clear()
+    useWorkbenchStore.getState().reset()
   })
 
-  it('允许选择数据集并运行 KNN 训练', async () => {
+  it('在单页面展示数据集、模型、训练和结果区域', () => {
+    render(<App />)
+    expect(screen.getAllByRole('heading', { name: '选择数据集' })).toHaveLength(2)
+    expect(screen.getByRole('heading', { name: '选择模型与参数' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '训练过程' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '实验结果' })).toBeInTheDocument()
+  })
+
+  it('支持调整 KNN 参数并显示训练损失曲线', async () => {
     const user = userEvent.setup()
     render(<App />)
-
-    expect(screen.getAllByRole('heading', { name: '选择数据集' })).toHaveLength(1)
-    await user.click(screen.getByRole('button', { name: '训练 KNN' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('训练完成')
+    const k = screen.getByRole('spinbutton', { name: '邻居数（k）' })
+    await user.clear(k)
+    await user.type(k, '3')
+    expect(k).toHaveValue(3)
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+    expect(await screen.findByRole('status', { name: '' })).toHaveTextContent('训练完成')
+    expect(screen.getByRole('img', { name: '训练损失曲线' })).toBeInTheDocument()
   })
 })

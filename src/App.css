@@ -14,6 +14,11 @@ h1, h2, h3, p { margin-top: 0; } h1 { margin-bottom: 8px; color: #edf7ff; font-s
 .stage-number { position: absolute; left: 16px; top: 16px; color: var(--cyan); font: 700 .68rem ui-monospace, SFMono-Regular, Consolas, monospace; } .stage-name { display: block; font-weight: 700; } .stage-caption { display: block; margin-top: 6px; color: #5f8296; font-size: .72rem; }
 .workbench-grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; } .control-column, .visual-column { display: grid; gap: 20px; align-content: start; }
 .page-container { display: grid; gap: 20px; }
+.single-page-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.single-page-grid > .workbench-page-card { min-width: 0; }
+.compact-models { gap: 8px; }
+.compact-models .model-option { padding: 10px 12px; }
+.progress-chart { margin-top: 16px; }
 .training-summary { display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: .84rem; }
 .training-summary span { border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; }
 .training-log { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #081725; color: var(--muted); font: .78rem ui-monospace, SFMono-Regular, Consolas, monospace; }
@@ -36,3 +41,4 @@ h1, h2, h3, p { margin-top: 0; } h1 { margin-bottom: 8px; color: #edf7ff; font-s
 @media (max-width: 900px) { .stage-nav { grid-template-columns: 140px repeat(4, minmax(130px, 1fr)); overflow-x: auto; padding-bottom: 4px; } .workbench-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .app-shell { width: min(100% - 28px, 560px); padding: 26px 0 42px; } .app-header { flex-direction: column; } .header-meta { flex-wrap: wrap; } .stage-nav { display: flex; } .workflow-label { min-width: 140px; } .stage-button { min-width: 150px; } .chart-frame { min-height: 280px; } .result-card { align-items: flex-start; } }
 @media (max-width: 640px) { .metric-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px) { .single-page-grid { grid-template-columns: 1fr; } }

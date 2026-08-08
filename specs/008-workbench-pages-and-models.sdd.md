@@ -54,6 +54,6 @@
 
 ## 实现状态
 
-- 已实现四个可切换子页面、CSV/内置数据集、KNN/逻辑回归/线性 SVM、训练日志与指标详情、混淆矩阵、决策边界和 localStorage 历史记录。
-- 验证命令：`npm test`（8 个测试文件、30 个测试通过）；`npm run build`（TypeScript 与 Vite 构建通过）。
+- 已实现单页面工作台布局、CSV/内置数据集、KNN/逻辑回归/线性 SVM、模型参数调节、SVG 训练损失曲线、训练日志与指标详情、混淆矩阵、决策边界和 localStorage 历史记录。
+- 验证命令：`npm test`（10 个测试文件、36 个测试通过）；`npm run build`（TypeScript 与 Vite 构建通过）；`npm run lint`（通过）。
 - 已知限制：当前训练仍在主线程执行；实验记录仅保留最近 20 条，且 localStorage 容量受浏览器限制。
