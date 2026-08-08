@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Codex/Superpowers 临时工作文件
+.superpowers/
+docs/superpowers/
