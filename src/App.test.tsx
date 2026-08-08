@@ -27,7 +27,7 @@ describe('实验工作台', () => {
     await user.type(k, '3')
     expect(k).toHaveValue(3)
     await user.click(screen.getByRole('button', { name: '开始训练' }))
-    expect(await screen.findByRole('status', { name: '' })).toHaveTextContent('训练完成')
+    expect(await screen.findByText('训练完成')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: '训练损失曲线' })).toBeInTheDocument()
   })
 })

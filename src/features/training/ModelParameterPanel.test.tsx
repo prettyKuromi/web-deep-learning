@@ -23,6 +23,14 @@ describe('ModelParameterPanel', () => {
     expect(onChange).toHaveBeenCalledWith({ k: 7, other: 1 })
   })
 
+  it('为参数提供科技感滑动条并同步当前值', () => {
+    const onChange = vi.fn()
+    render(<ModelParameterPanel model="knn" value={{ k: 5 }} onChange={onChange} />)
+    const slider = screen.getByRole('slider', { name: '邻居数（k）滑动调节' })
+    fireEvent.change(slider, { target: { value: '8' } })
+    expect(onChange).toHaveBeenCalledWith({ k: 8 })
+  })
+
   it('超出范围或格式错误时显示提示且不回传', () => {
     const onChange = vi.fn()
     render(<ModelParameterPanel model="knn" value={{ k: 5 }} onChange={onChange} />)

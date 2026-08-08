@@ -19,6 +19,18 @@ h1, h2, h3, p { margin-top: 0; } h1 { margin-bottom: 8px; color: #edf7ff; font-s
 .compact-models { gap: 8px; }
 .compact-models .model-option { padding: 10px 12px; }
 .progress-chart { margin-top: 16px; }
+.model-parameter-panel { display: grid; gap: 14px; margin-top: 16px; }
+.model-parameter-panel h3 { margin: 0; color: #e3f2fb; font-size: .95rem; }
+.model-parameter-grid { display: grid; gap: 14px; }
+.model-parameter-row { border: 1px solid rgba(44,99,120,.7); border-radius: 12px; padding: 14px; background: linear-gradient(135deg, rgba(13,37,57,.8), rgba(8,23,37,.85)); }
+.parameter-header, .parameter-scale { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.parameter-header { color: var(--muted); font-size: .82rem; }
+.parameter-header output { min-width: 64px; border: 1px solid var(--cyan); border-radius: 7px; padding: 5px 8px; color: #06202a; background: var(--cyan); font: 700 .85rem ui-monospace, SFMono-Regular, Consolas, monospace; text-align: center; box-shadow: 0 0 14px rgba(110,242,255,.22); }
+.parameter-slider { width: 100%; margin: 14px 0 8px; accent-color: var(--cyan); cursor: grab; }
+.parameter-slider:active { cursor: grabbing; }
+.parameter-scale { color: #587789; font-size: .7rem; }
+.parameter-scale input { width: 78px; border: 1px solid var(--line); border-radius: 6px; padding: 5px; color: #dbe9f5; background: #0b2031; text-align: center; }
+.model-parameter-row small { display: block; margin-top: 8px; color: #ff9a78; font-size: .72rem; }
 .training-summary { display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: .84rem; }
 .training-summary span { border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; }
 .training-log { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #081725; color: var(--muted); font: .78rem ui-monospace, SFMono-Regular, Consolas, monospace; }
