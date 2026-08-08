@@ -1,0 +1,18 @@
+#root { min-height: 100vh; }
+
+.app-shell { width: min(1120px, calc(100% - 48px)); margin: 0 auto; padding: 48px 0; }
+.app-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.eyebrow { margin: 0 0 12px; color: #5d6b82; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.16em; }
+h1, h2, h3, p { margin-top: 0; }
+h1 { margin-bottom: 0; color: #142033; font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -0.04em; }
+.status-badge { border: 1px solid #b8c8df; border-radius: 999px; padding: 8px 14px; color: #31527d; background: #eef4fb; font-size: 0.82rem; white-space: nowrap; }
+.welcome-card { margin-top: 64px; border-radius: 24px; padding: clamp(28px, 5vw, 64px); color: #f5f8ff; background: linear-gradient(135deg, #1c3557, #285a76); box-shadow: 0 24px 70px rgba(29, 57, 88, 0.2); }
+.welcome-card .eyebrow { color: #abc9e8; }
+.welcome-card h2 { max-width: 720px; margin-bottom: 16px; font-size: clamp(1.6rem, 3vw, 2.5rem); letter-spacing: -0.03em; }
+.welcome-card p:last-child { max-width: 680px; margin-bottom: 0; color: #d8e6f4; line-height: 1.8; }
+.architecture-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 20px; }
+.module-card { min-height: 150px; border: 1px solid #dbe4ef; border-radius: 18px; padding: 22px; background: rgba(255, 255, 255, 0.78); }
+.module-index { color: #7391b2; font-size: 0.78rem; font-weight: 700; }
+.module-card h3 { margin: 30px 0 8px; color: #1d2b40; }
+.module-card p { margin-bottom: 0; color: #6b7890; font-size: 0.9rem; line-height: 1.6; }
+@media (max-width: 760px) { .app-shell { width: min(100% - 32px, 560px); padding: 28px 0; } .architecture-grid { grid-template-columns: repeat(2, 1fr); } .app-header { flex-direction: column; } }
