@@ -71,7 +71,7 @@ export function ModelParameterPanel({ model, value, onChange }: ModelParameterPa
             <div className="model-parameter-row" key={definition.key}>
               <div className="parameter-header"><span>{definition.label}</span><output>{currentValue}</output></div>
               <input className="parameter-slider" aria-label={`${definition.label}滑动调节`} type="range" min={definition.min} max={definition.max} step={definition.step} value={currentValue} onChange={(event) => handleChange(definition, event.target.value)} />
-              <div className="parameter-scale"><span>{definition.min}</span><input id={id} aria-label={definition.label} type="number" min={definition.min} max={definition.max} step={definition.step} value={currentValue} onChange={(event) => handleChange(definition, event.target.value)} aria-invalid={Boolean(errors[definition.key])} /><span>{definition.max}</span></div>
+              <div className="parameter-scale"><span>{definition.min}</span><div className="exact-input"><span>精确输入</span><input id={id} aria-label={definition.label} type="number" min={definition.min} max={definition.max} step={definition.step} value={currentValue} onChange={(event) => handleChange(definition, event.target.value)} aria-invalid={Boolean(errors[definition.key])} /></div><span>{definition.max}</span></div>
               {errors[definition.key] && <small role="alert">{errors[definition.key]}</small>}
             </div>
           )

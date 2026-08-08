@@ -31,6 +31,13 @@ describe('ModelParameterPanel', () => {
     expect(onChange).toHaveBeenCalledWith({ k: 8 })
   })
 
+  it('支持直接输入特定参数值', () => {
+    const onChange = vi.fn()
+    render(<ModelParameterPanel model="knn" value={{ k: 5 }} onChange={onChange} />)
+    fireEvent.change(screen.getByLabelText('邻居数（k）'), { target: { value: '12' } })
+    expect(onChange).toHaveBeenCalledWith({ k: 12 })
+  })
+
   it('超出范围或格式错误时显示提示且不回传', () => {
     const onChange = vi.fn()
     render(<ModelParameterPanel model="knn" value={{ k: 5 }} onChange={onChange} />)

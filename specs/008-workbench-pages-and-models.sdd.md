@@ -24,6 +24,7 @@
 
 - 使用 React 状态与 Zustand store 管理当前数据集、模型配置、训练状态和实验记录。
 - 实验记录序列化到 localStorage，启动时恢复。
+- 模型参数同时提供滑动条快速调节与“精确输入”数值字段，二者实时同步。
 - 算法统一实现 Trainer 接口：train、predict，并返回 snapshots。
 - 逻辑回归使用批量梯度下降；线性 SVM 使用 hinge loss 梯度下降；多分类采用 one-vs-rest。
 - 决策边界复用现有图表组件；训练详情由指标卡、说明文本和混淆矩阵组成。
