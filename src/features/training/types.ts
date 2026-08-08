@@ -31,6 +31,37 @@ export interface KnnModel {
   k: number
 }
 
+export interface LogisticRegressionTrainConfig {
+  samples: FeatureMatrix
+  labels: Labels
+  learningRate?: number
+  iterations?: number
+  regularization?: number
+}
+
+export interface LogisticRegressionModel {
+  kind: 'logistic-regression'
+  labels: Label[]
+  weights: number[][]
+  dimensions: number
+}
+
+export interface LinearSvmTrainConfig {
+  samples: FeatureMatrix
+  labels: Labels
+  learningRate?: number
+  iterations?: number
+  regularization?: number
+  margin?: number
+}
+
+export interface LinearSvmModel {
+  kind: 'linear-svm'
+  labels: Label[]
+  weights: number[][]
+  dimensions: number
+}
+
 export interface Trainer<C = unknown, M = unknown, P = Labels> {
   train(config: C, emit?: (snapshot: TrainSnapshot) => void): Promise<{ model: M; snapshots: TrainSnapshot[] }>
   predict(model: M, samples: FeatureMatrix): P

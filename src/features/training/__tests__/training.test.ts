@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createKnnTrainer } from '../knn'
+import { createLogisticRegressionTrainer } from '../logisticRegression'
+import { createLinearSvmTrainer } from '../linearSvm'
 import { classificationMetrics } from '../metrics'
 import type { FeatureMatrix, Labels, Trainer } from '../types'
 
@@ -48,5 +50,28 @@ describe('classification metrics', () => {
       [1, 1],
       [0, 2],
     ])
+  })
+})
+
+describe('logistic regression trainer', () => {
+  it('trains a multiclass model and emits loss snapshots', async () => {
+    const trainer = createLogisticRegressionTrainer()
+    const snapshots: any[] = []
+    const result = await trainer.train({ samples, labels, learningRate: 0.5, iterations: 120 }, s => snapshots.push(s))
+    expect(result.model.kind).toBe('logistic-regression')
+    expect(snapshots.length).toBeGreaterThan(1)
+    expect(snapshots.at(-1).loss).toBeLessThan(snapshots[0].loss)
+    expect(trainer.predict(result.model, samples)).toEqual(labels)
+  })
+})
+
+describe('linear SVM trainer', () => {
+  it('trains a multiclass one-vs-rest model and emits snapshots', async () => {
+    const trainer = createLinearSvmTrainer()
+    const snapshots: any[] = []
+    const result = await trainer.train({ samples, labels, learningRate: 0.05, iterations: 200, regularization: 0.001 }, s => snapshots.push(s))
+    expect(result.model.kind).toBe('linear-svm')
+    expect(snapshots.length).toBeGreaterThan(1)
+    expect(trainer.predict(result.model, samples)).toEqual(labels)
   })
 })

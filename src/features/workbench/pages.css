@@ -1,0 +1,26 @@
+.workbench-page { display: grid; gap: 18px; }
+.page-heading { padding: 4px 2px; }
+.page-heading h2 { margin: 0 0 8px; color: #e3f2fb; font-size: 1.6rem; }
+.page-heading > p:last-child { margin: 0; color: var(--muted); font-size: .9rem; }
+.workbench-page-card { border: 1px solid var(--line); border-radius: 14px; padding: 22px; background: var(--panel); box-shadow: inset 0 1px 0 rgba(157,233,240,.05), 0 18px 45px rgba(0,0,0,.16); }
+.model-options { display: grid; gap: 12px; }
+.model-option { display: flex; align-items: flex-start; gap: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 16px; color: var(--muted); cursor: pointer; transition: .2s ease; }
+.model-option:hover, .model-option.selected { border-color: var(--cyan); background: rgba(20, 73, 91, .45); color: #e9fbff; }
+.model-option input { margin-top: 3px; accent-color: var(--cyan); }
+.model-option strong, .model-option small { display: block; }
+.model-option strong { margin-bottom: 5px; color: inherit; }
+.model-option small { color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.training-panel { display: grid; gap: 16px; }
+.training-status-large { border-left: 3px solid var(--cyan); padding: 12px 14px; color: #e9fbff; background: rgba(20, 73, 91, .32); }
+.training-panel .primary-button { margin-top: 0; }
+.training-panel .primary-button:disabled { cursor: not-allowed; opacity: .55; }
+.results-list { display: grid; gap: 10px; }
+.result-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 18px; border-bottom: 1px solid var(--line); padding: 14px 0; }
+.result-row:last-child { border-bottom: 0; }
+.result-row strong, .result-row span { display: block; }
+.result-row span { margin-top: 4px; color: var(--muted); font-size: .78rem; }
+.result-metric { color: var(--cyan-soft); font-size: .82rem; }
+.result-row button { border: 1px solid var(--line-bright); border-radius: 7px; padding: 7px 10px; color: var(--cyan-soft); background: transparent; cursor: pointer; }
+.result-row button:hover { border-color: var(--cyan); color: #fff; }
+.empty-state { margin: 0; color: var(--muted); }
+@media (max-width: 640px) { .result-row { grid-template-columns: 1fr auto; } .result-metric { grid-column: 1; } }
