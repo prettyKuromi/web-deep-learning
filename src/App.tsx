@@ -1,21 +1,39 @@
+import { useState } from 'react'
+import { workbenchStages } from './app/workbenchTypes'
 import './App.css'
 
 function App() {
+  const [activeStage, setActiveStage] = useState(workbenchStages[0])
+
   return (
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">WEB DEEP LEARNING</p>
+          <p className="eyebrow">WEB DEEP LEARNING / WORKBENCH</p>
           <h1>机器学习实验工作台</h1>
         </div>
-        <span className="status-badge">设计阶段</span>
+        <span className="status-badge">MVP 设计阶段</span>
       </header>
 
+      <nav className="stage-nav" aria-label="实验流程">
+        {workbenchStages.map((stage, index) => (
+          <button
+            className={activeStage === stage ? 'stage-button active' : 'stage-button'}
+            key={stage}
+            type="button"
+            onClick={() => setActiveStage(stage)}
+          >
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            {stage}
+          </button>
+        ))}
+      </nav>
+
       <section className="welcome-card" aria-labelledby="welcome-title">
-        <p className="eyebrow">MVP WORKBENCH</p>
+        <p className="eyebrow">CURRENT STAGE · {activeStage}</p>
         <h2 id="welcome-title">从数据到模型结果，全部在浏览器中完成</h2>
         <p>
-          项目基础环境已就绪。后续将逐步接入数据集、KNN、逻辑回归、线性 SVM、训练可视化和实验持久化。
+          选择数据集、配置基础模型并观察训练过程。数据集与训练引擎模块正在接入，后续会在这里呈现完整实验闭环。
         </p>
       </section>
 
