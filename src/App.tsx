@@ -1,10 +1,17 @@
-import { useMemo, useRef, useState } from 'react'
-import { type ModelKind, workbenchStages } from './app/workbenchTypes'
+﻿import { useMemo, useRef, useState } from 'react'
+import { modelTask, type ModelKind, workbenchStages } from './app/workbenchTypes'
 import { useWorkbenchStore } from './app/workbenchStore'
 import { classificationMetrics } from './features/training/metrics'
 import { createKnnTrainer } from './features/training/knn'
 import { createLinearSvmTrainer } from './features/training/linearSvm'
 import { createLogisticRegressionTrainer } from './features/training/logisticRegression'
+import { createLinearRegressionTrainer, createRidgeRegressionTrainer } from './features/training/regression'
+import { createKMeansTrainer } from './features/training/kmeans'
+import { createPcaTrainer } from './features/training/pca'
+import { createDecisionTreeTrainer } from './features/training/decisionTree'
+import { createNaiveBayesTrainer } from './features/training/naiveBayes'
+import { createAdaBoostTrainer, createPerceptronTrainer, createRandomForestTrainer } from './features/training/ensembles'
+import { createDbscanTrainer } from './features/training/dbscan'
 import { createTrainInWorkerClient, runTrainingInHandler, type WorkerTrainConfig } from './features/training/workerClient'
 import { saveExperiment } from './features/persistence/persistence'
 import { StepLabLayout } from './features/workbench/StepLabLayout'
@@ -14,15 +21,20 @@ import { getStageProgress } from './features/workbench/stageState'
 import { DecisionBoundaryChart } from './features/visualization/DecisionBoundaryChart'
 import './App.css'
 
-const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM' }
-const defaults: Record<ModelKind, Record<string, number>> = { knn: { k: 5 }, 'logistic-regression': { learningRate: 0.1, iterations: 200, regularization: 0.001 }, 'linear-svm': { learningRate: 0.01, iterations: 200, regularization: 0.001, margin: 1 } }
+const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
+const defaults: Record<ModelKind, Record<string, number>> = { knn: { k: 5 }, 'logistic-regression': { learningRate: 0.1, iterations: 200, regularization: 0.001 }, 'linear-svm': { learningRate: 0.01, iterations: 200, regularization: 0.001, margin: 1 }, perceptron: { learningRate: 0.1, iterations: 100 }, 'decision-tree': {}, 'random-forest': { trees: 9, maxDepth: 5 }, adaboost: { rounds: 20 }, 'naive-bayes': {}, 'linear-regression': {}, 'ridge-regression': {}, 'k-means': { k: 3, iterations: 100 }, dbscan: { epsilon: 0.3, minPoints: 5 }, pca: { components: 2 } }
+const createTrainer = (kind: ModelKind) => kind === 'knn' ? createKnnTrainer() : kind === 'logistic-regression' ? createLogisticRegressionTrainer() : kind === 'linear-svm' ? createLinearSvmTrainer() : kind === 'perceptron' ? createPerceptronTrainer() : kind === 'linear-regression' ? createLinearRegressionTrainer() : kind === 'ridge-regression' ? createRidgeRegressionTrainer() : kind === 'k-means' ? createKMeansTrainer() : kind === 'dbscan' ? createDbscanTrainer() : kind === 'pca' ? createPcaTrainer() : kind === 'decision-tree' ? createDecisionTreeTrainer() : kind === 'random-forest' ? createRandomForestTrainer() : kind === 'adaboost' ? createAdaBoostTrainer() : createNaiveBayesTrainer()
+const predictionLabel = (kind: ModelKind, model: unknown, point: readonly number[]) => {
+  const value = createTrainer(kind).predict(model as never, [point])[0]
+  return Array.isArray(value) ? value[0] : value
+}
 
 export default function App() {
   const { dataset, setDataset, modelConfig, setModelConfig, training, setTraining, experiments, addExperiment, activeStage, setActiveStage } = useWorkbenchStore()
   const [selectedId, setSelectedId] = useState<string>()
   const [topPage, setTopPage] = useState<TopLevelPage>('workflow')
   const abortRef = useRef<AbortController | null>(null)
-  const trainers = useMemo(() => ({ knn: createKnnTrainer(), 'logistic-regression': createLogisticRegressionTrainer(), 'linear-svm': createLinearSvmTrainer() }), [])
+  const trainers = useMemo(() => Object.fromEntries((Object.keys(defaults) as ModelKind[]).map((kind) => [kind, createTrainer(kind)])) as Record<string, any>, [])
   const selected = experiments.find((record) => record.id === selectedId)
   const stageProgress = getStageProgress({ dataset, modelConfig, training })
 
@@ -40,7 +52,7 @@ export default function App() {
         ? await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted)
         : await createTrainInWorkerClient().trainInWorker(config, onSnapshot, controller.signal)
       const predictions = trainer.predict(result.model, dataset.features)
-      const metrics = classificationMetrics(dataset.labels, predictions)
+      const metrics = modelTask[modelConfig.kind] === 'classification' ? classificationMetrics(dataset.labels, predictions) : undefined
       const record = { id: String(Date.now()), createdAt: Date.now(), dataset, modelKind: modelConfig.kind, config: modelConfig.params, metrics, snapshots: result.snapshots, model: result.model, predictions }
       addExperiment(record)
       void saveExperiment(record)
@@ -55,7 +67,7 @@ export default function App() {
   const pages = {
     数据集: <DatasetStagePage onDatasetChange={setDataset} onError={(message) => setTraining({ status: '数据集错误', error: message })} />,
     模型: <ModelStagePage model={modelConfig.kind} params={modelConfig.params} onModelChange={(kind) => setModelConfig({ kind, params: defaults[kind] })} onParamsChange={(params) => setModelConfig({ params })} />,
-    训练: <TrainingStagePage status={training.error ? `${training.status}：${training.error}` : training.status} snapshots={training.snapshots} onTrain={runTraining} disabled={training.status === '训练中…'} currentResult={selected?.metrics ? { dataset: selected.dataset, predictions: selected.predictions, metrics: selected.metrics, predict: (point) => (selected.modelKind === 'knn' ? createKnnTrainer() : selected.modelKind === 'linear-svm' ? createLinearSvmTrainer() : createLogisticRegressionTrainer()).predict(selected.model as never, [point])[0] } : undefined} />,
+    训练: <TrainingStagePage status={training.error ? `${training.status}：${training.error}` : training.status} snapshots={training.snapshots} onTrain={runTraining} disabled={training.status === '训练中…'} currentResult={selected?.metrics && modelTask[selected.modelKind] === 'classification' ? { dataset: selected.dataset, predictions: selected.predictions, metrics: selected.metrics, predict: (point) => predictionLabel(selected.modelKind, selected.model, point) } : undefined} pcaResult={selected?.modelKind === 'pca' ? { model: selected.model as import('./features/training/types').PcaModel, projections: selected.predictions as unknown as readonly (readonly number[])[] } : undefined} />,
     结果: <ResultsStagePage records={records} onSelect={(item) => setSelectedId(item.id)} selectedDetail={selected ? <ExperimentDetail record={selected} /> : undefined} />,
   }
   const workflowStages = workbenchStages.filter((stage) => stage !== '结果')
@@ -64,6 +76,5 @@ export default function App() {
 }
 
 function ExperimentDetail({ record }: { record: ReturnType<typeof useWorkbenchStore.getState>['experiments'][number] }) {
-  const trainer = record.modelKind === 'knn' ? createKnnTrainer() : record.modelKind === 'linear-svm' ? createLinearSvmTrainer() : createLogisticRegressionTrainer()
-  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2>{record.metrics && <div className="metric-grid">{[['准确率', record.metrics.accuracy], ['Precision', record.metrics.precision], ['Recall', record.metrics.recall], ['F1', record.metrics.f1]].map(([label, value]) => <div key={String(label)}><strong>{Number(value).toFixed(3)}</strong><span>{label}</span></div>)}</div>}<p className="detail-explanation">准确率是整体预测正确比例，Precision、Recall、F1 是各类别宏平均。</p><div className="matrix-wrap"><h3>混淆矩阵</h3>{record.metrics && <table><tbody>{record.metrics.confusionMatrix.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table>}</div><div className="chart-frame"><DecisionBoundaryChart features={record.dataset.features} labels={record.dataset.labels} predictions={record.predictions} predict={(point) => trainer.predict(record.model as never, [point])[0]} /></div></section>
+  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2>{record.metrics ? <><div className="metric-grid">{[['准确率', record.metrics.accuracy], ['Precision', record.metrics.precision], ['Recall', record.metrics.recall], ['F1', record.metrics.f1]].map(([label, value]) => <div key={String(label)}><strong>{Number(value).toFixed(3)}</strong><span>{label}</span></div>)}</div><p className="detail-explanation">准确率是整体预测正确比例，Precision、Recall、F1 是各类别宏平均。</p><div className="matrix-wrap"><h3>混淆矩阵</h3><table><tbody>{record.metrics.confusionMatrix.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table></div><div className="chart-frame"><DecisionBoundaryChart features={record.dataset.features} labels={record.dataset.labels} predictions={record.predictions} predict={(point) => predictionLabel(record.modelKind, record.model, point)} /></div></> : <p>该任务已完成计算，当前结果为无监督或连续值预测结果。</p>}</section>
 }

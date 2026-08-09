@@ -15,6 +15,17 @@ describe('DatasetPanel', () => {
     expect(screen.getByRole('option', { name: '随机簇' })).toBeInTheDocument()
   })
 
+  it('默认展示内置数据集的预览、规模和特点说明', () => {
+    render(<DatasetPanel onDatasetChange={vi.fn()} />)
+
+    expect(screen.getByRole('heading', { name: '数据集预览' })).toBeInTheDocument()
+    expect(screen.getByText('样本量')).toBeInTheDocument()
+    expect(screen.getByText('特征数')).toBeInTheDocument()
+    expect(screen.getByText('标签数')).toBeInTheDocument()
+    expect(screen.getByText(/默认约 200 条二维二分类样本/)).toBeInTheDocument()
+    expect(screen.getByText(/线性边界/)).toBeInTheDocument()
+  })
+
   it('选择内置数据集后回调数据', async () => {
     const user = userEvent.setup()
     const onDatasetChange = vi.fn()
@@ -36,6 +47,9 @@ describe('DatasetPanel', () => {
 
     await waitFor(() => expect(onDatasetChange).toHaveBeenCalledWith(expect.objectContaining({ name: 'CSV 数据集' })))
     expect(screen.getByText(/跳过 1 行/)).toBeInTheDocument()
+    expect(screen.getByText('A：1')).toBeInTheDocument()
+    expect(screen.getByText('B：1')).toBeInTheDocument()
+    expect(screen.getByText('前 2 条有效样本')).toBeInTheDocument()
   })
 
   it('CSV 无有效数据时显示错误并通知上层', async () => {

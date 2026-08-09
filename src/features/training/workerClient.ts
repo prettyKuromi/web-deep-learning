@@ -1,6 +1,13 @@
 import { createKnnTrainer } from './knn'
 import { createLogisticRegressionTrainer } from './logisticRegression'
 import { createLinearSvmTrainer } from './linearSvm'
+import { createLinearRegressionTrainer, createRidgeRegressionTrainer } from './regression'
+import { createKMeansTrainer } from './kmeans'
+import { createPcaTrainer } from './pca'
+import { createDecisionTreeTrainer } from './decisionTree'
+import { createNaiveBayesTrainer } from './naiveBayes'
+import { createAdaBoostTrainer, createPerceptronTrainer, createRandomForestTrainer } from './ensembles'
+import { createDbscanTrainer } from './dbscan'
 import type {
   KnnModel,
   KnnTrainConfig,
@@ -8,6 +15,9 @@ import type {
   LinearSvmTrainConfig,
   LogisticRegressionModel,
   LogisticRegressionTrainConfig,
+  RegressionModel, RegressionTrainConfig, KMeansModel, KMeansTrainConfig, PcaModel, PcaTrainConfig,
+  DecisionTreeModel, DecisionTreeTrainConfig, NaiveBayesModel, NaiveBayesTrainConfig,
+  AdaBoostModel, AdaBoostTrainConfig, DbscanModel, DbscanTrainConfig, PerceptronModel, PerceptronTrainConfig, RandomForestModel, RandomForestTrainConfig,
   TrainSnapshot,
 } from './types'
 
@@ -15,11 +25,30 @@ export type WorkerTrainConfig =
   | ({ kind: 'knn' } & KnnTrainConfig)
   | ({ kind: 'logistic-regression' } & LogisticRegressionTrainConfig)
   | ({ kind: 'linear-svm' } & LinearSvmTrainConfig)
+  | ({ kind: 'linear-regression' } & RegressionTrainConfig)
+  | ({ kind: 'ridge-regression' } & RegressionTrainConfig)
+  | ({ kind: 'k-means' } & KMeansTrainConfig)
+  | ({ kind: 'pca' } & PcaTrainConfig)
+  | ({ kind: 'decision-tree' } & DecisionTreeTrainConfig)
+  | ({ kind: 'naive-bayes' } & NaiveBayesTrainConfig)
+  | ({ kind: 'perceptron' } & PerceptronTrainConfig)
+  | ({ kind: 'random-forest' } & RandomForestTrainConfig)
+  | ({ kind: 'adaboost' } & AdaBoostTrainConfig)
+  | ({ kind: 'dbscan' } & DbscanTrainConfig)
 
 export type WorkerTrainResult =
   | { model: KnnModel; snapshots: TrainSnapshot[] }
   | { model: LogisticRegressionModel; snapshots: TrainSnapshot[] }
   | { model: LinearSvmModel; snapshots: TrainSnapshot[] }
+  | { model: RegressionModel; snapshots: TrainSnapshot[] }
+  | { model: KMeansModel; snapshots: TrainSnapshot[] }
+  | { model: PcaModel; snapshots: TrainSnapshot[] }
+  | { model: DecisionTreeModel; snapshots: TrainSnapshot[] }
+  | { model: NaiveBayesModel; snapshots: TrainSnapshot[] }
+  | { model: PerceptronModel; snapshots: TrainSnapshot[] }
+  | { model: RandomForestModel; snapshots: TrainSnapshot[] }
+  | { model: AdaBoostModel; snapshots: TrainSnapshot[] }
+  | { model: DbscanModel; snapshots: TrainSnapshot[] }
 
 export interface WorkerLike {
   onmessage: ((event: MessageEvent) => void) | null
@@ -80,7 +109,17 @@ export async function runTrainingInHandler(config: WorkerTrainConfig, emit?: (sn
   }
   if (config.kind === 'knn') return createKnnTrainer().train(config, snapshotEmit)
   if (config.kind === 'logistic-regression') return createLogisticRegressionTrainer().train(config, snapshotEmit)
-  return createLinearSvmTrainer().train(config, snapshotEmit)
+  if (config.kind === 'linear-svm') return createLinearSvmTrainer().train(config, snapshotEmit)
+  if (config.kind === 'linear-regression') return createLinearRegressionTrainer().train(config, snapshotEmit)
+  if (config.kind === 'ridge-regression') return createRidgeRegressionTrainer().train(config, snapshotEmit)
+  if (config.kind === 'k-means') return createKMeansTrainer().train(config, snapshotEmit)
+  if (config.kind === 'pca') return createPcaTrainer().train(config, snapshotEmit)
+  if (config.kind === 'decision-tree') return createDecisionTreeTrainer().train(config, snapshotEmit)
+  if (config.kind === 'naive-bayes') return createNaiveBayesTrainer().train(config, snapshotEmit)
+  if (config.kind === 'perceptron') return createPerceptronTrainer().train(config, snapshotEmit)
+  if (config.kind === 'random-forest') return createRandomForestTrainer().train(config, snapshotEmit)
+  if (config.kind === 'adaboost') return createAdaBoostTrainer().train(config, snapshotEmit)
+  return createDbscanTrainer().train(config, snapshotEmit)
 }
 
 function createAbortError(): DOMException {

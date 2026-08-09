@@ -1,10 +1,10 @@
-﻿import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { DatasetPanel } from '../datasets/DatasetPanel'
 import type { Dataset } from '../datasets/dataset'
-import { workbenchStages, type WorkbenchStage } from '../../app/workbenchTypes'
+import { modelGroups, modelTask, taskLabels, workbenchStages, type ModelKind, type TaskKind, type WorkbenchStage } from '../../app/workbenchTypes'
 import './pages.css'
 
-export type ModelId = 'knn' | 'logistic-regression' | 'linear-svm'
+export type ModelId = ModelKind
 
 export interface ExperimentRecord {
   id: string
@@ -28,18 +28,18 @@ export interface ModelPageProps {
   onChange: (model: ModelId) => void
 }
 
-const models: Array<{ id: ModelId; name: string; description: string }> = [
-  { id: 'knn', name: 'KNN', description: '根据邻居投票进行分类，适合直观理解决策边界。' },
-  { id: 'logistic-regression', name: '逻辑回归', description: '学习线性概率边界，输出分类置信度。' },
-  { id: 'linear-svm', name: '线性 SVM', description: '最大化分类间隔，适合线性可分数据。' },
-]
+const modelInfo: Record<ModelKind, { name: string; description: string }> = {
+  knn: { name: 'KNN', description: '根据邻居投票进行分类。' }, 'logistic-regression': { name: '逻辑回归', description: '学习线性概率边界。' }, 'linear-svm': { name: '线性 SVM', description: '最大化分类间隔。' }, perceptron: { name: '感知机', description: '经典线性二分类算法。' }, 'decision-tree': { name: '决策树', description: '按特征阈值递归划分数据。' }, 'random-forest': { name: '随机森林', description: '多棵树投票的集成算法。' }, adaboost: { name: 'AdaBoost', description: '逐轮强化弱分类器。' }, 'naive-bayes': { name: '朴素贝叶斯', description: '基于概率和特征独立假设。' }, 'linear-regression': { name: '线性回归', description: '拟合连续数值。' }, 'ridge-regression': { name: '岭回归', description: '带 L2 正则化。' }, 'k-means': { name: 'K-Means', description: '迭代寻找簇中心。' }, dbscan: { name: 'DBSCAN', description: '基于密度发现簇与噪声。' }, pca: { name: 'PCA', description: '提取主成分降维。' },
+}
 
 export function ModelPage({ value, onChange }: ModelPageProps) {
+  const [task, setTask] = useState<TaskKind>(modelTask[value])
   return <PageShell eyebrow="MODEL / 02" title="模型" description="选择要训练的分类算法，并查看其核心思路。">
+    <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => setTask(kind)}>{taskLabels[kind]}</button>)}</div>
     <div className="workbench-page-card model-options" role="radiogroup" aria-label="模型类型">
-      {models.map((model) => <label className={`model-option ${value === model.id ? 'selected' : ''}`} key={model.id}>
-        <input aria-label={model.name} type="radio" name="model" value={model.id} checked={value === model.id} onChange={() => onChange(model.id)} />
-        <span><strong>{model.name}</strong><small>{model.description}</small></span>
+      {modelGroups[task].map((id) => <label className={`model-option ${value === id ? 'selected' : ''}`} key={id}>
+        <input aria-label={modelInfo[id].name} type="radio" name="model" value={id} checked={value === id} onChange={() => onChange(id)} />
+        <span><strong>{modelInfo[id].name}</strong><small>{modelInfo[id].description}</small></span>
       </label>)}
     </div>
   </PageShell>

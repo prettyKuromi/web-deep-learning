@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { createKnnTrainer } from '../knn'
 import { createLogisticRegressionTrainer } from '../logisticRegression'
 import { createLinearSvmTrainer } from '../linearSvm'
+import { createLinearRegressionTrainer, createRidgeRegressionTrainer } from '../regression'
+import { createKMeansTrainer } from '../kmeans'
+import { createPcaTrainer } from '../pca'
+import { createDecisionTreeTrainer } from '../decisionTree'
+import { createNaiveBayesTrainer } from '../naiveBayes'
+import { createPerceptronTrainer, createRandomForestTrainer, createAdaBoostTrainer } from '../ensembles'
+import { createDbscanTrainer } from '../dbscan'
 import { classificationMetrics } from '../metrics'
 import type { FeatureMatrix, Labels, Trainer } from '../types'
 
@@ -73,5 +80,83 @@ describe('linear SVM trainer', () => {
     expect(result.model.kind).toBe('linear-svm')
     expect(snapshots.length).toBeGreaterThan(1)
     expect(trainer.predict(result.model, samples)).toEqual(labels)
+  })
+})
+
+describe('regression trainers', () => {
+  const regressionSamples: FeatureMatrix = [[0, 0], [1, 1], [2, 2], [3, 3]]
+  const regressionLabels = [1, 3, 5, 7]
+
+  it('fits linear regression and predicts continuous values', async () => {
+    const trainer = createLinearRegressionTrainer()
+    const result = await trainer.train({ samples: regressionSamples, labels: regressionLabels, learningRate: 0.05, iterations: 500 })
+    expect(result.model.kind).toBe('linear-regression')
+    expect(trainer.predict(result.model, [[4, 4]])[0]).toBeCloseTo(9, 0)
+  })
+
+  it('fits ridge regression with regularization', async () => {
+    const trainer = createRidgeRegressionTrainer()
+    const result = await trainer.train({ samples: regressionSamples, labels: regressionLabels, learningRate: 0.05, iterations: 500, regularization: 0.01 })
+    expect(result.model.kind).toBe('ridge-regression')
+    expect(trainer.predict(result.model, [[4, 4]])[0]).toBeCloseTo(9, 0)
+  })
+})
+
+describe('K-Means trainer', () => {
+  it('finds two clusters and predicts assignments', async () => {
+    const trainer = createKMeansTrainer()
+    const result = await trainer.train({ samples: [[0, 0], [0, 1], [10, 10], [10, 11]], k: 2, iterations: 20, seed: 1 })
+    expect(result.model.kind).toBe('k-means')
+    expect(new Set(trainer.predict(result.model, [[0, 0], [10, 10]])).size).toBe(2)
+  })
+})
+
+describe('PCA trainer', () => {
+  it('projects samples and reports explained variance', async () => {
+    const trainer = createPcaTrainer()
+    const result = await trainer.train({ samples: [[1, 1], [2, 2], [3, 3]], components: 1 })
+    expect(result.model.kind).toBe('pca')
+    expect(result.model.explainedVariance[0]).toBeCloseTo(1, 5)
+    expect(result.snapshots.length).toBeGreaterThan(1)
+    expect(result.snapshots.every(snapshot => Number.isFinite(snapshot.loss))).toBe(true)
+    expect(trainer.predict(result.model, [[4, 4]])[0]).toHaveLength(1)
+  })
+})
+
+describe('additional course algorithms', () => {
+  it('trains perceptron, random forest and AdaBoost on separable samples', async () => {
+    const configs = [
+      [createPerceptronTrainer(), { samples, labels, iterations: 30, learningRate: 0.1 }],
+      [createRandomForestTrainer(), { samples, labels, trees: 5, maxDepth: 3 }],
+      [createAdaBoostTrainer(), { samples, labels, rounds: 10 }],
+    ] as const
+    for (const [trainer, config] of configs) {
+      const result = await trainer.train(config as never)
+      expect(trainer.predict(result.model as never, samples)).toEqual(labels)
+    }
+  })
+
+  it('finds dense groups and labels isolated points as noise with DBSCAN', async () => {
+    const trainer = createDbscanTrainer()
+    const result = await trainer.train({ samples: [[0, 0], [0.1, 0], [5, 5], [5.1, 5], [20, 20]], epsilon: 0.3, minPoints: 2 })
+    expect(trainer.predict(result.model, [[0, 0], [5, 5], [20, 20]])).toEqual([0, 1, -1])
+  })
+})
+
+describe('decision tree trainer', () => {
+  it('fits a simple threshold and predicts labels', async () => {
+    const trainer = createDecisionTreeTrainer()
+    const result = await trainer.train({ samples: [[0], [1], [4], [5]], labels: ['low', 'low', 'high', 'high'], maxDepth: 2 })
+    expect(result.model.kind).toBe('decision-tree')
+    expect(trainer.predict(result.model, [[0.5], [4.5]])).toEqual(['low', 'high'])
+  })
+})
+
+describe('naive bayes trainer', () => {
+  it('fits gaussian class distributions and predicts labels', async () => {
+    const trainer = createNaiveBayesTrainer()
+    const result = await trainer.train({ samples: [[0, 0], [0, 1], [5, 5], [5, 4]], labels: ['left', 'left', 'right', 'right'] })
+    expect(result.model.kind).toBe('naive-bayes')
+    expect(trainer.predict(result.model, [[0.2, 0.1], [4.8, 4.9]])).toEqual(['left', 'right'])
   })
 })

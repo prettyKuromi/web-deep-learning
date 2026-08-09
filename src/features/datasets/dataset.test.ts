@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BUILTIN_DATASETS, generateBuiltinDataset, parseCsvDataset, validateDataset } from './dataset'
+import { BUILTIN_DATASET_METADATA, BUILTIN_DATASETS, createDatasetPreview, generateBuiltinDataset, parseCsvDataset, validateDataset } from './dataset'
 
 describe('内置数据集', () => {
   it('生成月牙形数据集并保持确定性', () => {
@@ -26,6 +26,27 @@ describe('CSV 数据集', () => {
 
   it('缺少有效数据时抛出可读错误', () => {
     expect(() => parseCsvDataset('x,y,label\nfoo,,\n')).toThrow(/至少需要一行有效数据/)
+  })
+})
+
+describe('数据集预览', () => {
+  it('统计样本、特征、标签和特征范围', () => {
+    const preview = createDatasetPreview({
+      features: [[1, 2], [3, 4], [5, 6]],
+      labels: ['A', 'B', 'A'],
+    })
+
+    expect(preview).toMatchObject({ sampleCount: 3, featureCount: 2, labelCount: 2, missingCount: 0 })
+    expect(preview.featureRanges).toEqual([{ min: 1, max: 5 }, { min: 2, max: 6 }])
+    expect(preview.labelDistribution).toEqual([{ label: 'A', count: 2 }, { label: 'B', count: 1 }])
+  })
+
+  it('为每个内置数据集提供量级、边界形态或可分性说明', () => {
+    for (const { id } of BUILTIN_DATASETS) {
+      const metadata = BUILTIN_DATASET_METADATA[id]
+      expect(metadata.description).toMatch(/200|样本/)
+      expect(metadata.characteristics.length).toBeGreaterThan(0)
+    }
   })
 })
 

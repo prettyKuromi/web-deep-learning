@@ -2,10 +2,53 @@ import Papa from 'papaparse'
 
 export type FeatureVector = [number, number]
 
+export interface DatasetMetadata {
+  description: string
+  characteristics: string
+}
+
+export const BUILTIN_DATASET_METADATA: Record<BuiltinDatasetId, DatasetMetadata> = {
+  linear: { description: '默认约 200 条二维二分类样本。', characteristics: '线性边界，类别大致线性可分，适合逻辑回归和线性 SVM。' },
+  xor: { description: '默认约 200 条二维二分类样本。', characteristics: '四象限 XOR 结构，线性不可分，适合观察非线性模型的局限。' },
+  moons: { description: '默认约 200 条二维二分类样本。', characteristics: '两条带噪月牙，非线性可分，边界呈弯曲形状。' },
+  circles: { description: '默认约 200 条二维二分类样本。', characteristics: '同心圆结构，非线性可分，适合观察环形决策边界。' },
+  blobs: { description: '默认约 200 条二维二分类样本。', characteristics: '两个带高斯噪声的随机簇，类别通常近似线性可分。' },
+}
+
 export interface Dataset {
   features: FeatureVector[]
   labels: Array<string | number>
   name?: string
+}
+
+export interface DatasetPreview {
+  sampleCount: number
+  featureCount: number
+  labelCount: number
+  missingCount: number
+  featureRanges: Array<{ min: number | null; max: number | null }>
+  labelDistribution: Array<{ label: string | number; count: number }>
+  sampleRows: Array<{ index: number; features: FeatureVector; label: string | number | undefined }>
+}
+
+export function createDatasetPreview(dataset: Dataset, maxRows = 8): DatasetPreview {
+  const featureCount = dataset.features.reduce((max, row) => Math.max(max, row.length), 0)
+  const missingCount = dataset.features.reduce((total, row, index) => total + row.filter((value) => !Number.isFinite(value)).length + (dataset.labels[index] == null || dataset.labels[index] === '' ? 1 : 0), 0)
+  const featureRanges = Array.from({ length: featureCount }, (_, column) => {
+    const values = dataset.features.map((row) => row[column]).filter((value): value is number => Number.isFinite(value))
+    return { min: values.length ? Math.min(...values) : null, max: values.length ? Math.max(...values) : null }
+  })
+  const counts = new Map<string | number, number>()
+  dataset.labels.forEach((label) => counts.set(label, (counts.get(label) ?? 0) + 1))
+  return {
+    sampleCount: dataset.features.length,
+    featureCount,
+    labelCount: counts.size,
+    missingCount,
+    featureRanges,
+    labelDistribution: [...counts.entries()].map(([label, count]) => ({ label, count })),
+    sampleRows: dataset.features.slice(0, maxRows).map((features, index) => ({ index, features, label: dataset.labels[index] })),
+  }
 }
 
 export type BuiltinDatasetId = 'linear' | 'xor' | 'moons' | 'circles' | 'blobs'

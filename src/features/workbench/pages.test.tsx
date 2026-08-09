@@ -61,4 +61,18 @@ describe('工作台子页面', () => {
     expect(screen.getByRole('tabpanel')).toHaveTextContent('stage-3')
     expect(screen.queryByText('stage-0')).not.toBeInTheDocument()
   })
+
+  it('模型页按任务类型分组并切换算法列表', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(<ModelPage value="knn" onChange={onChange} />)
+    expect(screen.getByRole('tab', { name: '分类' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('radio', { name: 'KNN' })).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: '线性回归' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: '回归' }))
+    expect(screen.getByRole('radio', { name: '线性回归' })).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: 'KNN' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: '线性回归' }))
+    expect(onChange).toHaveBeenCalledWith('linear-regression')
+  })
 })

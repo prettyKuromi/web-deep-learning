@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
-export type ModelParameterModel = 'knn' | 'logistic-regression' | 'linear-svm'
+import type { ModelKind } from '../../app/workbenchTypes'
+export type ModelParameterModel = ModelKind
 export interface ModelParameterPanelProps {
   model: ModelParameterModel
   value: Record<string, number>
@@ -30,6 +31,23 @@ const definitions: Record<ModelParameterModel, ParameterDefinition[]> = {
     { key: 'regularization', label: '正则化强度', min: 0, max: 10, step: 0.001, defaultValue: 0.001 },
     { key: 'margin', label: '间隔', min: 0.0001, max: 10, step: 0.01, defaultValue: 1 },
   ],
+  perceptron: [{ key: 'learningRate', label: '学习率', min: 0.0001, max: 1, step: 0.01, defaultValue: 0.1 }, { key: 'iterations', label: '迭代次数', min: 1, max: 5000, step: 1, integer: true, defaultValue: 100 }],
+  'decision-tree': [],
+  'random-forest': [{ key: 'trees', label: '树数量', min: 1, max: 100, step: 1, integer: true, defaultValue: 9 }, { key: 'maxDepth', label: '最大深度', min: 1, max: 20, step: 1, integer: true, defaultValue: 5 }],
+  adaboost: [{ key: 'rounds', label: '弱分类器轮数', min: 1, max: 100, step: 1, integer: true, defaultValue: 20 }],
+  'naive-bayes': [],
+  'linear-regression': [
+    { key: 'learningRate', label: '学习率', min: 0.0001, max: 1, step: 0.01, defaultValue: 0.05 },
+    { key: 'iterations', label: '迭代次数', min: 1, max: 5000, step: 1, integer: true, defaultValue: 500 },
+  ],
+  'ridge-regression': [
+    { key: 'learningRate', label: '学习率', min: 0.0001, max: 1, step: 0.01, defaultValue: 0.05 },
+    { key: 'iterations', label: '迭代次数', min: 1, max: 5000, step: 1, integer: true, defaultValue: 500 },
+    { key: 'regularization', label: '正则化强度', min: 0, max: 10, step: 0.01, defaultValue: 0.01 },
+  ],
+  'k-means': [{ key: 'k', label: '簇数量（k）', min: 2, max: 20, step: 1, integer: true, defaultValue: 3 }, { key: 'iterations', label: '迭代次数', min: 1, max: 1000, step: 1, integer: true, defaultValue: 100 }],
+  dbscan: [{ key: 'epsilon', label: '邻域半径', min: 0.01, max: 10, step: 0.01, defaultValue: 0.3 }, { key: 'minPoints', label: '最小样本数', min: 1, max: 50, step: 1, integer: true, defaultValue: 5 }],
+  pca: [{ key: 'components', label: '主成分数量', min: 1, max: 2, step: 1, integer: true, defaultValue: 2 }],
 }
 
 function formatRange(definition: ParameterDefinition) {

@@ -2,6 +2,8 @@ export type FeatureVector = readonly number[]
 export type FeatureMatrix = readonly FeatureVector[]
 export type Label = string | number
 export type Labels = readonly Label[]
+export type TaskKind = 'classification' | 'regression' | 'clustering' | 'dimensionality-reduction'
+export type ModelKind = 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes' | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca'
 
 export interface TrainSnapshot {
   iteration: number
@@ -61,6 +63,26 @@ export interface LinearSvmModel {
   weights: number[][]
   dimensions: number
 }
+
+export interface RegressionTrainConfig { samples: FeatureMatrix; labels: readonly number[]; learningRate?: number; iterations?: number; regularization?: number }
+export interface RegressionModel { kind: 'linear-regression' | 'ridge-regression'; weights: number[]; dimensions: number }
+export interface KMeansTrainConfig { samples: FeatureMatrix; k: number; iterations?: number; seed?: number }
+export interface KMeansModel { kind: 'k-means'; centroids: number[][]; dimensions: number }
+export interface PcaTrainConfig { samples: FeatureMatrix; components?: number }
+export interface PcaModel { kind: 'pca'; means: number[]; components: number[][]; explainedVariance: number[]; dimensions: number }
+export interface DecisionTreeTrainConfig { samples: FeatureMatrix; labels: Labels; maxDepth?: number; minSamplesSplit?: number }
+export type DecisionTreeNode = { prediction: Label; feature?: number; threshold?: number; left?: DecisionTreeNode; right?: DecisionTreeNode }
+export interface DecisionTreeModel { kind: 'decision-tree'; root: DecisionTreeNode; dimensions: number }
+export interface NaiveBayesTrainConfig { samples: FeatureMatrix; labels: Labels; varianceSmoothing?: number }
+export interface NaiveBayesModel { kind: 'naive-bayes'; labels: Label[]; means: number[][]; variances: number[][]; priors: number[]; dimensions: number }
+export interface PerceptronTrainConfig { samples: FeatureMatrix; labels: Labels; learningRate?: number; iterations?: number }
+export interface PerceptronModel { kind: 'perceptron'; labels: Label[]; weights: number[][]; dimensions: number }
+export interface RandomForestTrainConfig { samples: FeatureMatrix; labels: Labels; trees?: number; maxDepth?: number }
+export interface RandomForestModel { kind: 'random-forest'; trees: DecisionTreeModel[]; labels: Label[]; dimensions: number }
+export interface AdaBoostTrainConfig { samples: FeatureMatrix; labels: Labels; rounds?: number }
+export interface AdaBoostModel { kind: 'adaboost'; stumps: Array<{ feature: number; threshold: number; polarity: number; alpha: number }>; labels: Label[]; dimensions: number }
+export interface DbscanTrainConfig { samples: FeatureMatrix; epsilon?: number; minPoints?: number }
+export interface DbscanModel { kind: 'dbscan'; samples: number[][]; assignments: number[]; epsilon: number; dimensions: number }
 
 export interface Trainer<C = unknown, M = unknown, P = Labels> {
   train(config: C, emit?: (snapshot: TrainSnapshot) => void): Promise<{ model: M; snapshots: TrainSnapshot[] }>

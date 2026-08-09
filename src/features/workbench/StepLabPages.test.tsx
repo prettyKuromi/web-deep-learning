@@ -46,6 +46,16 @@ describe('分步实验室页面', () => {
     expect(screen.getByText('模型内容')).toBeInTheDocument()
     expect(screen.queryByText('数据内容')).not.toBeInTheDocument()
   })
+
+  it('模型阶段按任务类型分组显示算法', async () => {
+    const user = userEvent.setup()
+    const onModelChange = vi.fn()
+    render(<ModelStagePage model="knn" params={{ k: 5 }} onModelChange={onModelChange} onParamsChange={vi.fn()} />)
+    expect(screen.getByRole('tab', { name: '分类' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('tab', { name: '聚类' }))
+    expect(screen.getByRole('radio', { name: 'K-Means' })).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: 'KNN' })).not.toBeInTheDocument()
+  })
   it('shows current result on training page when training is complete', () => {
     const dataset = { name: 'test', features: [[0, 0], [1, 1]] as [number, number][], labels: ['a', 'b'] }
     render(<TrainingStagePage status="done" snapshots={[{ iteration: 1, loss: 0.1 }]} onTrain={vi.fn()} currentResult={{ dataset, predictions: ['a', 'b'], metrics: { accuracy: 1, precision: 1, recall: 1, f1: 1, labels: ['a', 'b'], confusionMatrix: [[1, 0], [0, 1]] }, predict: () => 'a' }} />)
