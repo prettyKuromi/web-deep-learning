@@ -23,6 +23,11 @@ describe('单页训练工作台', () => {
     expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: '模型解释与结果' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: '训练模型' })).toHaveValue('logistic-regression')
+    expect(screen.getByRole('complementary', { name: '数据集' })).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: '实验配置' })).toBeInTheDocument()
+    expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: '模型解释与结果' })).toBeInTheDocument()
+    expect(document.querySelector('.single-page-workbench--four-columns')).toBeInTheDocument()
   })
 
   it('切换模型并触发训练控制回调', async () => {

@@ -7,6 +7,7 @@ import type { TrainSnapshot } from '../training/types'
 import type { ModelKind } from '../../app/workbenchTypes'
 import { CurrentResultPanel, type CurrentResult } from './CurrentResultPanel'
 import './SinglePageWorkbench.css'
+import './SinglePageWorkbench.layout.css'
 
 const modelNames: Record<ModelKind, string> = {
   knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机',
@@ -48,7 +49,11 @@ export function SinglePageWorkbench({
     onStartTraining()
   }
   return (
-    <div className="single-page-workbench">
+    <div className="single-page-workbench single-page-workbench--four-columns">
+      <aside className="single-page-column single-page-dataset" aria-label="数据集">
+        <header className="single-page-heading"><p className="eyebrow">DATASET</p><h2>数据集与预览</h2><p>选择数据并检查样本分布。</p></header>
+        <DatasetPanel onDatasetChange={onDatasetChange} onError={onDatasetError} />
+      </aside>
       <aside className="single-page-column single-page-config" aria-label="实验配置">
         <header className="single-page-heading"><p className="eyebrow">CONFIGURATION</p><h2>实验配置</h2><p>选择数据集、模型和训练参数。</p></header>
         <DatasetPanel onDatasetChange={onDatasetChange} onError={onDatasetError} />

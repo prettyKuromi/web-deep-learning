@@ -1,0 +1,53 @@
+.single-page-workbench--four-columns {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.05fr) minmax(260px, 1fr) minmax(360px, 1.8fr) minmax(300px, 1.35fr);
+  gap: 18px;
+  width: 100%;
+}
+
+.single-page-workbench--four-columns .single-page-column {
+  min-width: 0;
+}
+
+.single-page-dataset .dataset-panel {
+  height: max-content;
+}
+
+@media (max-width: 1400px) {
+  .single-page-workbench--four-columns {
+    grid-template-columns: minmax(250px, 1fr) minmax(250px, 1fr) minmax(360px, 1.5fr);
+  }
+  .single-page-dataset { grid-column: 1; }
+  .single-page-config { grid-column: 2; }
+  .single-page-canvas { grid-column: 3; }
+  .single-page-explanation {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+@media (max-width: 980px) {
+  .single-page-workbench--four-columns {
+    grid-template-columns: 1fr 1fr;
+  }
+  .single-page-dataset,
+  .single-page-config,
+  .single-page-canvas,
+  .single-page-explanation {
+    grid-column: auto;
+  }
+  .single-page-explanation {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 680px) {
+  .single-page-workbench--four-columns {
+    grid-template-columns: 1fr;
+  }
+  .single-page-explanation {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+}
