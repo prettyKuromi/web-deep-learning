@@ -29,9 +29,21 @@ describe('单页训练工作台', () => {
     expect(screen.getByRole('complementary', { name: '实验配置' })).toBeInTheDocument()
     expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: '模型解释与结果' })).toBeInTheDocument()
-    expect(screen.getByText('月牙形')).toBeInTheDocument()
+    expect(screen.getAllByText('月牙形').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: '更换数据集' })).toBeInTheDocument()
     expect(document.querySelector('.single-page-workbench--four-columns')).not.toBeInTheDocument()
+  })
+
+  it('以步骤侧栏和紧凑数据集上下文组织实验流程', () => {
+    render(<SinglePageWorkbench {...baseProps} />)
+
+    expect(screen.getByRole('navigation', { name: '实验步骤' })).toBeInTheDocument()
+    expect(screen.getByRole('listitem', { name: /数据集.*月牙形/ })).toBeInTheDocument()
+    expect(screen.getByRole('listitem', { name: '模型' })).toHaveAttribute('data-state', 'active')
+    const datasetBar = screen.getByRole('region', { name: '当前数据集' })
+    expect(datasetBar).toHaveTextContent('月牙形')
+    expect(datasetBar.querySelector('button')).toHaveTextContent('更换数据集')
+    expect(datasetBar.className).toContain('workflow-context-bar')
   })
 
   it('切换模型并触发训练控制回调', async () => {

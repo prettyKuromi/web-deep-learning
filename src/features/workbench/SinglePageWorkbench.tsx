@@ -28,9 +28,25 @@ export function SinglePageWorkbench({ model, params, status, snapshots, datasetN
   const handleStart = () => { if (!model) { setStartError('请先选择模型'); return }; setStartError(''); onStartTraining() }
   const chooseTask = (nextTask: TaskKind) => { setTask(nextTask); onModelChange(modelGroups[nextTask][0]) }
   const chooseModel = (nextModel: ModelKind) => { setTask(modelTask[nextModel]); onModelChange(nextModel) }
+  const workflowSteps = [
+    { label: '数据集', detail: datasetName ?? '未选择', state: datasetName ? 'completed' : 'pending' },
+    { label: '模型', detail: model ? modelNames[model] : '未选择', state: model ? 'active' : 'pending' },
+    { label: '训练', detail: isRunning ? '进行中' : hasTraining ? '已生成快照' : '待开始', state: hasTraining ? 'completed' : 'pending' },
+    { label: '结果', detail: currentResult ? '可查看' : '待训练', state: currentResult ? 'active' : 'pending' },
+  ] as const
 
   return <div className="single-page-workbench">
     <aside className="single-page-column single-page-config" aria-label="实验配置">
+      <nav className="workflow-steps" aria-label="实验步骤">
+        <div className="workflow-steps-heading"><span className="eyebrow">WORKFLOW</span><span>实验步骤</span></div>
+        <ol>
+          {workflowSteps.map((step, index) => <li key={step.label} aria-label={`${step.label}${step.label === '数据集' ? ` · ${step.detail}` : ''}`} data-state={step.state} className={`workflow-step workflow-step--${step.state}`}>
+            <span className="workflow-step-index">{String(index + 1).padStart(2, '0')}</span>
+            <span className="workflow-step-copy"><strong>{step.label}</strong><small>{step.detail}</small></span>
+            <span className="workflow-step-mark" aria-hidden="true">{step.state === 'completed' ? '✓' : step.state === 'active' ? '•' : ''}</span>
+          </li>)}
+        </ol>
+      </nav>
       <header className="single-page-heading"><p className="eyebrow">CONFIGURATION</p><h2>实验配置</h2><p>先选择任务类型，再选择算法并调整参数。</p></header>
       <section className="single-page-card" aria-label="模型选择与参数">
         <h3>模型与参数</h3>
@@ -40,7 +56,8 @@ export function SinglePageWorkbench({ model, params, status, snapshots, datasetN
       </section>
     </aside>
     <main className="single-page-column single-page-canvas" aria-label="训练画布">
-      <header className="single-page-heading workflow-dataset-header"><div><p className="eyebrow">TRAINING / LIVE</p><h2>训练过程</h2><p>当前数据集：<strong>{datasetName ?? '未命名数据集'}</strong></p></div>{onChangeDataset && <button type="button" onClick={onChangeDataset}>更换数据集</button>}</header>
+      <header className="single-page-heading workflow-dataset-header"><div><p className="eyebrow">TRAINING / LIVE</p><h2>训练过程</h2><p>配置模型后开始训练，实时观察损失与结果。</p></div></header>
+      <section className="workflow-context-bar" aria-label="当前数据集" role="region"><div className="workflow-context-icon" aria-hidden="true">◈</div><div className="workflow-context-copy"><span>当前数据集</span><strong>{datasetName ?? '未命名数据集'}</strong></div>{onChangeDataset && <button type="button" className="workflow-context-action" onClick={onChangeDataset}>更换数据集<span aria-hidden="true">→</span></button>}</section>
       <section className="single-page-card training-canvas-card"><div className="single-page-status" role="status">{status}</div><div className="single-page-chart"><TrainingProgressChart snapshots={snapshots} /></div><div className="single-page-controls" aria-label="训练控制"><button type="button" className="primary-button" onClick={handleStart}>开始训练</button><button type="button" onClick={onPauseTraining} disabled={!isRunning}>暂停</button><button type="button" onClick={onStepTraining} disabled={!hasTraining}>单步</button><button type="button" onClick={onResumeTraining} disabled={isRunning || !hasTraining}>继续</button><button type="button" onClick={onStopTraining} disabled={!hasTraining}>停止</button><button type="button" onClick={onResetTraining} disabled={!hasTraining}>重置</button></div>{startError && <p role="alert" className="single-page-error">{startError}</p>}{error && <p role="alert" className="single-page-error">{error}</p>}</section>
       {snapshots.length > 0 && <section className="single-page-card"><h3>训练时间线</h3><ol className="single-page-timeline">{snapshots.slice(-8).map((snapshot) => <li key={`${snapshot.iteration}-${snapshot.timestamp}`}>第 {snapshot.iteration} 次迭代{snapshot.loss != null ? ` · 损失 ${snapshot.loss.toFixed(4)}` : ''}</li>)}</ol></section>}
     </main>

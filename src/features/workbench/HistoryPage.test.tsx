@@ -24,6 +24,21 @@ describe('HistoryPage', () => {
     await user.click(screen.getByRole('button', { name: '查看详情' }))
     expect(onSelect).toHaveBeenCalledWith(record)
   })
+
+  it('keeps the record list and detail panel visible in one workspace', () => {
+    const record: ExperimentRecord = { id: 'experiment-1', datasetName: '月牙湾', model: 'KNN', timestamp: '2026-08-08 10:00', metrics: { accuracy: 0.9 } }
+    render(<HistoryPage records={[record]} selectedDetail={<div>实验详情内容</div>} />)
+
+    expect(screen.getByTestId('history-workspace')).toBeInTheDocument()
+    expect(screen.getByTestId('history-list-panel')).toContainElement(screen.getByText('月牙湾'))
+    expect(screen.getByTestId('history-detail-panel')).toContainElement(screen.getByText('实验详情内容'))
+  })
+
+  it('shows a detail hint when no record is selected', () => {
+    render(<HistoryPage records={[]} />)
+
+    expect(screen.getByTestId('history-detail-panel')).toHaveTextContent('选择一条记录查看详情')
+  })
 })
 
 describe('TopLevelNavigation', () => {

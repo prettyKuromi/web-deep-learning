@@ -29,9 +29,22 @@ export function HistoryPage({ records, onSelect, selectedDetail }: HistoryPagePr
       <h2 id="history-page-title">历史训练记录</h2>
       <p>查看已保存的训练实验，回顾模型参数与评估结果。</p>
     </header>
-    {records.length === 0
-      ? <p className="empty-state">暂无训练记录。完成一次训练后，记录会保存在这里。</p>
-      : <ResultsPage records={records} onSelect={onSelect} />}
-    {selectedDetail}
+    <div className="history-workspace" data-testid="history-workspace">
+      <section className="history-list-panel" data-testid="history-list-panel" aria-label="训练记录列表">
+        <div className="history-panel-heading">
+          <div>
+            <p className="eyebrow">SAVED EXPERIMENTS</p>
+            <h3>全部记录</h3>
+          </div>
+          <span className="history-count">{records.length} 条</span>
+        </div>
+        <div className="history-list-scroll">
+          {records.length === 0 ? <p className="empty-state history-empty-list">暂无训练记录。完成一次训练后，记录会保存在这里。</p> : <ResultsPage records={records} onSelect={onSelect} />}
+        </div>
+      </section>
+      <aside className="history-detail-panel" data-testid="history-detail-panel" aria-label="实验详情">
+        {selectedDetail ?? <div className="history-detail-empty"><span className="history-detail-icon" aria-hidden="true">↗</span><strong>选择一条记录查看详情</strong><p>训练指标、混淆矩阵和决策边界会显示在这里。</p></div>}
+      </aside>
+    </div>
   </section>
 }
