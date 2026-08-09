@@ -15,6 +15,12 @@ describe('工作台子页面', () => {
     expect(screen.getByRole('button', { name: '确认数据集并进入实验流程' })).toBeInTheDocument()
   })
 
+  it('为数据集页提供受限宽度的布局入口', () => {
+    render(<DatasetPage onDatasetChange={vi.fn()} />)
+
+    expect(document.querySelector('.dataset-page')).toBeInTheDocument()
+  })
+
   it('模型页面支持选择三种模型并通知回调', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()

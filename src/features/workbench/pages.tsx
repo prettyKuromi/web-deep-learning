@@ -21,7 +21,7 @@ export interface DatasetPageProps {
 }
 
 export function DatasetPage({ onDatasetChange, onError, onContinue }: DatasetPageProps) {
-  return <PageShell eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的多维数值特征 CSV 文件."><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} /><button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button></PageShell>
+  return <PageShell className="dataset-page" eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的多维数值特征 CSV 文件."><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} /><button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button></PageShell>
 }
 
 export interface ModelPageProps {
@@ -94,8 +94,8 @@ export function ResultsPage({ records, onSelect }: ResultsPageProps) {
   </PageShell>
 }
 
-function PageShell({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: ReactNode }) {
-  return <section className="workbench-page" aria-labelledby={`page-${title}`}>
+function PageShell({ eyebrow, title, description, className = '', children }: { eyebrow: string; title: string; description: string; className?: string; children: ReactNode }) {
+  return <section className={`workbench-page ${className}`.trim()} aria-labelledby={`page-${title}`}>
     <header className="page-heading"><p className="eyebrow">{eyebrow}</p><h2 id={`page-${title}`}>{title}</h2><p>{description}</p></header>
     {children}
   </section>

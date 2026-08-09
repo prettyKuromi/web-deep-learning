@@ -47,3 +47,13 @@
     grid-template-columns: 1fr;
   }
 }
+
+.single-page-workbench { grid-template-columns: 280px minmax(520px, 1fr) 300px; gap: 16px; }
+@media (max-width: 1279px) {
+  .single-page-workbench { grid-template-columns: minmax(250px, 300px) minmax(0, 1fr); }
+  .single-page-explanation { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); }
+}
+@media (max-width: 767px) {
+  .single-page-workbench { grid-template-columns: 1fr; gap: 14px; }
+  .single-page-explanation { grid-column: auto; grid-template-columns: 1fr; }
+}
