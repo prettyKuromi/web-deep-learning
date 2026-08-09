@@ -7,7 +7,7 @@ import type { ClassificationMetrics, Labels, TrainSnapshot } from '../features/t
 
 export type TaskKind = 'classification' | 'regression' | 'clustering' | 'dimensionality-reduction'
 export type ModelKind =
-  | 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes'
+  | 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes' | 'mlp'
   | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca'
 
 export const taskLabels: Record<TaskKind, string> = {
@@ -18,7 +18,7 @@ export const taskLabels: Record<TaskKind, string> = {
 }
 
 export const modelGroups: Record<TaskKind, readonly ModelKind[]> = {
-  classification: ['knn', 'logistic-regression', 'linear-svm', 'perceptron', 'decision-tree', 'random-forest', 'adaboost', 'naive-bayes'],
+  classification: ['knn', 'logistic-regression', 'linear-svm', 'perceptron', 'decision-tree', 'random-forest', 'adaboost', 'naive-bayes', 'mlp'],
   regression: ['linear-regression', 'ridge-regression'],
   clustering: ['k-means', 'dbscan'],
   'dimensionality-reduction': ['pca'],

@@ -24,7 +24,10 @@ export function CurrentResultPanel({ result }: { result: CurrentResult }) {
         <table><tbody>{metrics.confusionMatrix.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table>
       </div>
       {predict && dataset.features.length > 0 && (
-        <div className="chart-frame"><DecisionBoundaryChart features={dataset.features} labels={dataset.labels} predictions={predictions} predict={predict} /></div>
+        <div className="chart-frame">
+          {dataset.features[0]?.length >= 2 && <DecisionBoundaryChart features={dataset.features.map(([x, y]) => [x, y] as const)} labels={dataset.labels} predictions={predictions} predict={predict} />}
+          {dataset.features[0]?.length > 2 && <p className="projection-notice">当前图表仅展示前两个特征的投影，不代表真实的高维决策边界。</p>}
+        </div>
       )}
     </section>
   )

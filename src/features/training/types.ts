@@ -3,7 +3,7 @@ export type FeatureMatrix = readonly FeatureVector[]
 export type Label = string | number
 export type Labels = readonly Label[]
 export type TaskKind = 'classification' | 'regression' | 'clustering' | 'dimensionality-reduction'
-export type ModelKind = 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes' | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca'
+export type ModelKind = 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes' | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca' | 'mlp'
 
 export interface TrainSnapshot {
   iteration: number
@@ -83,6 +83,31 @@ export interface AdaBoostTrainConfig { samples: FeatureMatrix; labels: Labels; r
 export interface AdaBoostModel { kind: 'adaboost'; stumps: Array<{ feature: number; threshold: number; polarity: number; alpha: number }>; labels: Label[]; dimensions: number }
 export interface DbscanTrainConfig { samples: FeatureMatrix; epsilon?: number; minPoints?: number }
 export interface DbscanModel { kind: 'dbscan'; samples: number[][]; assignments: number[]; epsilon: number; dimensions: number }
+
+export interface MlpTrainConfig {
+  samples: FeatureMatrix
+  labels: Labels
+  hiddenLayers?: number[]
+  activation?: 'relu' | 'tanh' | 'sigmoid'
+  learningRate?: number
+  epochs?: number
+  batchSize?: number
+  validationSplit?: number
+  normalize?: boolean
+  seed?: number
+}
+
+export interface MlpModel {
+  kind: 'mlp'
+  labels: Label[]
+  layers: number[]
+  activation: 'relu' | 'tanh' | 'sigmoid'
+  weights: number[][][]
+  biases: number[][]
+  means?: number[]
+  scales?: number[]
+  seed: number
+}
 
 export interface Trainer<C = unknown, M = unknown, P = Labels> {
   train(config: C, emit?: (snapshot: TrainSnapshot) => void): Promise<{ model: M; snapshots: TrainSnapshot[] }>

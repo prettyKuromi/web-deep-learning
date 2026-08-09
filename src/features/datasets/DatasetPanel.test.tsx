@@ -63,4 +63,17 @@ describe('DatasetPanel', () => {
     await waitFor(() => expect(onError).toHaveBeenCalled())
     expect(screen.getByRole('alert')).toHaveTextContent('至少需要一行有效数据')
   })
+
+  it('高维或样本偏少数据展示适用性提醒', async () => {
+    const user = userEvent.setup()
+    render(<DatasetPanel onDatasetChange={vi.fn()} />)
+    const file = new File([
+      'f1,f2,f3,f4,label\n1,100,0.1,5,A\n2,200,0.2,6,A\n3,300,0.3,7,A\n4,400,0.4,8,B',
+    ], 'high-dimensional.csv', { type: 'text/csv' })
+
+    await user.upload(screen.getByLabelText('上传 CSV'), file)
+
+    await waitFor(() => expect(screen.getByText(/高维数据的二维投影仅用于观察/)).toBeInTheDocument())
+    expect(screen.getByText(/样本量较少/)).toBeInTheDocument()
+  })
 })

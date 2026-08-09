@@ -67,4 +67,14 @@ describe('ModelParameterPanel', () => {
     expect(screen.getByTestId('model-parameter-grid')).toHaveClass('model-parameter-grid--compact')
     expect(screen.getAllByTestId('model-parameter-row')).toHaveLength(4)
   })
+
+  it('MLP 显示深度学习参数并给出适用性提醒', () => {
+    render(<ModelParameterPanel model="mlp" value={{ learningRate: 0.01, epochs: 100, batchSize: 32, hiddenLayers: 2, hiddenUnits: 16 }} onChange={vi.fn()} />)
+    expect(screen.getByLabelText('学习率')).toBeInTheDocument()
+    expect(screen.getByLabelText('训练轮数')).toBeInTheDocument()
+    expect(screen.getByLabelText('批大小')).toBeInTheDocument()
+    expect(screen.getByLabelText('隐藏层数')).toBeInTheDocument()
+    expect(screen.getByLabelText('每层神经元数')).toBeInTheDocument()
+    expect(screen.getByRole('note')).toHaveTextContent('MLP 仅适合数值特征')
+  })
 })

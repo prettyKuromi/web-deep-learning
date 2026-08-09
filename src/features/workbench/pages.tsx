@@ -20,7 +20,7 @@ export interface DatasetPageProps {
 }
 
 export function DatasetPage({ onDatasetChange, onError }: DatasetPageProps) {
-  return <PageShell eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的二维分类 CSV 文件。"><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} /></PageShell>
+  return <PageShell eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的多维数值特征 CSV 文件。"><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} /></PageShell>
 }
 
 export interface ModelPageProps {
@@ -29,13 +29,27 @@ export interface ModelPageProps {
 }
 
 const modelInfo: Record<ModelKind, { name: string; description: string }> = {
-  knn: { name: 'KNN', description: '根据邻居投票进行分类。' }, 'logistic-regression': { name: '逻辑回归', description: '学习线性概率边界。' }, 'linear-svm': { name: '线性 SVM', description: '最大化分类间隔。' }, perceptron: { name: '感知机', description: '经典线性二分类算法。' }, 'decision-tree': { name: '决策树', description: '按特征阈值递归划分数据。' }, 'random-forest': { name: '随机森林', description: '多棵树投票的集成算法。' }, adaboost: { name: 'AdaBoost', description: '逐轮强化弱分类器。' }, 'naive-bayes': { name: '朴素贝叶斯', description: '基于概率和特征独立假设。' }, 'linear-regression': { name: '线性回归', description: '拟合连续数值。' }, 'ridge-regression': { name: '岭回归', description: '带 L2 正则化。' }, 'k-means': { name: 'K-Means', description: '迭代寻找簇中心。' }, dbscan: { name: 'DBSCAN', description: '基于密度发现簇与噪声。' }, pca: { name: 'PCA', description: '提取主成分降维。' },
+  knn: { name: 'KNN', description: '根据邻居投票进行分类。' },
+  'logistic-regression': { name: '逻辑回归', description: '学习线性概率边界。' },
+  'linear-svm': { name: '线性 SVM', description: '最大化分类间隔。' },
+  perceptron: { name: '感知机', description: '经典线性二分类算法。' },
+  'decision-tree': { name: '决策树', description: '按特征阈值递归划分数据。' },
+  'random-forest': { name: '随机森林', description: '多棵树投票的集成算法。' },
+  adaboost: { name: 'AdaBoost', description: '逐轮强化弱分类器。' },
+  'naive-bayes': { name: '朴素贝叶斯', description: '基于概率和特征独立假设。' },
+  'linear-regression': { name: '线性回归', description: '拟合连续数值。' },
+  'ridge-regression': { name: '岭回归', description: '带 L2 正则化。' },
+  'k-means': { name: 'K-Means', description: '迭代寻找簇中心。' },
+  dbscan: { name: 'DBSCAN', description: '基于密度发现簇与噪声。' },
+  pca: { name: 'PCA', description: '提取主成分降维。' },
+  mlp: { name: '多层感知机（MLP）', description: '通过多层神经网络学习非线性关系。' },
 }
 
 export function ModelPage({ value, onChange }: ModelPageProps) {
   const [task, setTask] = useState<TaskKind>(modelTask[value])
-  return <PageShell eyebrow="MODEL / 02" title="模型" description="选择要训练的分类算法，并查看其核心思路。">
+  return <PageShell eyebrow="MODEL / 02" title="模型" description="选择要训练的算法，并查看其适用范围。">
     <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => setTask(kind)}>{taskLabels[kind]}</button>)}</div>
+    {value === 'mlp' && <p className="model-suitability-notice">适用提醒：MLP 适合数值特征和较复杂的非线性关系；样本过少、类别极不平衡或特征尺度差异很大时，结果可能不稳定。请先进行标准化，并结合验证集指标判断模型是否过拟合。</p>}
     <div className="workbench-page-card model-options" role="radiogroup" aria-label="模型类型">
       {modelGroups[task].map((id) => <label className={`model-option ${value === id ? 'selected' : ''}`} key={id}>
         <input aria-label={modelInfo[id].name} type="radio" name="model" value={id} checked={value === id} onChange={() => onChange(id)} />
@@ -85,7 +99,6 @@ function PageShell({ eyebrow, title, description, children }: { eyebrow: string;
     {children}
   </section>
 }
-
 
 export interface WorkbenchNavigationProps {
   activeStage: WorkbenchStage

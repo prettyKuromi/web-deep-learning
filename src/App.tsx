@@ -12,6 +12,7 @@ import { createDecisionTreeTrainer } from './features/training/decisionTree'
 import { createNaiveBayesTrainer } from './features/training/naiveBayes'
 import { createAdaBoostTrainer, createPerceptronTrainer, createRandomForestTrainer } from './features/training/ensembles'
 import { createDbscanTrainer } from './features/training/dbscan'
+import { createMlpTrainer } from './features/training/mlp'
 import { createTrainInWorkerClient, runTrainingInHandler, type WorkerTrainConfig } from './features/training/workerClient'
 import { saveExperiment } from './features/persistence/persistence'
 import { StepLabLayout } from './features/workbench/StepLabLayout'
@@ -21,9 +22,9 @@ import { getStageProgress } from './features/workbench/stageState'
 import { DecisionBoundaryChart } from './features/visualization/DecisionBoundaryChart'
 import './App.css'
 
-const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
-const defaults: Record<ModelKind, Record<string, number>> = { knn: { k: 5 }, 'logistic-regression': { learningRate: 0.1, iterations: 200, regularization: 0.001 }, 'linear-svm': { learningRate: 0.01, iterations: 200, regularization: 0.001, margin: 1 }, perceptron: { learningRate: 0.1, iterations: 100 }, 'decision-tree': {}, 'random-forest': { trees: 9, maxDepth: 5 }, adaboost: { rounds: 20 }, 'naive-bayes': {}, 'linear-regression': {}, 'ridge-regression': {}, 'k-means': { k: 3, iterations: 100 }, dbscan: { epsilon: 0.3, minPoints: 5 }, pca: { components: 2 } }
-const createTrainer = (kind: ModelKind) => kind === 'knn' ? createKnnTrainer() : kind === 'logistic-regression' ? createLogisticRegressionTrainer() : kind === 'linear-svm' ? createLinearSvmTrainer() : kind === 'perceptron' ? createPerceptronTrainer() : kind === 'linear-regression' ? createLinearRegressionTrainer() : kind === 'ridge-regression' ? createRidgeRegressionTrainer() : kind === 'k-means' ? createKMeansTrainer() : kind === 'dbscan' ? createDbscanTrainer() : kind === 'pca' ? createPcaTrainer() : kind === 'decision-tree' ? createDecisionTreeTrainer() : kind === 'random-forest' ? createRandomForestTrainer() : kind === 'adaboost' ? createAdaBoostTrainer() : createNaiveBayesTrainer()
+const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
+const defaults: Record<ModelKind, Record<string, number>> = { knn: { k: 5 }, 'logistic-regression': { learningRate: 0.1, iterations: 200, regularization: 0.001 }, 'linear-svm': { learningRate: 0.01, iterations: 200, regularization: 0.001, margin: 1 }, perceptron: { learningRate: 0.1, iterations: 100 }, 'decision-tree': {}, 'random-forest': { trees: 9, maxDepth: 5 }, adaboost: { rounds: 20 }, 'naive-bayes': {}, mlp: { learningRate: 0.01, epochs: 100, batchSize: 32, hiddenLayerCount: 2, hiddenUnits: 16, seed: 42 }, 'linear-regression': {}, 'ridge-regression': {}, 'k-means': { k: 3, iterations: 100 }, dbscan: { epsilon: 0.3, minPoints: 5 }, pca: { components: 2 } }
+const createTrainer = (kind: ModelKind) => kind === 'knn' ? createKnnTrainer() : kind === 'logistic-regression' ? createLogisticRegressionTrainer() : kind === 'linear-svm' ? createLinearSvmTrainer() : kind === 'perceptron' ? createPerceptronTrainer() : kind === 'mlp' ? createMlpTrainer() : kind === 'linear-regression' ? createLinearRegressionTrainer() : kind === 'ridge-regression' ? createRidgeRegressionTrainer() : kind === 'k-means' ? createKMeansTrainer() : kind === 'dbscan' ? createDbscanTrainer() : kind === 'pca' ? createPcaTrainer() : kind === 'decision-tree' ? createDecisionTreeTrainer() : kind === 'random-forest' ? createRandomForestTrainer() : kind === 'adaboost' ? createAdaBoostTrainer() : createNaiveBayesTrainer()
 const predictionLabel = (kind: ModelKind, model: unknown, point: readonly number[]) => {
   const value = createTrainer(kind).predict(model as never, [point])[0]
   return Array.isArray(value) ? value[0] : value
@@ -48,7 +49,8 @@ export default function App() {
       const kind = modelConfig.kind
       const trainer = trainers[kind] as any
       const snapshots: any[] = []
-      const config = { kind, samples: dataset.features, labels: dataset.labels, ...modelConfig.params } as WorkerTrainConfig
+      const mlpParams = kind === 'mlp' ? { ...modelConfig.params, hiddenLayers: Array.from({ length: modelConfig.params.hiddenLayerCount ?? 2 }, () => modelConfig.params.hiddenUnits ?? 16) } : {}
+      const config = { kind, samples: dataset.features, labels: dataset.labels, ...modelConfig.params, ...mlpParams } as WorkerTrainConfig
       const onSnapshot = (snapshot: any) => { snapshots.push(snapshot); setTraining({ snapshots: [...snapshots], progress: snapshot.iteration }) }
       const result = typeof Worker === 'undefined'
         ? await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted)

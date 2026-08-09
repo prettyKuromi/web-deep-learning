@@ -16,6 +16,30 @@ describe('内置数据集', () => {
   })
 })
 
+describe('多维数据集扩展', () => {
+  it('支持任意数量数值特征并保留列名元数据', () => {
+    const result = parseCsvDataset('age,height,weight,label\n20,170,60,A\n30,180,80,B', {
+      featureColumns: ['age', 'height', 'weight'],
+      labelColumn: 'label',
+    })
+    expect(result.dataset.features).toEqual([[20, 170, 60], [30, 180, 80]])
+    expect(result.dataset.featureNames).toEqual(['age', 'height', 'weight'])
+    expect(result.dataset.labelName).toBe('label')
+  })
+
+  it('未指定列时默认使用除标签列外的所有列', () => {
+    const result = parseCsvDataset('a,b,c,label\n1,2,3,A\n4,5,6,B')
+    expect(result.dataset.features).toEqual([[1, 2, 3], [4, 5, 6]])
+    expect(result.dataset.featureNames).toEqual(['a', 'b', 'c'])
+  })
+
+  it('接受三维特征并拒绝维度不一致或非有限值', () => {
+    expect(validateDataset({ features: [[1, 2, 3], [4, 5, 6]], labels: ['a', 'b'] })).toEqual({ valid: true, errors: [] })
+    expect(validateDataset({ features: [[1, 2, 3], [4, 5]], labels: ['a', 'b'] }).valid).toBe(false)
+    expect(validateDataset({ features: [[1, Number.NaN], [4, 5]], labels: ['a', 'b'] }).errors.join('')).toMatch(/有限数值/)
+  })
+})
+
 describe('CSV 数据集', () => {
   it('解析并清洗二维特征与标签', () => {
     const result = parseCsvDataset('x,y,label\n1,2,A\n3,4,B\n,5,A\nfoo,6,B')

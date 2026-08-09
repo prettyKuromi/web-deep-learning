@@ -91,6 +91,16 @@ export function DatasetPanel({ onDatasetChange, onError }: DatasetPanelProps) {
         </div>
         <p className="dataset-description">{currentDataset.name !== 'CSV 数据集' ? BUILTIN_DATASET_METADATA[selectedId]?.description : '用户上传的 CSV 数据集。'}</p>
         <p className="dataset-characteristics">{currentDataset.name !== 'CSV 数据集' ? BUILTIN_DATASET_METADATA[selectedId]?.characteristics : '根据导入数据计算规模、标签分布和特征范围。'}</p>
+        <aside className="dataset-advisory" role="note">
+          <strong>数据适用性提醒</strong>
+          <ul>
+            {preview.featureCount > 2 && <li>高维数据的二维投影仅用于观察，不代表真实决策边界。</li>}
+            {preview.sampleCount < 30 && <li>样本量较少，训练和评估结果可能不稳定。</li>}
+            {preview.labelDistribution.length > 1 && Math.max(...preview.labelDistribution.map((item) => item.count)) / preview.sampleCount >= 0.8 && <li>类别分布可能不平衡，请同时关注各类别指标。</li>}
+            {preview.featureRanges.some((range) => (range.max ?? 0) - (range.min ?? 0) > 100) && <li>特征尺度差异较大，建议使用标准化或归一化。</li>}
+            <li>MLP 仅接受数值特征；文本、图像或类别字段需先转换。</li>
+          </ul>
+        </aside>
         <div className="dataset-preview-grid">
           <div><h4>标签分布</h4><ul>{preview.labelDistribution.map(({ label, count }) => <li key={String(label)}>{String(label)}：{count}</li>)}</ul></div>
           <div><h4>特征范围</h4><ul>{preview.featureRanges.map((range, index) => <li key={index}>特征 {index + 1}：{range.min ?? '—'} ~ {range.max ?? '—'}</li>)}</ul></div>

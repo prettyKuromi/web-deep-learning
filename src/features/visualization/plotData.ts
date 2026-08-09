@@ -1,4 +1,4 @@
-export type PlotFeature = readonly [number, number]
+export type PlotFeature = readonly number[]
 export type PlotLabel = string | number
 
 export interface PlotBounds {
@@ -35,8 +35,8 @@ export interface DecisionBoundaryGrid {
 
 export function getPlotBounds(features: readonly PlotFeature[], paddingRatio = 0.08): PlotBounds {
   if (features.length === 0) throw new Error('features cannot be empty')
-  const xs = features.map(([x]) => x)
-  const ys = features.map(([, y]) => y)
+  const xs = features.map((feature) => feature[0])
+  const ys = features.map((feature) => feature[1])
   const minX = Math.min(...xs)
   const maxX = Math.max(...xs)
   const minY = Math.min(...ys)
@@ -51,7 +51,8 @@ export function getPlotBounds(features: readonly PlotFeature[], paddingRatio = 0
   }
 }
 
-export function normalizePoint([x, y]: PlotFeature, bounds: PlotBounds): { x: number; y: number } {
+export function normalizePoint(feature: PlotFeature, bounds: PlotBounds): { x: number; y: number } {
+  const [x, y] = feature
   return {
     x: (x - bounds.minX) / (bounds.maxX - bounds.minX),
     y: 1 - (y - bounds.minY) / (bounds.maxY - bounds.minY),
@@ -68,9 +69,9 @@ export function buildScatterPlotData(
   const bounds = getPlotBounds(features)
   return {
     bounds,
-    points: features.map(([x, y], index) => ({
-      x,
-      y,
+    points: features.map((feature, index) => ({
+      x: feature[0],
+      y: feature[1],
       label: labels[index],
       prediction: predictions?.[index],
       correct: predictions ? predictions[index] === labels[index] : undefined,

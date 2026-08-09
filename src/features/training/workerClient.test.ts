@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createTrainInWorkerClient, type WorkerLike } from './workerClient'
+import { createTrainInWorkerClient, runTrainingInHandler, type WorkerLike } from './workerClient'
 
 class FakeWorker implements WorkerLike {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -15,6 +15,18 @@ class FakeWorker implements WorkerLike {
 }
 
 describe('trainInWorker client', () => {
+  it('routes mlp configs through the training handler', async () => {
+    const result = await runTrainingInHandler({
+      kind: 'mlp',
+      samples: [[0, 0], [0, 1], [1, 0], [1, 1]],
+      labels: ['no', 'yes', 'yes', 'no'],
+      hiddenLayers: [4],
+      epochs: 2,
+      seed: 7,
+    })
+    expect(result.model.kind).toBe('mlp')
+  })
+
   it('sends start and resolves on complete while forwarding snapshots', async () => {
     const worker = new FakeWorker()
     const snapshots: unknown[] = []
