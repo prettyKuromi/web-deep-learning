@@ -127,7 +127,7 @@ interface DatasetChangeAction {
 
 - 实现状态：已实现三页导航、独立数据集页、实验流程三栏布局和更换数据集状态清理。
 - 验证命令：`npm test -- --run`（21 个测试文件，113 项通过）；`npm run build`；`npm run lint`；`git diff --check`。
-- 已知限制：当前训练控制中的暂停/继续/单步能力仍受既有 Worker 实现限制，本次布局调整不扩大其行为范围。
+- 已知限制：当前训练控制中的暂停/继续/单步能力仍受既有 Worker 实现限制，本次布局调整不扩大其行为范围；Playwright E2E 已尝试运行，但本机未安装 Chromium，需执行 `npx playwright install chromium` 后补跑。
 
 ## 10. 未决问题
 
