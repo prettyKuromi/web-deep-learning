@@ -7,8 +7,18 @@ export type ModelKind = 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptr
 
 export interface TrainSnapshot {
   iteration: number
+  /** 通用时间线步号；缺省时与 iteration 相同。 */
+  step?: number
+  epoch?: number
   loss?: number
   metrics?: ClassificationMetrics
+  chart?: {
+    points?: number[][]
+    labels?: Label[]
+    boundary?: number[][]
+  }
+  explanation?: Record<string, unknown>
+  timestamp?: number
 }
 
 export interface ClassificationMetrics {

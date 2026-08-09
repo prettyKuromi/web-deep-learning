@@ -68,12 +68,20 @@ type WorkerMessage =
   | { type: 'error'; error: string }
   | { type: 'cancel' }
 
+export type WorkerControl = 'pause' | 'resume' | 'step' | 'stop'
+
 export function createTrainInWorkerClient(createWorker: () => WorkerLike = defaultWorker): {
   trainInWorker(config: WorkerTrainConfig, onSnapshot?: (snapshot: TrainSnapshot) => void, signal?: AbortSignal): Promise<WorkerTrainResult>
+  sendControl(control: WorkerControl): void
 } {
+  let activeWorker: WorkerLike | undefined
   return {
+    sendControl(control) {
+      if (activeWorker) activeWorker.postMessage({ type: control })
+    },
     trainInWorker(config, onSnapshot, signal) {
       const worker = createWorker()
+      activeWorker = worker
       return new Promise<WorkerTrainResult>((resolve, reject) => {
         let settled = false
         const cleanup = () => signal?.removeEventListener('abort', abort)
@@ -81,6 +89,7 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
           if (settled) return
           settled = true
           cleanup()
+          if (activeWorker === worker) activeWorker = undefined
           worker.terminate()
           callback()
         }
