@@ -19,6 +19,7 @@ import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/w
 import { DecisionBoundaryChart } from './features/visualization/DecisionBoundaryChart'
 import { SinglePageWorkbench } from './features/workbench/SinglePageWorkbench'
 import { ModelExplanationPanel } from './features/visualization/ModelExplanationPanel'
+import { normalizeTrainSnapshot } from './features/training/snapshots'
 import './App.css'
 
 const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
@@ -35,6 +36,7 @@ export default function App() {
   const [topPage, setTopPage] = useState<TopLevelPage>('workflow')
   const abortRef = useRef<AbortController | null>(null)
   const workerClientRef = useRef<ReturnType<typeof createTrainInWorkerClient> | null>(null)
+  const stopRequestedRef = useRef(false)
   const trainers = useMemo(() => Object.fromEntries((Object.keys(defaults) as ModelKind[]).map((kind) => [kind, createTrainer(kind)])) as Record<string, any>, [])
   const selected = experiments.find((record) => record.id === selectedId)
 
@@ -43,6 +45,7 @@ export default function App() {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+    stopRequestedRef.current = false
     setTraining({ status: '训练中…', progress: 0, snapshots: [], error: undefined })
     try {
       const kind = modelConfig.kind
@@ -50,7 +53,7 @@ export default function App() {
       const snapshots: any[] = []
       const mlpParams = kind === 'mlp' ? { ...modelConfig.params, hiddenLayers: Array.from({ length: modelConfig.params.hiddenLayerCount ?? 2 }, () => modelConfig.params.hiddenUnits ?? 16) } : {}
       const config = { kind, samples: dataset.features, labels: dataset.labels, ...modelConfig.params, ...mlpParams } as WorkerTrainConfig
-      const onSnapshot = (snapshot: any) => { snapshots.push(snapshot); setTraining({ snapshots: [...snapshots], progress: snapshot.iteration }) }
+      const onSnapshot = (snapshot: any) => { const normalized = normalizeTrainSnapshot(snapshot); snapshots.push(normalized); setTraining({ snapshots: [...snapshots], progress: normalized.iteration }) }
       const result = typeof Worker === 'undefined'
         ? await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted)
         : await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal)
@@ -62,7 +65,7 @@ export default function App() {
       setTraining({ status: '训练完成', progress: 100, snapshots: result.snapshots, metrics })
       setSelectedId(record.id)
     } catch (error) {
-      setTraining({ status: error instanceof DOMException && error.name === 'AbortError' ? '训练已取消' : '训练失败', error: error instanceof Error ? error.message : '训练失败' })
+      setTraining({ status: stopRequestedRef.current ? '训练已停止' : error instanceof DOMException && error.name === 'AbortError' ? '训练已取消' : '训练失败', error: stopRequestedRef.current ? undefined : error instanceof Error ? error.message : '训练失败' })
     } finally {
       workerClientRef.current = null
     }
@@ -76,12 +79,12 @@ export default function App() {
     if (!last) return
     setTraining({ snapshots: [...training.snapshots, { ...last, iteration: last.iteration + 1, step: (last.step ?? last.iteration) + 1 }] })
   }
-  const stopTraining = () => { workerClientRef.current?.sendControl('stop'); abortRef.current?.abort(); setTraining({ status: '训练已停止' }) }
+  const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); abortRef.current?.abort(); setTraining({ status: '训练已停止', error: undefined }) }
   const resetTraining = () => { abortRef.current?.abort(); setSelectedId(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
 
   const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), metrics: record.metrics ?? {} }))
   const explanationPanel = modelConfig.kind ? <ModelExplanationPanel kind={modelConfig.kind} model={selected?.model} snapshots={training.snapshots} dimensions={dataset.features[0]?.length} /> : undefined
-  return <main className="app-shell"><header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">WEB DEEP LEARNING / WORKBENCH</p><h1>机器学习实验工作台</h1><p className="header-subtitle">在同一页面配置数据、观察训练并理解模型。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">MVP 实验版</span></div></header><TopLevelNavigation activePage={topPage} onPageChange={setTopPage} />{topPage === 'workflow' ? <SinglePageWorkbench model={modelConfig.kind} params={modelConfig.params} status={training.error ? `${training.status}：${training.error}` : training.status} snapshots={training.snapshots} onDatasetChange={setDataset} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })} onModelChange={(kind) => setModelConfig({ kind, params: defaults[kind] })} onParamsChange={(params) => setModelConfig({ params })} onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining} explanation={explanationPanel} currentResult={selected?.metrics && modelConfig.kind && modelTask[modelConfig.kind] === 'classification' ? { dataset: selected.dataset, predictions: selected.predictions, metrics: selected.metrics, predict: (point) => predictionLabel(selected.modelKind, selected.model, point) } : undefined} error={training.error} /> : <HistoryPage records={records} onSelect={(item) => setSelectedId(item.id)} selectedDetail={selected ? <ExperimentDetail record={selected} /> : undefined} />}</main>
+  return <main className="app-shell"><header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">WEB DEEP LEARNING / WORKBENCH</p><h1>机器学习实验工作台</h1><p className="header-subtitle">在同一页面配置数据、观察训练并理解模型。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">MVP 实验版</span></div></header><TopLevelNavigation activePage={topPage} onPageChange={setTopPage} />{topPage === 'workflow' ? <SinglePageWorkbench model={modelConfig.kind} params={modelConfig.params} status={training.error ? `${training.status}：${training.error}` : training.status} snapshots={training.snapshots} onDatasetChange={setDataset} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })} onModelChange={(kind) => { setSelectedId(undefined); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => setModelConfig({ params })} onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining} explanation={explanationPanel} currentResult={selected?.metrics && modelConfig.kind && modelTask[modelConfig.kind] === 'classification' ? { dataset: selected.dataset, predictions: selected.predictions, metrics: selected.metrics, predict: (point) => predictionLabel(selected.modelKind, selected.model, point) } : undefined} error={training.error} /> : <HistoryPage records={records} onSelect={(item) => setSelectedId(item.id)} selectedDetail={selected ? <ExperimentDetail record={selected} /> : undefined} />}</main>
 }
 
 function ExperimentDetail({ record }: { record: ReturnType<typeof useWorkbenchStore.getState>['experiments'][number] }) {

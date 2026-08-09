@@ -38,19 +38,18 @@ describe('单页训练工作台', () => {
 
     await user.selectOptions(screen.getByRole('combobox', { name: '训练模型' }), 'mlp')
     await user.click(screen.getByRole('button', { name: '开始训练' }))
-    await user.click(screen.getByRole('button', { name: '暂停' }))
-    await user.click(screen.getByRole('button', { name: '单步' }))
-    await user.click(screen.getByRole('button', { name: '继续' }))
-    await user.click(screen.getByRole('button', { name: '停止' }))
-    await user.click(screen.getByRole('button', { name: '重置' }))
+    expect(screen.getByRole('button', { name: '暂停' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '继续' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '停止' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '重置' })).toBeDisabled()
 
     expect(onModelChange).toHaveBeenCalledWith('mlp')
     expect(onStartTraining).toHaveBeenCalledOnce()
-    expect(onPauseTraining).toHaveBeenCalledOnce()
-    expect(onStepTraining).toHaveBeenCalledOnce()
-    expect(onResumeTraining).toHaveBeenCalledOnce()
-    expect(onStopTraining).toHaveBeenCalledOnce()
-    expect(onResetTraining).toHaveBeenCalledOnce()
+    expect(onPauseTraining).not.toHaveBeenCalled()
+    expect(onStepTraining).not.toHaveBeenCalled()
+    expect(onResumeTraining).not.toHaveBeenCalled()
+    expect(onStopTraining).not.toHaveBeenCalled()
+    expect(onResetTraining).not.toHaveBeenCalled()
   })
 
   it('未选择模型时给出中文错误提示', async () => {

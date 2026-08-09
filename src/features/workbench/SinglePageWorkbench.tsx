@@ -40,6 +40,8 @@ export function SinglePageWorkbench({
   currentResult, explanation, error,
 }: SinglePageWorkbenchProps) {
   const [startError, setStartError] = useState('')
+  const isRunning = status === '训练中…'
+  const hasTraining = snapshots.length > 0 || isRunning
   const handleStart = () => {
     if (!model) { setStartError('请先选择模型'); return }
     setStartError('')
@@ -64,11 +66,11 @@ export function SinglePageWorkbench({
           <div className="single-page-chart"><TrainingProgressChart snapshots={snapshots} /></div>
           <div className="single-page-controls" aria-label="训练控制">
             <button type="button" className="primary-button" onClick={handleStart}>开始训练</button>
-            <button type="button" onClick={onPauseTraining}>暂停</button>
-            <button type="button" onClick={onStepTraining}>单步</button>
-            <button type="button" onClick={onResumeTraining}>继续</button>
-            <button type="button" onClick={onStopTraining}>停止</button>
-            <button type="button" onClick={onResetTraining}>重置</button>
+            <button type="button" onClick={onPauseTraining} disabled={!isRunning}>暂停</button>
+            <button type="button" onClick={onStepTraining} disabled={!hasTraining}>单步</button>
+            <button type="button" onClick={onResumeTraining} disabled={isRunning || !hasTraining}>继续</button>
+            <button type="button" onClick={onStopTraining} disabled={!hasTraining}>停止</button>
+            <button type="button" onClick={onResetTraining} disabled={!hasTraining}>重置</button>
           </div>
           {startError && <p role="alert" className="single-page-error">{startError}</p>}
           {error && <p role="alert" className="single-page-error">{error}</p>}
