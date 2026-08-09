@@ -24,13 +24,15 @@ const titles: Record<ModelKind, string> = {
 }
 
 export function createModelExplanation(kind: ModelKind, model?: unknown): ModelExplanation {
+  model = model && typeof model === 'object' ? model : {}
+  const safeModel = model
   switch (kind) {
-    case 'mlp': return explainMlp(model as Partial<MlpModel>)
+    case 'mlp': return explainMlp(safeModel as Partial<MlpModel>)
     case 'logistic-regression': return explainLinear(model as Partial<LogisticRegressionModel>, kind, '通过 sigmoid 将线性组合转换为类别概率。')
     case 'linear-svm': return explainLinear(model as Partial<LinearSvmModel>, kind, '通过最大化分类间隔来区分样本，训练目标包含 hinge loss。')
-    case 'decision-tree': return explainTree(model as Partial<DecisionTreeModel>)
-    case 'random-forest': return explainForest(model as Partial<RandomForestModel>)
-    case 'adaboost': return explainAdaBoost(model as Partial<AdaBoostModel>)
+    case 'decision-tree': return explainTree(safeModel as Partial<DecisionTreeModel>)
+    case 'random-forest': return explainForest(safeModel as Partial<RandomForestModel>)
+    case 'adaboost': return explainAdaBoost(safeModel as Partial<AdaBoostModel>)
     default: return basicExplanation(kind)
   }
 }

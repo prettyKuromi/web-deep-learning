@@ -38,4 +38,9 @@ describe('ModelExplanationPanel', () => {
     expect(screen.getByText(/前两个特征/)).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /训练损失曲线/i })).toBeInTheDocument()
   })
+  it('模型尚未训练时仍能显示解释面板而不抛出异常', () => {
+    expect(() => render(<ModelExplanationPanel kind="logistic-regression" />)).not.toThrow()
+    expect(screen.getByRole('heading', { name: /逻辑回归/ })).toBeInTheDocument()
+    expect(screen.getByText(/特征维度/)).toBeInTheDocument()
+  })
 })
