@@ -17,10 +17,11 @@ export interface ExperimentRecord {
 export interface DatasetPageProps {
   onDatasetChange: (dataset: Dataset) => void
   onError?: (message: string) => void
+  onContinue?: () => void
 }
 
-export function DatasetPage({ onDatasetChange, onError }: DatasetPageProps) {
-  return <PageShell eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的多维数值特征 CSV 文件。"><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} /></PageShell>
+export function DatasetPage({ onDatasetChange, onError, onContinue }: DatasetPageProps) {
+  return <PageShell eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的多维数值特征 CSV 文件."><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} /><button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button></PageShell>
 }
 
 export interface ModelPageProps {

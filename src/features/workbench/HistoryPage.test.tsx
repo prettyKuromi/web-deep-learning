@@ -27,12 +27,13 @@ describe('HistoryPage', () => {
 })
 
 describe('TopLevelNavigation', () => {
-  it('offers workflow and history tabs without adding history to the experiment stages', async () => {
+  it('offers dataset, workflow and history tabs', async () => {
     const user = userEvent.setup()
     const onPageChange = vi.fn()
     render(<TopLevelNavigation activePage="workflow" onPageChange={onPageChange} />)
 
-    expect(screen.getAllByRole('tab')).toHaveLength(2)
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
+    expect(screen.getByRole('tab', { name: '数据集选择' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '实验流程' })).toHaveAttribute('aria-selected', 'true')
     await user.click(screen.getByRole('tab', { name: '历史记录' }))
     expect(onPageChange).toHaveBeenCalledWith('history')

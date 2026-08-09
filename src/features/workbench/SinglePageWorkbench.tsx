@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react'
 import type { Dataset } from '../datasets/dataset'
-import { DatasetPanel } from '../datasets/DatasetPanel'
 import { ModelParameterPanel } from '../training/ModelParameterPanel'
 import { TrainingProgressChart } from '../training/TrainingProgressChart'
 import type { TrainSnapshot } from '../training/types'
@@ -21,6 +20,8 @@ export interface SinglePageWorkbenchProps {
   status: string
   snapshots: readonly TrainSnapshot[]
   onDatasetChange: (dataset: Dataset) => void
+  datasetName?: string
+  onChangeDataset?: () => void
   onDatasetError?: (message: string) => void
   onModelChange: (model: ModelKind) => void
   onParamsChange: (params: Record<string, number>) => void
@@ -36,7 +37,7 @@ export interface SinglePageWorkbenchProps {
 }
 
 export function SinglePageWorkbench({
-  model, params, status, snapshots, onDatasetChange, onDatasetError, onModelChange, onParamsChange,
+  model, params, status, snapshots, datasetName, onChangeDataset, onModelChange, onParamsChange,
   onStartTraining, onPauseTraining, onStepTraining, onResumeTraining, onStopTraining, onResetTraining,
   currentResult, explanation, error,
 }: SinglePageWorkbenchProps) {
@@ -49,14 +50,9 @@ export function SinglePageWorkbench({
     onStartTraining()
   }
   return (
-    <div className="single-page-workbench single-page-workbench--four-columns">
-      <aside className="single-page-column single-page-dataset" aria-label="数据集">
-        <header className="single-page-heading"><p className="eyebrow">DATASET</p><h2>数据集与预览</h2><p>选择数据并检查样本分布。</p></header>
-        <DatasetPanel onDatasetChange={onDatasetChange} onError={onDatasetError} />
-      </aside>
+    <div className="single-page-workbench">
       <aside className="single-page-column single-page-config" aria-label="实验配置">
-        <header className="single-page-heading"><p className="eyebrow">CONFIGURATION</p><h2>实验配置</h2><p>选择数据集、模型和训练参数。</p></header>
-        <DatasetPanel onDatasetChange={onDatasetChange} onError={onDatasetError} />
+        <header className="single-page-heading"><p className="eyebrow">CONFIGURATION</p><h2>实验配置</h2><p>调整模型与训练参数。</p></header>
         <section className="single-page-card" aria-label="模型选择与参数">
           <h3>模型与参数</h3>
           <label className="single-page-label">训练模型<select aria-label="训练模型" value={model ?? ''} onChange={(event) => event.target.value && onModelChange(event.target.value as ModelKind)}><option value="">请选择模型</option>{(Object.keys(modelNames) as ModelKind[]).map((kind) => <option key={kind} value={kind}>{modelNames[kind]}</option>)}</select></label>
@@ -65,7 +61,7 @@ export function SinglePageWorkbench({
       </aside>
 
       <main className="single-page-column single-page-canvas" aria-label="训练画布">
-        <header className="single-page-heading"><p className="eyebrow">TRAINING / LIVE</p><h2>训练过程</h2><p>实时观察损失曲线与训练状态。</p></header>
+        <header className="single-page-heading workflow-dataset-header"><div><p className="eyebrow">TRAINING / LIVE</p><h2>训练过程</h2><p>当前数据集：<strong>{datasetName ?? '未命名数据集'}</strong></p></div>{onChangeDataset && <button type="button" onClick={onChangeDataset}>更换数据集</button>}</header>
         <section className="single-page-card training-canvas-card">
           <div className="single-page-status" role="status">{status}</div>
           <div className="single-page-chart"><TrainingProgressChart snapshots={snapshots} /></div>

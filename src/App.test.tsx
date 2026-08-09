@@ -11,16 +11,17 @@ describe('实验工作台', () => {
     useWorkbenchStore.getState().reset()
   })
 
-  it('默认在同一页面显示实验配置、训练过程和模型解释', () => {
+  it('默认显示数据集选择页，并可进入实验流程', async () => {
     render(<App />)
-    expect(screen.getByRole('complementary', { name: '实验配置' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
-    expect(screen.getByRole('complementary', { name: '模型解释与结果' })).toBeInTheDocument()
   })
 
   it('支持调整 KNN 参数并显示训练损失曲线', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '训练模型' }), 'knn')
     const k = screen.getByRole('spinbutton', { name: '邻居数（k）' })
     await user.clear(k)
@@ -29,5 +30,18 @@ describe('实验工作台', () => {
     await user.click(screen.getByRole('button', { name: '开始训练' }))
     expect(await screen.findAllByText('训练完成')).not.toHaveLength(0)
     expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
+  })
+
+  it('更换数据集后清空当前训练结果并保留模型配置', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '训练模型' }), 'knn')
+    await user.click(screen.getByRole('button', { name: '更换数据集' }))
+    expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('内置数据集'), 'xor')
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    expect(screen.getByRole('combobox', { name: '训练模型' })).toHaveValue('knn')
+    expect(screen.getByText('请重新训练')).toBeInTheDocument()
   })
 })

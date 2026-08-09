@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { ResultsPage, type ExperimentRecord } from './pages'
 
-export type TopLevelPage = 'workflow' | 'history'
+export type TopLevelPage = 'dataset' | 'workflow' | 'history'
 
 export interface TopLevelNavigationProps {
   activePage: TopLevelPage
@@ -10,6 +10,7 @@ export interface TopLevelNavigationProps {
 
 export function TopLevelNavigation({ activePage, onPageChange }: TopLevelNavigationProps) {
   return <nav className="top-level-navigation" aria-label="主导航" role="tablist">
+    <button type="button" role="tab" aria-selected={activePage === 'dataset'} className={activePage === 'dataset' ? 'active' : ''} onClick={() => onPageChange('dataset')}>数据集选择</button>
     <button type="button" role="tab" aria-selected={activePage === 'workflow'} className={activePage === 'workflow' ? 'active' : ''} onClick={() => onPageChange('workflow')}>实验流程</button>
     <button type="button" role="tab" aria-selected={activePage === 'history'} className={activePage === 'history' ? 'active' : ''} onClick={() => onPageChange('history')}>历史记录</button>
   </nav>

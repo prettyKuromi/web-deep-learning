@@ -8,10 +8,11 @@ afterEach(() => cleanup())
 
 describe('工作台子页面', () => {
   it('数据集页面显示选择和 CSV 上传入口', () => {
-    render(<DatasetPage onDatasetChange={vi.fn()} />)
+    render(<DatasetPage onDatasetChange={vi.fn()} onContinue={vi.fn()} />)
     expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
     expect(screen.getByLabelText('内置数据集')).toBeInTheDocument()
     expect(screen.getByLabelText('上传 CSV')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '确认数据集并进入实验流程' })).toBeInTheDocument()
   })
 
   it('模型页面支持选择三种模型并通知回调', async () => {

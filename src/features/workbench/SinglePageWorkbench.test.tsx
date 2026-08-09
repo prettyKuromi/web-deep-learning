@@ -11,6 +11,8 @@ describe('单页训练工作台', () => {
     status: '等待训练',
     snapshots: [],
     onDatasetChange: vi.fn(),
+    datasetName: '月牙形',
+    onChangeDataset: vi.fn(),
     onModelChange: vi.fn(),
     onParamsChange: vi.fn(),
     onStartTraining: vi.fn(),
@@ -23,11 +25,12 @@ describe('单页训练工作台', () => {
     expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: '模型解释与结果' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: '训练模型' })).toHaveValue('logistic-regression')
-    expect(screen.getByRole('complementary', { name: '数据集' })).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: '实验配置' })).toBeInTheDocument()
     expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: '模型解释与结果' })).toBeInTheDocument()
-    expect(document.querySelector('.single-page-workbench--four-columns')).toBeInTheDocument()
+    expect(screen.getByText('月牙形')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更换数据集' })).toBeInTheDocument()
+    expect(document.querySelector('.single-page-workbench--four-columns')).not.toBeInTheDocument()
   })
 
   it('切换模型并触发训练控制回调', async () => {
