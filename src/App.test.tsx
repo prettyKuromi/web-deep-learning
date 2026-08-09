@@ -11,25 +11,23 @@ describe('实验工作台', () => {
     useWorkbenchStore.getState().reset()
   })
 
-  it('默认显示数据集阶段并提供后续阶段导航', () => {
+  it('默认在同一页面显示实验配置、训练过程和模型解释', () => {
     render(<App />)
-    expect(screen.getAllByRole('heading', { name: '选择数据集' })).toHaveLength(2)
-    expect(screen.getByRole('tab', { name: /模型/ })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '选择模型与参数' })).not.toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: '实验配置' })).toBeInTheDocument()
+    expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: '模型解释与结果' })).toBeInTheDocument()
   })
 
   it('支持调整 KNN 参数并显示训练损失曲线', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('tab', { name: /模型/ }))
-    await user.click(screen.getByRole('radio', { name: 'KNN' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '训练模型' }), 'knn')
     const k = screen.getByRole('spinbutton', { name: '邻居数（k）' })
     await user.clear(k)
     await user.type(k, '3')
     expect(k).toHaveValue(3)
-    await user.click(screen.getByRole('tab', { name: /训练/ }))
     await user.click(screen.getByRole('button', { name: '开始训练' }))
     expect(await screen.findAllByText('训练完成')).not.toHaveLength(0)
-    expect(screen.getByRole('tab', { name: /训练/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
   })
 })
