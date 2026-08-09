@@ -22,6 +22,7 @@ describe('实验工作台', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('tab', { name: /模型/ }))
+    await user.click(screen.getByRole('radio', { name: 'KNN' }))
     const k = screen.getByRole('spinbutton', { name: '邻居数（k）' })
     await user.clear(k)
     await user.type(k, '3')

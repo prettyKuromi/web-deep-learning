@@ -18,7 +18,7 @@ export interface StageStateInput {
 }
 
 function isModelConfigValid(config: ModelConfig | null | undefined): config is ModelConfig {
-  if (!config || !['knn', 'logistic-regression', 'linear-svm'].includes(config.kind)) return false
+  if (!config || !config.kind || !['knn', 'logistic-regression', 'linear-svm', 'perceptron', 'decision-tree', 'random-forest', 'adaboost', 'naive-bayes', 'linear-regression', 'ridge-regression', 'k-means', 'dbscan', 'pca'].includes(config.kind)) return false
   const params = config.params
   if (!params || typeof params !== 'object') return false
   return Object.values(params).every((value) => typeof value === 'number' && Number.isFinite(value)) && (

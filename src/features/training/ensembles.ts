@@ -1,4 +1,4 @@
-import type { AdaBoostModel, AdaBoostTrainConfig, FeatureMatrix, Label, Labels, PerceptronModel, PerceptronTrainConfig, RandomForestModel, RandomForestTrainConfig, Trainer } from './types'
+import type { AdaBoostModel, AdaBoostTrainConfig, FeatureMatrix, Label, Labels, PerceptronModel, PerceptronTrainConfig, RandomForestModel, RandomForestTrainConfig, Trainer, TrainSnapshot } from './types'
 import { createDecisionTreeTrainer } from './decisionTree'
 
 export function createPerceptronTrainer(): Trainer<PerceptronTrainConfig, PerceptronModel> {
@@ -20,12 +20,22 @@ export function createPerceptronTrainer(): Trainer<PerceptronTrainConfig, Percep
 
 export function createRandomForestTrainer(): Trainer<RandomForestTrainConfig, RandomForestModel> {
   return {
-    async train({ samples, labels, trees = 9, maxDepth = 5 }) {
+    async train({ samples, labels, trees = 9, maxDepth = 5 }, emit) {
       validateClassification(samples, labels)
       const dimensions = samples[0].length
       const treeTrainer = createDecisionTreeTrainer()
-      const forest = await Promise.all(Array.from({ length: trees }, () => treeTrainer.train({ samples, labels, maxDepth }).then(result => result.model)))
-      return { model: { kind: 'random-forest', trees: forest, labels: [...new Set(labels)], dimensions }, snapshots: [] }
+      const forest: RandomForestModel['trees'] = []
+      const snapshots: TrainSnapshot[] = []
+      for (let i = 0; i < trees; i++) {
+        const result = await treeTrainer.train({ samples, labels, maxDepth })
+        forest.push(result.model)
+        const loss = samples.reduce((sum, sample, index) => sum + (vote(forest.map(tree => predictTree(tree, sample))) === labels[index] ? 0 : 1), 0) / samples.length
+        const snapshot = { iteration: i + 1, loss }
+        snapshots.push(snapshot)
+        emit?.(snapshot)
+      }
+      if (!snapshots.length) { const snapshot = { iteration: 0, loss: 1 }; snapshots.push(snapshot); emit?.(snapshot) }
+      return { model: { kind: 'random-forest', trees: forest, labels: [...new Set(labels)], dimensions }, snapshots }
     },
     predict(model, samples) { return samples.map(sample => vote(model.trees.map(tree => { let node = tree.root; while (node.feature !== undefined && node.threshold !== undefined) node = sample[node.feature] <= node.threshold ? node.left! : node.right!; return node.prediction }))) },
   }
@@ -33,10 +43,10 @@ export function createRandomForestTrainer(): Trainer<RandomForestTrainConfig, Ra
 
 export function createAdaBoostTrainer(): Trainer<AdaBoostTrainConfig, AdaBoostModel> {
   return {
-    async train({ samples, labels, rounds = 20 }) {
+    async train({ samples, labels, rounds = 20 }, emit) {
       validateClassification(samples, labels)
       const classes = [...new Set(labels)]; if (classes.length !== 2) throw new Error('AdaBoost 当前仅支持二分类')
-      const y = labels.map(label => label === classes[0] ? 1 : -1); const weights = Array(samples.length).fill(1 / samples.length); const stumps: AdaBoostModel['stumps'] = []
+      const y = labels.map(label => label === classes[0] ? 1 : -1); const weights = Array(samples.length).fill(1 / samples.length); const stumps: AdaBoostModel['stumps'] = []; const snapshots: TrainSnapshot[] = []
       for (let round = 0; round < rounds; round++) {
         let best = { feature: 0, threshold: samples[0][0], polarity: 1, error: Infinity }
         for (let feature = 0; feature < samples[0].length; feature++) for (const threshold of samples.map(row => row[feature])) for (const polarity of [1, -1]) {
@@ -47,12 +57,18 @@ export function createAdaBoostTrainer(): Trainer<AdaBoostTrainConfig, AdaBoostMo
         const alpha = .5 * Math.log((1 - best.error) / Math.max(best.error, 1e-12)); stumps.push({ ...best, alpha })
         const normalizer = weights.reduce((sum, weight, i) => sum + weight * Math.exp(-alpha * y[i] * best.polarity * (samples[i][best.feature] <= best.threshold ? 1 : -1)), 0)
         weights.forEach((weight, i) => { weights[i] = weight * Math.exp(-alpha * y[i] * best.polarity * (samples[i][best.feature] <= best.threshold ? 1 : -1)) / normalizer })
+        const loss = samples.reduce<number>((sum, sample, i) => sum + ((stumps.reduce((score, stump) => score + stump.alpha * stump.polarity * (sample[stump.feature] <= stump.threshold ? 1 : -1), 0) >= 0 ? classes[0] : classes[1]) === labels[i] ? 0 : 1), 0) / samples.length
+        const snapshot = { iteration: round + 1, loss }
+        snapshots.push(snapshot); emit?.(snapshot)
       }
-      return { model: { kind: 'adaboost', stumps, labels: classes, dimensions: samples[0].length }, snapshots: [] }
+      if (!snapshots.length) { const snapshot = { iteration: 0, loss: 1 }; snapshots.push(snapshot); emit?.(snapshot) }
+      return { model: { kind: 'adaboost', stumps, labels: classes, dimensions: samples[0].length }, snapshots }
     },
     predict(model, samples) { return samples.map(sample => model.stumps.reduce((sum, stump) => sum + stump.alpha * stump.polarity * (sample[stump.feature] <= stump.threshold ? 1 : -1), 0) >= 0 ? model.labels[0] : model.labels[1]) },
   }
 }
+
+function predictTree(tree: RandomForestModel['trees'][number], sample: readonly number[]): Label { let node = tree.root; while (node.feature !== undefined && node.threshold !== undefined) node = sample[node.feature] <= node.threshold ? node.left! : node.right!; return node.prediction }
 
 function vote(values: readonly Label[]): Label { const counts = new Map<Label, number>(); values.forEach(value => counts.set(value, (counts.get(value) ?? 0) + 1)); return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0] }
 function argmax(values: readonly number[]) { return values.reduce((best, value, i) => value > values[best] ? i : best, 0) }

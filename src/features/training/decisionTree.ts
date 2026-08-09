@@ -7,7 +7,9 @@ export function createDecisionTreeTrainer(): Trainer<DecisionTreeTrainConfig, De
       const dimensions = config.samples[0].length
       const indices = config.samples.map((_, i) => i)
       const root = build(config.samples, config.labels, indices, 0, config.maxDepth ?? 5, config.minSamplesSplit ?? 2)
-      const snapshot: TrainSnapshot = { iteration: 1 }
+      const predictions = config.samples.map(sample => predictNode(root, sample))
+      const loss = predictions.reduce<number>((sum, prediction, i) => sum + (prediction === config.labels[i] ? 0 : 1), 0) / config.labels.length
+      const snapshot: TrainSnapshot = { iteration: 1, loss }
       emit?.(snapshot)
       return { model: { kind: 'decision-tree', root, dimensions }, snapshots: [snapshot] }
     },
@@ -20,6 +22,12 @@ export function createDecisionTreeTrainer(): Trainer<DecisionTreeTrainConfig, De
       })
     },
   }
+}
+
+function predictNode(root: DecisionTreeNode, sample: readonly number[]): Label {
+  let node = root
+  while (node.feature !== undefined && node.threshold !== undefined) node = sample[node.feature] <= node.threshold ? node.left! : node.right!
+  return node.prediction
 }
 
 function build(samples: FeatureMatrix, labels: Labels, indices: number[], depth: number, maxDepth: number, minSplit: number): DecisionTreeNode {

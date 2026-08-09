@@ -9,7 +9,16 @@ export function createNaiveBayesTrainer(): Trainer<NaiveBayesTrainConfig, NaiveB
       const means = labels.map(label => { const rows = config.samples.filter((_, i) => config.labels[i] === label); return Array.from({ length: dimensions }, (_, j) => rows.reduce((sum, row) => sum + row[j], 0) / rows.length) })
       const variances = labels.map((label, c) => { const rows = config.samples.filter((_, i) => config.labels[i] === label); return Array.from({ length: dimensions }, (_, j) => Math.max(config.varianceSmoothing ?? 1e-9, rows.reduce((sum, row) => sum + (row[j] - means[c][j]) ** 2, 0) / rows.length)) })
       const priors = labels.map(label => config.labels.filter(value => value === label).length / config.labels.length)
-      const snapshot: TrainSnapshot = { iteration: 1 }; emit?.(snapshot)
+      const loss = config.samples.reduce((sum, sample, i) => {
+        const c = labels.indexOf(config.labels[i])
+        let logLikelihood = Math.log(Math.max(priors[c], Number.MIN_VALUE))
+        sample.forEach((value, j) => {
+          const variance = variances[c][j]
+          logLikelihood += -0.5 * Math.log(2 * Math.PI * variance) - (value - means[c][j]) ** 2 / (2 * variance)
+        })
+        return sum - logLikelihood
+      }, 0) / config.samples.length
+      const snapshot: TrainSnapshot = { iteration: 1, loss: Number.isFinite(loss) ? loss : Number.MAX_VALUE }; emit?.(snapshot)
       return { model: { kind: 'naive-bayes', labels, means, variances, priors, dimensions }, snapshots: [snapshot] }
     },
     predict(model, samples) { return samples.map(sample => { if (sample.length !== model.dimensions) throw new Error('sample dimensions do not match model'); let best = 0; let bestScore = -Infinity; model.labels.forEach((_, c) => { let score = Math.log(model.priors[c]); sample.forEach((value, j) => { const variance = model.variances[c][j]; score -= 0.5 * Math.log(2 * Math.PI * variance) + (value - model.means[c][j]) ** 2 / (2 * variance) }); if (score > bestScore) { best = c; bestScore = score } }); return model.labels[best] }) },

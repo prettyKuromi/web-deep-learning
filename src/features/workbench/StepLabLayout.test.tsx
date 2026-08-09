@@ -42,6 +42,11 @@ describe('StepLabLayout', () => {
     expect(screen.getByRole('button', { name: '下一步' })).not.toBeDisabled()
   })
 
+  it('shows loading status on the training tab while training', () => {
+    render(<StepLabLayout activeStage="训练" stages={['数据集', '模型', '训练']} summary={{ ...summary, trainingStatus: '训练中…' }} onStageChange={vi.fn()}><div /></StepLabLayout>)
+    expect(screen.getByLabelText('训练中')).toHaveClass('is-loading')
+  })
+
   it('does not render next action when training is the last workflow stage', () => {
     render(<StepLabLayout activeStage={'璁粌' as WorkbenchStage} stages={['鏁版嵁闆?', '妯″瀷', '璁粌'] as unknown as WorkbenchStage[]} summary={summary} onStageChange={vi.fn()}><div /></StepLabLayout>)
     expect(screen.getByRole('main').querySelectorAll('footer button')).toHaveLength(1)

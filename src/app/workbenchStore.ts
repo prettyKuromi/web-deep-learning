@@ -12,7 +12,7 @@ import {
 const STORAGE_KEY = 'web-deep-learning-workbench'
 
 const defaultDataset = (): Dataset => generateBuiltinDataset('moons', { samples: 120, seed: 7 })
-const defaultModelConfig = (): ModelConfig => ({ kind: 'knn', params: { k: 5 } })
+const defaultModelConfig = (): ModelConfig => ({ params: {} })
 const defaultTraining = (): TrainingState => ({ status: '等待训练', progress: 0, snapshots: [] })
 
 export interface WorkbenchStore {

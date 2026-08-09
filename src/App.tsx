@@ -39,21 +39,23 @@ export default function App() {
   const stageProgress = getStageProgress({ dataset, modelConfig, training })
 
   const runTraining = async () => {
+    if (!modelConfig.kind) { setTraining({ status: '等待训练', error: '请先选择模型' }); return }
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
     setTraining({ status: '训练中…', progress: 0, snapshots: [], error: undefined })
     try {
-      const trainer = trainers[modelConfig.kind] as any
+      const kind = modelConfig.kind
+      const trainer = trainers[kind] as any
       const snapshots: any[] = []
-      const config = { kind: modelConfig.kind, samples: dataset.features, labels: dataset.labels, ...modelConfig.params } as WorkerTrainConfig
+      const config = { kind, samples: dataset.features, labels: dataset.labels, ...modelConfig.params } as WorkerTrainConfig
       const onSnapshot = (snapshot: any) => { snapshots.push(snapshot); setTraining({ snapshots: [...snapshots], progress: snapshot.iteration }) }
       const result = typeof Worker === 'undefined'
         ? await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted)
         : await createTrainInWorkerClient().trainInWorker(config, onSnapshot, controller.signal)
       const predictions = trainer.predict(result.model, dataset.features)
-      const metrics = modelTask[modelConfig.kind] === 'classification' ? classificationMetrics(dataset.labels, predictions) : undefined
-      const record = { id: String(Date.now()), createdAt: Date.now(), dataset, modelKind: modelConfig.kind, config: modelConfig.params, metrics, snapshots: result.snapshots, model: result.model, predictions }
+      const metrics = modelTask[kind] === 'classification' ? classificationMetrics(dataset.labels, predictions) : undefined
+      const record = { id: String(Date.now()), createdAt: Date.now(), dataset, modelKind: kind, config: modelConfig.params, metrics, snapshots: result.snapshots, model: result.model, predictions }
       addExperiment(record)
       void saveExperiment(record)
       setTraining({ status: '训练完成', progress: 100, snapshots: result.snapshots, metrics })
@@ -72,7 +74,7 @@ export default function App() {
   }
   const workflowStages = workbenchStages.filter((stage) => stage !== '结果')
   const workflowActiveStage = activeStage === '结果' ? '训练' : activeStage
-  return <main className="app-shell"><header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">WEB DEEP LEARNING / WORKBENCH</p><h1>机器学习实验工作台</h1><p className="header-subtitle">沿着数据、模型和训练三步完成一次可复现实验。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">MVP 实验版</span></div></header><TopLevelNavigation activePage={topPage} onPageChange={setTopPage} />{topPage === 'workflow' ? <StepLabLayout activeStage={workflowActiveStage} stages={workflowStages} stageProgress={stageProgress} summary={{ datasetName: dataset.name, sampleCount: dataset.features.length, classCount: new Set(dataset.labels).size, modelName: modelNames[modelConfig.kind], trainingStatus: training.status }} onStageChange={setActiveStage}><StepLabPages activeStage={workflowActiveStage} pages={pages} /></StepLabLayout> : <HistoryPage records={records} onSelect={(item) => setSelectedId(item.id)} selectedDetail={selected ? <ExperimentDetail record={selected} /> : undefined} />}</main>
+  return <main className="app-shell"><header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">WEB DEEP LEARNING / WORKBENCH</p><h1>机器学习实验工作台</h1><p className="header-subtitle">沿着数据、模型和训练三步完成一次可复现实验。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">MVP 实验版</span></div></header><TopLevelNavigation activePage={topPage} onPageChange={setTopPage} />{topPage === 'workflow' ? <StepLabLayout activeStage={workflowActiveStage} stages={workflowStages} stageProgress={stageProgress} summary={{ datasetName: dataset.name, sampleCount: dataset.features.length, classCount: new Set(dataset.labels).size, modelName: modelConfig.kind ? modelNames[modelConfig.kind] : undefined, trainingStatus: training.status }} onStageChange={setActiveStage}><StepLabPages activeStage={workflowActiveStage} pages={pages} /></StepLabLayout> : <HistoryPage records={records} onSelect={(item) => setSelectedId(item.id)} selectedDetail={selected ? <ExperimentDetail record={selected} /> : undefined} />}</main>
 }
 
 function ExperimentDetail({ record }: { record: ReturnType<typeof useWorkbenchStore.getState>['experiments'][number] }) {

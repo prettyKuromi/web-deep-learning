@@ -100,6 +100,16 @@ describe('regression trainers', () => {
     expect(result.model.kind).toBe('ridge-regression')
     expect(trainer.predict(result.model, [[4, 4]])[0]).toBeCloseTo(9, 0)
   })
+
+  it('emits finite training snapshots for ridge regression', async () => {
+    const trainer = createRidgeRegressionTrainer()
+    const emitted: any[] = []
+    const result = await trainer.train({ samples: regressionSamples, labels: regressionLabels, learningRate: 0.05, iterations: 120, regularization: 0.01 }, snapshot => emitted.push(snapshot))
+    expect(result.snapshots.length).toBeGreaterThan(1)
+    expect(emitted).toEqual(result.snapshots)
+    expect(result.snapshots.every(snapshot => Number.isFinite(snapshot.loss))).toBe(true)
+    expect(result.snapshots.every((snapshot, index, snapshots) => index === 0 || snapshot.iteration > snapshots[index - 1].iteration)).toBe(true)
+  })
 })
 
 describe('K-Means trainer', () => {
@@ -131,8 +141,15 @@ describe('additional course algorithms', () => {
       [createAdaBoostTrainer(), { samples, labels, rounds: 10 }],
     ] as const
     for (const [trainer, config] of configs) {
-      const result = await trainer.train(config as never)
+      const emitted: any[] = []
+      const result = await trainer.train(config as never, snapshot => emitted.push(snapshot))
       expect(trainer.predict(result.model as never, samples)).toEqual(labels)
+      if (result.model.kind === 'random-forest' || result.model.kind === 'adaboost') {
+        expect(result.snapshots.length).toBeGreaterThan(0)
+        expect(emitted.length).toBeGreaterThan(0)
+        expect(emitted).toEqual(result.snapshots)
+        expect(result.snapshots.every(snapshot => Number.isFinite(snapshot.loss))).toBe(true)
+      }
     }
   })
 
@@ -140,6 +157,15 @@ describe('additional course algorithms', () => {
     const trainer = createDbscanTrainer()
     const result = await trainer.train({ samples: [[0, 0], [0.1, 0], [5, 5], [5.1, 5], [20, 20]], epsilon: 0.3, minPoints: 2 })
     expect(trainer.predict(result.model, [[0, 0], [5, 5], [20, 20]])).toEqual([0, 1, -1])
+  })
+
+  it('emits finite-loss snapshots while scanning points', async () => {
+    const trainer = createDbscanTrainer(); const emitted: any[] = []
+    const result = await trainer.train({ samples: [[0, 0], [0.1, 0], [5, 5], [5.1, 5], [20, 20]], epsilon: 0.3, minPoints: 2 }, snapshot => emitted.push(snapshot))
+    expect(result.snapshots.length).toBeGreaterThan(0)
+    expect(emitted).toEqual(result.snapshots)
+    expect(result.snapshots.every(snapshot => Number.isFinite(snapshot.loss))).toBe(true)
+    expect(result.snapshots.every((snapshot, index, all) => index === 0 || snapshot.iteration > all[index - 1].iteration)).toBe(true)
   })
 })
 
@@ -150,6 +176,13 @@ describe('decision tree trainer', () => {
     expect(result.model.kind).toBe('decision-tree')
     expect(trainer.predict(result.model, [[0.5], [4.5]])).toEqual(['low', 'high'])
   })
+
+  it('emits finite-loss snapshots', async () => {
+    const trainer = createDecisionTreeTrainer(); const emitted: any[] = []
+    const result = await trainer.train({ samples: [[0], [1], [4], [5]], labels: ['low', 'low', 'high', 'high'], maxDepth: 2 }, snapshot => emitted.push(snapshot))
+    expect(result.snapshots.length).toBeGreaterThan(0); expect(emitted).toEqual(result.snapshots)
+    expect(result.snapshots.every(snapshot => Number.isFinite(snapshot.loss))).toBe(true)
+  })
 })
 
 describe('naive bayes trainer', () => {
@@ -158,5 +191,12 @@ describe('naive bayes trainer', () => {
     const result = await trainer.train({ samples: [[0, 0], [0, 1], [5, 5], [5, 4]], labels: ['left', 'left', 'right', 'right'] })
     expect(result.model.kind).toBe('naive-bayes')
     expect(trainer.predict(result.model, [[0.2, 0.1], [4.8, 4.9]])).toEqual(['left', 'right'])
+  })
+
+  it('emits finite-loss snapshots', async () => {
+    const trainer = createNaiveBayesTrainer(); const emitted: any[] = []
+    const result = await trainer.train({ samples: [[0, 0], [0, 1], [5, 5], [5, 4]], labels: ['left', 'left', 'right', 'right'] }, snapshot => emitted.push(snapshot))
+    expect(result.snapshots.length).toBeGreaterThan(0); expect(emitted).toEqual(result.snapshots)
+    expect(result.snapshots.every(snapshot => Number.isFinite(snapshot.loss))).toBe(true)
   })
 })

@@ -7,6 +7,13 @@ describe('workbench store', () => {
     useWorkbenchStore.getState().reset()
   })
 
+  it('does not select a model initially or after reset', () => {
+    expect(useWorkbenchStore.getState().modelConfig.kind).toBeUndefined()
+    useWorkbenchStore.getState().setModelConfig({ kind: 'knn', params: { k: 5 } })
+    useWorkbenchStore.getState().reset()
+    expect(useWorkbenchStore.getState().modelConfig.kind).toBeUndefined()
+  })
+
   it('provides workflow state and updates active stage', () => {
     const store = useWorkbenchStore.getState()
     expect(store.activeStage).toBe('数据集')

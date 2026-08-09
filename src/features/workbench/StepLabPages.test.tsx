@@ -63,4 +63,12 @@ describe('分步实验室页面', () => {
     expect(screen.getByText('准确率')).toBeInTheDocument()
     expect(screen.getByRole('table')).toBeInTheDocument()
   })
+  it('无模型时不选中任何 radio，切换任务也不自动选择', async () => {
+    const user = userEvent.setup()
+    const onModelChange = vi.fn()
+    render(<ModelStagePage model={undefined} params={{}} onModelChange={onModelChange} onParamsChange={vi.fn()} />)
+    expect(screen.getAllByRole('radio').every((radio) => !(radio as HTMLInputElement).checked)).toBe(true)
+    await user.click(screen.getByRole('tab', { name: '聚类' }))
+    expect(onModelChange).not.toHaveBeenCalled()
+  })
 })

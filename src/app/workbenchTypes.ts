@@ -29,7 +29,7 @@ export const modelTask: Record<ModelKind, TaskKind> = Object.fromEntries(
 ) as Record<ModelKind, TaskKind>
 
 export interface ModelConfig {
-  kind: ModelKind
+  kind?: ModelKind
   params: Record<string, number>
 }
 

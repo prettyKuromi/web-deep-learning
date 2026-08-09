@@ -35,8 +35,9 @@ export function StepLabLayout({ activeStage, stages, stageProgress = {}, summary
         {stages.map((stage, index) => {
           const key = stage === '数据集' ? 'dataset' : stage === '模型' ? 'model' : stage === '训练' ? 'training' : 'results'
           const status = stageProgress[stage] ?? stageProgress[key] ?? (stage === activeStage ? 'active' : 'pending')
+          const loading = stage === '训练' && summary.trainingStatus === '训练中…'
           return <button key={stage} type="button" role="tab" aria-selected={activeStage === stage} aria-controls="step-lab-panel" disabled={status === 'blocked'} className={`step-lab-step ${activeStage === stage ? 'active' : ''} status-${status}`} onClick={() => onStageChange(stage)}>
-            <span className="step-lab-step-index">{String(index + 1).padStart(2, '0')}</span><span>{stage}</span><span className="step-lab-step-status" aria-hidden="true">{status === 'completed' ? '✓' : status === 'blocked' ? '×' : ''}</span>
+            <span className="step-lab-step-index">{String(index + 1).padStart(2, '0')}</span><span>{stage}</span><span className={`step-lab-step-status${loading ? ' is-loading' : ''}`} aria-label={loading ? '训练中' : undefined} aria-hidden={loading ? undefined : true}>{loading ? '◌' : status === 'completed' ? '✓' : status === 'blocked' ? '×' : ''}</span>
           </button>
         })}
       </div>

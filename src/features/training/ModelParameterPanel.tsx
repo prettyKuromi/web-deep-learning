@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import type { ModelKind } from '../../app/workbenchTypes'
-export type ModelParameterModel = ModelKind
+export type ModelParameterModel = ModelKind | undefined
 export interface ModelParameterPanelProps {
   model: ModelParameterModel
   value: Record<string, number>
@@ -18,7 +18,7 @@ interface ParameterDefinition {
   defaultValue: number
 }
 
-const definitions: Record<ModelParameterModel, ParameterDefinition[]> = {
+const definitions: Partial<Record<ModelKind, ParameterDefinition[]>> = {
   knn: [{ key: 'k', label: '邻居数（k）', min: 1, max: 99, step: 1, integer: true, defaultValue: 5 }],
   'logistic-regression': [
     { key: 'learningRate', label: '学习率', min: 0.0001, max: 10, step: 0.01, defaultValue: 0.1 },
@@ -57,7 +57,7 @@ function formatRange(definition: ParameterDefinition) {
 
 export function ModelParameterPanel({ model, value, onChange }: ModelParameterPanelProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const params = definitions[model]
+  const params = model ? definitions[model] ?? [] : []
   const isCompact = model !== 'knn'
 
   const handleChange = (definition: ParameterDefinition, raw: string) => {
@@ -86,6 +86,7 @@ export function ModelParameterPanel({ model, value, onChange }: ModelParameterPa
         className={`model-parameter-grid${isCompact ? ' model-parameter-grid--compact' : ''}`}
         data-testid="model-parameter-grid"
       >
+        {params.length === 0 && <p className="empty-state">暂无可配置参数</p>}
         {params.map((definition) => {
           const id = `model-param-${definition.key}`
           const currentValue = value[definition.key] ?? definition.defaultValue
