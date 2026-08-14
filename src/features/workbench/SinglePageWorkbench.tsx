@@ -35,7 +35,7 @@ export function SinglePageWorkbench({ model, params, status, snapshots, datasetN
     { label: '结果', detail: currentResult ? '可查看' : '待训练', state: currentResult ? 'active' : 'pending' },
   ] as const
 
-  return <div className="single-page-workbench">
+  return <div className="single-page-workbench single-page-workbench--immersive">
     <aside className="single-page-column single-page-config" aria-label="实验配置">
       <nav className="workflow-steps" aria-label="实验步骤">
         <div className="workflow-steps-heading"><span className="eyebrow">WORKFLOW</span><span>实验步骤</span></div>

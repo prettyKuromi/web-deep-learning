@@ -19,6 +19,7 @@ describe('工作台子页面', () => {
     render(<DatasetPage onDatasetChange={vi.fn()} />)
 
     expect(document.querySelector('.dataset-page')).toBeInTheDocument()
+    expect(document.querySelector('.dataset-workspace')).toBeInTheDocument()
   })
 
   it('模型页面支持选择三种模型并通知回调', async () => {

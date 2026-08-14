@@ -20,9 +20,10 @@ export interface HistoryPageProps {
   records: readonly ExperimentRecord[]
   onSelect?: (record: ExperimentRecord) => void
   selectedDetail?: ReactNode
+  selectedId?: string
 }
 
-export function HistoryPage({ records, onSelect, selectedDetail }: HistoryPageProps) {
+export function HistoryPage({ records, onSelect, selectedDetail, selectedId }: HistoryPageProps) {
   return <section className="history-page" aria-labelledby="history-page-title">
     <header className="page-heading">
       <p className="eyebrow">HISTORY / 01</p>
@@ -39,7 +40,7 @@ export function HistoryPage({ records, onSelect, selectedDetail }: HistoryPagePr
           <span className="history-count">{records.length} 条</span>
         </div>
         <div className="history-list-scroll">
-          {records.length === 0 ? <p className="empty-state history-empty-list">暂无训练记录。完成一次训练后，记录会保存在这里。</p> : <ResultsPage records={records} onSelect={onSelect} />}
+          {records.length === 0 ? <p className="empty-state history-empty-list">暂无训练记录。完成一次训练后，记录会保存在这里。</p> : <ResultsPage records={records} onSelect={onSelect} selectedId={selectedId} />}
         </div>
       </section>
       <aside className="history-detail-panel" data-testid="history-detail-panel" aria-label="实验详情">

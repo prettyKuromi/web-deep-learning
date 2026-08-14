@@ -21,7 +21,7 @@ export interface DatasetPageProps {
 }
 
 export function DatasetPage({ onDatasetChange, onError, onContinue }: DatasetPageProps) {
-  return <PageShell className="dataset-page" eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的多维数值特征 CSV 文件."><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} /><button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button></PageShell>
+  return <PageShell className="dataset-page" eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的多维数值特征 CSV 文件."><div className="dataset-workspace"><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} /><button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button></div></PageShell>
 }
 
 export interface ModelPageProps {
@@ -80,15 +80,16 @@ export function TrainingPage({ status, onTrain, disabled, children }: TrainingPa
 export interface ResultsPageProps {
   records: readonly ExperimentRecord[]
   onSelect?: (record: ExperimentRecord) => void
+  selectedId?: string
 }
 
-export function ResultsPage({ records, onSelect }: ResultsPageProps) {
+export function ResultsPage({ records, onSelect, selectedId }: ResultsPageProps) {
   return <PageShell eyebrow="RESULTS / 04" title="结果" description="查看此前实验的指标、参数和训练时间，随时回看结果。">
     <div className="workbench-page-card results-panel">
       {records.length === 0 ? <p className="empty-state">暂无训练记录。完成一次训练后，结果会显示在这里。</p> : <div className="results-list">{records.map((record) => <article className="result-row" key={record.id}>
         <div><strong>{record.datasetName}</strong><span>{record.model} · {record.timestamp}</span></div>
         <div className="result-metric">准确率 {record.metrics.accuracy == null ? '—' : `${(record.metrics.accuracy * 100).toFixed(1)}%`}</div>
-        {onSelect && <button type="button" onClick={() => onSelect(record)}>查看详情</button>}
+        {onSelect && <button className={selectedId === record.id ? 'is-selected' : ''} type="button" onClick={() => onSelect(record)}>查看详情</button>}
       </article>)}</div>}
     </div>
   </PageShell>

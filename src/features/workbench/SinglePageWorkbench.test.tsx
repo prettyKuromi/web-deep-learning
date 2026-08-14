@@ -32,6 +32,7 @@ describe('单页训练工作台', () => {
     expect(screen.getAllByText('月牙形').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: '更换数据集' })).toBeInTheDocument()
     expect(document.querySelector('.single-page-workbench--four-columns')).not.toBeInTheDocument()
+    expect(document.querySelector('.single-page-workbench--immersive')).toBeInTheDocument()
   })
 
   it('以步骤侧栏和紧凑数据集上下文组织实验流程', () => {

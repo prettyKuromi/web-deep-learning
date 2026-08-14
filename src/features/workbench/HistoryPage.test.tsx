@@ -18,9 +18,10 @@ describe('HistoryPage', () => {
     const user = userEvent.setup()
     const record: ExperimentRecord = { id: 'experiment-1', datasetName: '月牙形', model: 'KNN', timestamp: '2026-08-08 10:00', metrics: { accuracy: 0.9 } }
     const onSelect = vi.fn()
-    render(<HistoryPage records={[record]} onSelect={onSelect} />)
+    render(<HistoryPage records={[record]} selectedId={record.id} onSelect={onSelect} />)
 
     expect(screen.getByText('月牙形')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '查看详情' })).toHaveClass('is-selected')
     await user.click(screen.getByRole('button', { name: '查看详情' }))
     expect(onSelect).toHaveBeenCalledWith(record)
   })
