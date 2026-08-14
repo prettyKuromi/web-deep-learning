@@ -68,7 +68,7 @@ describe('数据集预览', () => {
   it('为每个内置数据集提供量级、边界形态或可分性说明', () => {
     for (const { id } of BUILTIN_DATASETS) {
       const metadata = BUILTIN_DATASET_METADATA[id]
-      expect(metadata.description).toMatch(/200|样本/)
+      expect(metadata.description).toMatch(/条|样本/)
       expect(metadata.characteristics.length).toBeGreaterThan(0)
     }
   })
