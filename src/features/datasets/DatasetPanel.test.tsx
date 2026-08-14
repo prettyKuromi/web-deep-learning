@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DatasetPanel } from './DatasetPanel'
@@ -50,6 +50,20 @@ describe('DatasetPanel', () => {
     expect(screen.getByText('A：1')).toBeInTheDocument()
     expect(screen.getByText('B：1')).toBeInTheDocument()
     expect(screen.getByText('前 2 条有效样本')).toBeInTheDocument()
+  })
+
+  it('支持将 CSV 拖入上传区导入', async () => {
+    const onDatasetChange = vi.fn()
+    render(<DatasetPanel onDatasetChange={onDatasetChange} />)
+    const file = new File(['x,y,label\n1,2,A\n3,4,B'], 'dropped.csv', { type: 'text/csv' })
+    const dropzone = screen.getByRole('button', { name: /拖拽 CSV 文件到此处/ })
+
+    fireEvent.dragEnter(dropzone, { dataTransfer: { files: [file] } })
+    expect(dropzone).toHaveClass('is-dragging')
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
+
+    await waitFor(() => expect(onDatasetChange).toHaveBeenCalledWith(expect.objectContaining({ name: 'CSV 数据集' })))
+    expect(dropzone).not.toHaveClass('is-dragging')
   })
 
   it('CSV 无有效数据时显示错误并通知上层', async () => {

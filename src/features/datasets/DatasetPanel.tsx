@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type ReactNode } from 'react'
+import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { BUILTIN_DATASET_METADATA, BUILTIN_DATASETS, createDatasetPreview, generateBuiltinDataset, parseCsvDataset, type Dataset, type BuiltinDatasetId, type DatasetPreview } from './dataset'
 
 export interface DatasetPanelProps {
@@ -16,12 +16,14 @@ const displayNames: Record<BuiltinDatasetId, string> = {
 }
 
 export function DatasetPanel({ onDatasetChange, onError, action }: DatasetPanelProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedId, setSelectedId] = useState<BuiltinDatasetId>('linear')
   const [summary, setSummary] = useState<{ name: string; count: number; skipped?: number } | null>(null)
   const initialDataset = { ...generateBuiltinDataset('linear'), name: displayNames.linear }
   const [preview, setPreview] = useState<DatasetPreview | null>(() => createDatasetPreview(initialDataset))
   const [currentDataset, setCurrentDataset] = useState<Dataset | null>(initialDataset)
   const [error, setError] = useState('')
+  const [isDraggingFile, setIsDraggingFile] = useState(false)
 
   const selectBuiltin = (id: BuiltinDatasetId) => {
     setSelectedId(id)
@@ -33,8 +35,7 @@ export function DatasetPanel({ onDatasetChange, onError, action }: DatasetPanelP
     onDatasetChange(dataset)
   }
 
-  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const importFile = async (file?: File) => {
     if (!file) return
     try {
       const text = typeof file.text === 'function' ? await file.text() : await new Promise<string>((resolve, reject) => {
@@ -54,8 +55,24 @@ export function DatasetPanel({ onDatasetChange, onError, action }: DatasetPanelP
       const message = 'CSV 无有效数据，至少需要一行有效数据（两个数值特征和非空标签）'
       setError(message)
       onError?.(message)
-    } finally {
-      event.target.value = ''
+    }
+  }
+
+  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    await importFile(event.target.files?.[0])
+    event.target.value = ''
+  }
+
+  const openFilePicker = () => fileInputRef.current?.click()
+  const handleDrop = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    setIsDraggingFile(false)
+    void importFile(event.dataTransfer.files[0])
+  }
+  const handleUploadKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      openFilePicker()
     }
   }
 
@@ -78,10 +95,13 @@ export function DatasetPanel({ onDatasetChange, onError, action }: DatasetPanelP
             ))}
           </select>
         </label>
-        <label className="csv-upload">
-          上传 CSV
-          <input aria-label="上传 CSV" type="file" accept=".csv,text/csv" onChange={handleFile} />
-        </label>
+        <div className="csv-upload">
+          <input ref={fileInputRef} aria-label="上传 CSV" className="csv-upload-input" type="file" accept=".csv,text/csv" onChange={handleFile} />
+          <button type="button" className={`csv-dropzone${isDraggingFile ? ' is-dragging' : ''}`} onClick={openFilePicker} onKeyDown={handleUploadKeyDown} onDragEnter={(event) => { event.preventDefault(); setIsDraggingFile(true) }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setIsDraggingFile(false)} onDrop={handleDrop}>
+            <span className="csv-dropzone-icon" aria-hidden="true">⇪</span>
+            <span><strong>拖拽 CSV 文件到此处</strong><small>或点击选择文件</small></span>
+          </button>
+        </div>
         {summary && <p className="dataset-summary">当前：{summary.name}，{summary.count} 条样本{summary.skipped ? `（跳过 ${summary.skipped} 行）` : ''}</p>}
         {error && <p role="alert" className="dataset-error">{error}</p>}
         {action && <div className="dataset-actions">{action}</div>}
