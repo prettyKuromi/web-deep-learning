@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { DatasetPanel } from '../datasets/DatasetPanel'
 import type { Dataset } from '../datasets/dataset'
-import { modelGroups, modelTask, taskLabels, workbenchStages, type ModelKind, type TaskKind, type WorkbenchStage } from '../../app/workbenchTypes'
+import { isModelCompatible, modelGroups, modelTask, taskLabels, workbenchStages, type ModelKind, type TaskKind, type WorkbenchStage } from '../../app/workbenchTypes'
 import './pages.css'
 
 export type ModelId = ModelKind
@@ -27,6 +27,7 @@ export function DatasetPage({ onDatasetChange, onError, onContinue }: DatasetPag
 export interface ModelPageProps {
   value: ModelId
   onChange: (model: ModelId) => void
+  dataset?: Dataset
 }
 
 const modelInfo: Record<ModelKind, { name: string; description: string }> = {
@@ -47,16 +48,16 @@ const modelInfo: Record<ModelKind, { name: string; description: string }> = {
   'visual-cnn': { name: '可视化卷积神经网络', description: '面向 8×8 灰度图像的可搭建卷积网络。' },
 }
 
-export function ModelPage({ value, onChange }: ModelPageProps) {
+export function ModelPage({ value, onChange, dataset }: ModelPageProps) {
   const [task, setTask] = useState<TaskKind>(modelTask[value])
   return <PageShell eyebrow="MODEL / 02" title="模型" description="选择要训练的算法，并查看其适用范围。">
     <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => setTask(kind)}>{taskLabels[kind]}</button>)}</div>
     {value === 'mlp' && <p className="model-suitability-notice">适用提醒：MLP 适合数值特征和较复杂的非线性关系；样本过少、类别极不平衡或特征尺度差异很大时，结果可能不稳定。请先进行标准化，并结合验证集指标判断模型是否过拟合。</p>}
     <div className="workbench-page-card model-options" role="radiogroup" aria-label="模型类型">
-      {modelGroups[task].map((id) => <label className={`model-option ${value === id ? 'selected' : ''}`} key={id}>
-        <input aria-label={modelInfo[id].name} type="radio" name="model" value={id} checked={value === id} onChange={() => onChange(id)} />
-        <span><strong>{modelInfo[id].name}</strong><small>{modelInfo[id].description}</small></span>
-      </label>)}
+      {modelGroups[task].map((id) => { const compatibility = dataset ? isModelCompatible(id, dataset) : { compatible: true }; return <label className={`model-option ${value === id ? 'selected' : ''}`} key={id}>
+        <input aria-label={modelInfo[id].name} type="radio" name="model" value={id} checked={value === id} disabled={!compatibility.compatible} onChange={() => onChange(id)} />
+        <span><strong>{modelInfo[id].name}</strong><small>{modelInfo[id].description}{compatibility.compatible ? '' : `（${compatibility.reason}）`}</small></span>
+      </label> })}
     </div>
   </PageShell>
 }

@@ -93,7 +93,7 @@ function gaussian(random: () => number) {
 }
 
 export function generateBuiltinDataset(id: BuiltinDatasetId, options: BuiltinDatasetOptions = {}): Dataset {
-  const samples = Math.max(2, Math.floor(options.samples ?? 200))
+  const samples = Math.max(2, Math.floor(options.samples ?? (id === 'digits' ? 500 : 200)))
   if (id === 'digits') return generateDigitsDataset(samples, options.seed ?? 42)
   const noise = options.noise ?? 0.1
   const random = rng(options.seed ?? 42)

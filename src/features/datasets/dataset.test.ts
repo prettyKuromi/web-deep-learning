@@ -82,6 +82,7 @@ describe('数据集预览', () => {
     expect(first.features).toHaveLength(100)
     expect(first.features.every((row) => row.length === 64 && row.every((value) => value >= 0 && value <= 1))).toBe(true)
     expect(new Set(first.labels)).toEqual(new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+    expect(generateBuiltinDataset('digits').features).toHaveLength(500)
   })
 })
 

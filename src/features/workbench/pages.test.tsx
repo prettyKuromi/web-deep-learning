@@ -84,4 +84,10 @@ describe('工作台子页面', () => {
     await user.click(screen.getByRole('radio', { name: '线性回归' }))
     expect(onChange).toHaveBeenCalledWith('linear-regression')
   })
+
+  it('模型页为不兼容的数据集禁用模型', () => {
+    render(<ModelPage value="knn" onChange={vi.fn()} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} />)
+    expect(screen.getByRole('radio', { name: 'KNN' })).toBeDisabled()
+    expect(screen.getByRole('radio', { name: '可视化卷积神经网络' })).not.toBeDisabled()
+  })
 })
