@@ -12,7 +12,7 @@ export interface CurrentResult {
 export function CurrentResultPanel({ result }: { result: CurrentResult }) {
   const { metrics, dataset, predictions, predict } = result
   return (
-    <section className="workbench-page-card current-result" aria-labelledby="current-result-title">
+    <section className="workbench-page-card current-result current-result--padded" aria-labelledby="current-result-title">
       <h3 id="current-result-title">当前结果</h3>
       <div className="metric-grid">
         {([['准确率', metrics.accuracy], ['Precision', metrics.precision], ['Recall', metrics.recall], ['F1', metrics.f1]] as const).map(([label, value]) => (

@@ -21,7 +21,7 @@ export interface DatasetPageProps {
 }
 
 export function DatasetPage({ onDatasetChange, onError, onContinue }: DatasetPageProps) {
-  return <PageShell className="dataset-page" eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的多维数值特征 CSV 文件."><div className="dataset-workspace"><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} /><button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button></div></PageShell>
+  return <PageShell className="dataset-page" eyebrow="DATASET / 01" title="数据集" description="选择内置数据集，或上传自己的多维数值特征 CSV 文件."><div className="dataset-workspace"><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} action={<button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></PageShell>
 }
 
 export interface ModelPageProps {

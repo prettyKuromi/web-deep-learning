@@ -20,6 +20,7 @@ describe('工作台子页面', () => {
 
     expect(document.querySelector('.dataset-page')).toBeInTheDocument()
     expect(document.querySelector('.dataset-workspace')).toBeInTheDocument()
+    expect(document.querySelector('.dataset-actions')).toBeInTheDocument()
   })
 
   it('模型页面支持选择三种模型并通知回调', async () => {
