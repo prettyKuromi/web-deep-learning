@@ -72,6 +72,17 @@ describe('数据集预览', () => {
       expect(metadata.characteristics.length).toBeGreaterThan(0)
     }
   })
+
+  it('生成确定性的十类 8×8 数字图像数据集', () => {
+    const first = generateBuiltinDataset('digits', { samples: 100, seed: 7 })
+    const second = generateBuiltinDataset('digits', { samples: 100, seed: 7 })
+
+    expect(first).toEqual(second)
+    expect(first).toMatchObject({ dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } })
+    expect(first.features).toHaveLength(100)
+    expect(first.features.every((row) => row.length === 64 && row.every((value) => value >= 0 && value <= 1))).toBe(true)
+    expect(new Set(first.labels)).toEqual(new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+  })
 })
 
 describe('数据集校验', () => {

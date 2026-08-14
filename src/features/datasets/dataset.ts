@@ -1,6 +1,8 @@
 import Papa from 'papaparse'
 
 export type FeatureVector = number[]
+export type DatasetDataType = 'tabular' | 'image'
+export interface ImageShape { width: number; height: number; channels: number }
 
 export interface DatasetMetadata {
   description: string
@@ -13,6 +15,7 @@ export const BUILTIN_DATASET_METADATA: Record<BuiltinDatasetId, DatasetMetadata>
   moons: { description: '默认约 200 条二维二分类样本。', characteristics: '两条带噪月牙，非线性可分，边界呈弯曲形状。' },
   circles: { description: '默认约 200 条二维二分类样本。', characteristics: '同心圆结构，非线性可分，适合观察环形决策边界。' },
   blobs: { description: '默认约 200 条二维二分类样本。', characteristics: '两个带高斯噪声的随机簇，类别通常近似线性可分。' },
+  digits: { description: '默认约 200 条 8×8 灰度数字图像，包含 0–9 十类。', characteristics: '单通道图像分类数据，适合卷积、池化和全连接网络；不适用于二维决策边界模型。' },
 }
 
 export interface Dataset {
@@ -21,6 +24,8 @@ export interface Dataset {
   name?: string
   featureNames?: string[]
   labelName?: string
+  dataType?: DatasetDataType
+  imageShape?: ImageShape
 }
 
 export interface DatasetPreview {
@@ -53,7 +58,7 @@ export function createDatasetPreview(dataset: Dataset, maxRows = 8): DatasetPrev
   }
 }
 
-export type BuiltinDatasetId = 'linear' | 'xor' | 'moons' | 'circles' | 'blobs'
+export type BuiltinDatasetId = 'linear' | 'xor' | 'moons' | 'circles' | 'blobs' | 'digits'
 
 export const BUILTIN_DATASETS: Array<{ id: BuiltinDatasetId; name: string }> = [
   { id: 'linear', name: '线性可分' },
@@ -61,6 +66,7 @@ export const BUILTIN_DATASETS: Array<{ id: BuiltinDatasetId; name: string }> = [
   { id: 'moons', name: '月牙形' },
   { id: 'circles', name: '环形' },
   { id: 'blobs', name: '随机簇' },
+  { id: 'digits', name: '8×8 数字图像（0–9）' },
 ]
 
 export interface BuiltinDatasetOptions {
@@ -88,6 +94,7 @@ function gaussian(random: () => number) {
 
 export function generateBuiltinDataset(id: BuiltinDatasetId, options: BuiltinDatasetOptions = {}): Dataset {
   const samples = Math.max(2, Math.floor(options.samples ?? 200))
+  if (id === 'digits') return generateDigitsDataset(samples, options.seed ?? 42)
   const noise = options.noise ?? 0.1
   const random = rng(options.seed ?? 42)
   const features: FeatureVector[] = []
@@ -134,7 +141,44 @@ export function generateBuiltinDataset(id: BuiltinDatasetId, options: BuiltinDat
     features.push([x, y])
     labels.push(label)
   }
-  return { features, labels, name: BUILTIN_DATASETS.find((item) => item.id === id)?.name }
+  return { features, labels, name: BUILTIN_DATASETS.find((item) => item.id === id)?.name, dataType: 'tabular' }
+}
+
+const digitGlyphs = [
+  ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
+  ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+  ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
+  ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
+  ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+  ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
+  ['00110', '01000', '10000', '11110', '10001', '10001', '01110'],
+  ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+  ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
+  ['01110', '10001', '10001', '01111', '00001', '00010', '11100'],
+]
+
+function generateDigitsDataset(samples: number, seed: number): Dataset {
+  const random = rng(seed)
+  const features: FeatureVector[] = []
+  const labels: number[] = []
+  for (let index = 0; index < samples; index += 1) {
+    const label = index % 10
+    const glyph = digitGlyphs[label]
+    const shiftX = Math.floor(random() * 3) - 1
+    const shiftY = Math.floor(random() * 3) - 1
+    const pixels = Array(64).fill(0)
+    glyph.forEach((row, y) => row.split('').forEach((bit, x) => {
+      const px = x + 1 + shiftX
+      const py = y + shiftY
+      if (bit === '1' && px >= 0 && px < 8 && py >= 0 && py < 8) pixels[py * 8 + px] = 0.78 + random() * 0.22
+    }))
+    for (let pixel = 0; pixel < pixels.length; pixel += 1) {
+      if (pixels[pixel] === 0 && random() < 0.035) pixels[pixel] = random() * 0.13
+    }
+    features.push(pixels)
+    labels.push(label)
+  }
+  return { features, labels, name: '8×8 数字图像（0–9）', dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }
 }
 
 export interface CsvParseOptions {
@@ -169,7 +213,7 @@ export function parseCsvDataset(csv: string, options: CsvParseOptions = {}): Csv
     labels.push(label)
   }
   if (features.length === 0) throw new Error('CSV 至少需要一行有效数据（两个数值特征和非空标签）')
-  const dataset = { features, labels, name: 'CSV 数据集', featureNames: featureColumns, labelName: labelColumn }
+  const dataset = { features, labels, name: 'CSV 数据集', featureNames: featureColumns, labelName: labelColumn, dataType: 'tabular' as const }
   const validation = validateDataset(dataset)
   if (!validation.valid) throw new Error(validation.errors.join('；'))
   return { dataset, skippedRows, columns }

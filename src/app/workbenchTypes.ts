@@ -8,7 +8,7 @@ import type { ClassificationMetrics, Labels, TrainSnapshot } from '../features/t
 export type TaskKind = 'classification' | 'regression' | 'clustering' | 'dimensionality-reduction'
 export type ModelKind =
   | 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes' | 'mlp'
-  | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca'
+  | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca' | 'visual-cnn'
 
 export const taskLabels: Record<TaskKind, string> = {
   classification: '分类',
@@ -18,7 +18,7 @@ export const taskLabels: Record<TaskKind, string> = {
 }
 
 export const modelGroups: Record<TaskKind, readonly ModelKind[]> = {
-  classification: ['knn', 'logistic-regression', 'linear-svm', 'perceptron', 'decision-tree', 'random-forest', 'adaboost', 'naive-bayes', 'mlp'],
+  classification: ['knn', 'logistic-regression', 'linear-svm', 'perceptron', 'decision-tree', 'random-forest', 'adaboost', 'naive-bayes', 'mlp', 'visual-cnn'],
   regression: ['linear-regression', 'ridge-regression'],
   clustering: ['k-means', 'dbscan'],
   'dimensionality-reduction': ['pca'],
@@ -27,6 +27,16 @@ export const modelGroups: Record<TaskKind, readonly ModelKind[]> = {
 export const modelTask: Record<ModelKind, TaskKind> = Object.fromEntries(
   (Object.entries(modelGroups) as [TaskKind, readonly ModelKind[]][]).flatMap(([task, models]) => models.map((model) => [model, task])),
 ) as Record<ModelKind, TaskKind>
+
+export function isModelCompatible(model: ModelKind, dataset: Dataset): { compatible: boolean; reason?: string } {
+  const dataType = dataset.dataType ?? 'tabular'
+  if (model === 'visual-cnn') return dataType === 'image' ? { compatible: true } : { compatible: false, reason: '仅支持图像数据集' }
+  return dataType === 'tabular' ? { compatible: true } : { compatible: false, reason: '仅支持二维或表格数值数据集' }
+}
+
+export function recommendedModel(dataset: Dataset): ModelKind {
+  return (dataset.dataType ?? 'tabular') === 'image' ? 'visual-cnn' : 'knn'
+}
 
 export interface ModelConfig {
   kind?: ModelKind
