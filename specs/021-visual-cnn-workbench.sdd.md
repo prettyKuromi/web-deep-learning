@@ -106,7 +106,7 @@ interface VisualCnnTrainConfig {
 ## 9. 实现记录
 
 - 实现状态：已实现
-- 验证命令：`npm test`（23 个测试文件、126 个测试通过）；`npm run lint`；`npm run build`
+- 验证命令：`npm test`（23 个测试文件、127 个测试通过）；`npm run lint`；`npm run build`
 - 已知限制：首版数字由离线确定性字模生成，适合学习卷积与池化，不等同于真实 MNIST 手写笔迹分布。
 
 ## 10. 未决问题
