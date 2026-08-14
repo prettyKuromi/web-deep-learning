@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { BUILTIN_DATASET_METADATA, BUILTIN_DATASETS, createDatasetPreview, generateBuiltinDataset, parseCsvDataset, type Dataset, type BuiltinDatasetId, type DatasetPreview } from './dataset'
+import { isModelCompatible, modelGroups, type ModelKind } from '../../app/workbenchTypes'
 
 export interface DatasetPanelProps {
   onDatasetChange: (dataset: Dataset) => void
@@ -13,6 +14,7 @@ const displayNames: Record<BuiltinDatasetId, string> = {
   moons: '月牙形',
   circles: '环形',
   blobs: '随机簇',
+  digits: '8×8 数字图像（0–9）',
 }
 
 export function DatasetPanel({ onDatasetChange, onError, action }: DatasetPanelProps) {
@@ -116,6 +118,7 @@ export function DatasetPanel({ onDatasetChange, onError, action }: DatasetPanelP
         </div>
         <p className="dataset-description">{currentDataset.name !== 'CSV 数据集' ? BUILTIN_DATASET_METADATA[selectedId]?.description : '用户上传的 CSV 数据集。'}</p>
         <p className="dataset-characteristics">{currentDataset.name !== 'CSV 数据集' ? BUILTIN_DATASET_METADATA[selectedId]?.characteristics : '根据导入数据计算规模、标签分布和特征范围。'}</p>
+        {currentDataset.dataType === 'image' && <div className="dataset-image-samples" aria-label="数字图像样本">{currentDataset.features.slice(0, 10).map((pixels, index) => <figure key={index}><div className="dataset-pixel-grid">{pixels.map((value, pixel) => <i key={pixel} style={{ opacity: value }} />)}</div><figcaption>数字 {currentDataset.labels[index]}</figcaption></figure>)}</div>}
         <aside className="dataset-advisory" role="note">
           <strong>数据适用性提醒</strong>
           <ul>
@@ -123,9 +126,10 @@ export function DatasetPanel({ onDatasetChange, onError, action }: DatasetPanelP
             {preview.sampleCount < 30 && <li>样本量较少，训练和评估结果可能不稳定。</li>}
             {preview.labelDistribution.length > 1 && Math.max(...preview.labelDistribution.map((item) => item.count)) / preview.sampleCount >= 0.8 && <li>类别分布可能不平衡，请同时关注各类别指标。</li>}
             {preview.featureRanges.some((range) => (range.max ?? 0) - (range.min ?? 0) > 100) && <li>特征尺度差异较大，建议使用标准化或归一化。</li>}
-            <li>MLP 仅接受数值特征；文本、图像或类别字段需先转换。</li>
+            <li>{currentDataset.dataType === 'image' ? '这是灰度图像数据，适合卷积、池化和全连接层组合。' : '这是数值表格数据，适合 KNN、线性模型、树模型和 MLP。'}</li>
           </ul>
         </aside>
+        <aside className="dataset-advisory" role="note"><strong>模型适用范围</strong><ul><li>适用：{modelKinds.filter((kind) => isModelCompatible(kind, currentDataset).compatible).map((kind) => modelNames[kind]).join('、')}</li><li>不适用：{modelKinds.filter((kind) => !isModelCompatible(kind, currentDataset).compatible).map((kind) => modelNames[kind]).join('、')}</li></ul></aside>
         <div className="dataset-preview-grid">
           <div><h4>标签分布</h4><ul>{preview.labelDistribution.map(({ label, count }) => <li key={String(label)}>{String(label)}：{count}</li>)}</ul></div>
           <div><h4>特征范围</h4><ul>{preview.featureRanges.map((range, index) => <li key={index}>特征 {index + 1}：{range.min ?? '—'} ~ {range.max ?? '—'}</li>)}</ul></div>
@@ -136,3 +140,5 @@ export function DatasetPanel({ onDatasetChange, onError, action }: DatasetPanelP
     </section>
   )
 }
+const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'visual-cnn': '可视化卷积神经网络', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
+const modelKinds = Object.values(modelGroups).flat() as ModelKind[]

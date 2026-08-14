@@ -20,7 +20,7 @@ export interface ModelExplanation {
 const titles: Record<ModelKind, string> = {
   knn: 'K 最近邻', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机',
   'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）',
-  'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA',
+  'visual-cnn': '可视化卷积神经网络', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA',
 }
 
 export function createModelExplanation(kind: ModelKind, model?: unknown): ModelExplanation {

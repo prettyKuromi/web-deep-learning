@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createTrainInWorkerClient, runTrainingInHandler, type WorkerLike } from './workerClient'
+import { defaultVisualLayers } from './visualNetwork'
 
 class FakeWorker implements WorkerLike {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -25,6 +26,14 @@ describe('trainInWorker client', () => {
       seed: 7,
     })
     expect(result.model.kind).toBe('mlp')
+  })
+
+  it('routes visual cnn configs through the training handler', async () => {
+    const result = await runTrainingInHandler({
+      kind: 'visual-cnn', samples: Array.from({ length: 10 }, (_, index) => Array(64).fill(index % 2)), labels: Array.from({ length: 10 }, (_, index) => index),
+      imageShape: { width: 8, height: 8, channels: 1 }, layers: defaultVisualLayers(), epochs: 1, seed: 7,
+    })
+    expect(result.model.kind).toBe('visual-cnn')
   })
 
   it('sends start and resolves on complete while forwarding snapshots', async () => {

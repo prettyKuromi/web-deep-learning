@@ -44,6 +44,7 @@ const modelInfo: Record<ModelKind, { name: string; description: string }> = {
   dbscan: { name: 'DBSCAN', description: '基于密度发现簇与噪声。' },
   pca: { name: 'PCA', description: '提取主成分降维。' },
   mlp: { name: '多层感知机（MLP）', description: '通过多层神经网络学习非线性关系。' },
+  'visual-cnn': { name: '可视化卷积神经网络', description: '面向 8×8 灰度图像的可搭建卷积网络。' },
 }
 
 export function ModelPage({ value, onChange }: ModelPageProps) {

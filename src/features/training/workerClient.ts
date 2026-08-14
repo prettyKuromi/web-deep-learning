@@ -9,6 +9,7 @@ import { createNaiveBayesTrainer } from './naiveBayes'
 import { createAdaBoostTrainer, createPerceptronTrainer, createRandomForestTrainer } from './ensembles'
 import { createDbscanTrainer } from './dbscan'
 import { createMlpTrainer } from './mlp'
+import { createVisualCnnTrainer } from './visualCnn'
 import type {
   KnnModel,
   KnnTrainConfig,
@@ -19,7 +20,7 @@ import type {
   RegressionModel, RegressionTrainConfig, KMeansModel, KMeansTrainConfig, PcaModel, PcaTrainConfig,
   DecisionTreeModel, DecisionTreeTrainConfig, NaiveBayesModel, NaiveBayesTrainConfig,
   AdaBoostModel, AdaBoostTrainConfig, DbscanModel, DbscanTrainConfig, PerceptronModel, PerceptronTrainConfig, RandomForestModel, RandomForestTrainConfig,
-  MlpModel, MlpTrainConfig,
+  MlpModel, MlpTrainConfig, VisualCnnModel, VisualCnnTrainConfig,
   TrainSnapshot,
 } from './types'
 
@@ -38,6 +39,7 @@ export type WorkerTrainConfig =
   | ({ kind: 'adaboost' } & AdaBoostTrainConfig)
   | ({ kind: 'dbscan' } & DbscanTrainConfig)
   | ({ kind: 'mlp' } & MlpTrainConfig)
+  | ({ kind: 'visual-cnn' } & VisualCnnTrainConfig)
 
 export type WorkerTrainResult =
   | { model: KnnModel; snapshots: TrainSnapshot[] }
@@ -53,6 +55,7 @@ export type WorkerTrainResult =
   | { model: AdaBoostModel; snapshots: TrainSnapshot[] }
   | { model: DbscanModel; snapshots: TrainSnapshot[] }
   | { model: MlpModel; snapshots: TrainSnapshot[] }
+  | { model: VisualCnnModel; snapshots: TrainSnapshot[] }
 
 export interface WorkerLike {
   onmessage: ((event: MessageEvent) => void) | null
@@ -133,6 +136,7 @@ export async function runTrainingInHandler(config: WorkerTrainConfig, emit?: (sn
   if (config.kind === 'random-forest') return createRandomForestTrainer().train(config, snapshotEmit)
   if (config.kind === 'adaboost') return createAdaBoostTrainer().train(config, snapshotEmit)
   if (config.kind === 'mlp') return createMlpTrainer().train(config, snapshotEmit)
+  if (config.kind === 'visual-cnn') return createVisualCnnTrainer().train(config, snapshotEmit)
   return createDbscanTrainer().train(config, snapshotEmit)
 }
 

@@ -19,6 +19,7 @@ export interface TrainSnapshot {
   }
   explanation?: Record<string, unknown>
   timestamp?: number
+  network?: Array<{ name: string; shape: string; parameters: number; activation: number }>
 }
 
 export interface ClassificationMetrics {
@@ -116,6 +117,26 @@ export interface MlpModel {
   biases: number[][]
   means?: number[]
   scales?: number[]
+  seed: number
+}
+
+export interface VisualCnnTrainConfig {
+  samples: FeatureMatrix
+  labels: Labels
+  imageShape: { width: number; height: number; channels: number }
+  layers: import('./visualNetwork').VisualLayer[]
+  learningRate?: number
+  epochs?: number
+  batchSize?: number
+  seed?: number
+}
+
+export interface VisualCnnModel {
+  kind: 'visual-cnn'
+  labels: Label[]
+  imageShape: { width: number; height: number; channels: number }
+  layers: import('./visualNetwork').VisualLayer[]
+  parameters: Record<string, { weights: number[]; biases: number[]; inputSize: number; outputSize: number }>
   seed: number
 }
 
