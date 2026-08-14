@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SinglePageWorkbench } from './SinglePageWorkbench'
+import { defaultVisualLayers } from '../training/visualNetwork'
 
 describe('单页训练工作台', () => {
   afterEach(cleanup)
@@ -33,6 +34,11 @@ describe('单页训练工作台', () => {
     expect(screen.getByRole('button', { name: '更换数据集' })).toBeInTheDocument()
     expect(document.querySelector('.single-page-workbench--four-columns')).not.toBeInTheDocument()
     expect(document.querySelector('.single-page-workbench--immersive')).toBeInTheDocument()
+  })
+
+  it('在图像网络结构无效时禁用开始训练', () => {
+    render(<SinglePageWorkbench model="visual-cnn" params={{}} status="等待训练" snapshots={[]} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={[...defaultVisualLayers(), { id: 'pool-2', type: 'max-pool' }, { id: 'pool-3', type: 'max-pool' }]} onVisualLayersChange={vi.fn()} onDatasetChange={vi.fn()} onModelChange={vi.fn()} onParamsChange={vi.fn()} onStartTraining={vi.fn()} />)
+    expect(screen.getByRole('button', { name: '开始训练' })).toBeDisabled()
   })
 
   it('以步骤侧栏和紧凑数据集上下文组织实验流程', () => {

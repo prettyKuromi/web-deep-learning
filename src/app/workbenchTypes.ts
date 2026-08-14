@@ -30,7 +30,7 @@ export const modelTask: Record<ModelKind, TaskKind> = Object.fromEntries(
 
 export function isModelCompatible(model: ModelKind, dataset: Dataset): { compatible: boolean; reason?: string } {
   const dataType = dataset.dataType ?? 'tabular'
-  if (model === 'visual-cnn') return dataType === 'image' ? { compatible: true } : { compatible: false, reason: '仅支持图像数据集' }
+  if (model === 'visual-cnn') return dataType === 'image' && dataset.imageShape ? { compatible: true } : { compatible: false, reason: '仅支持带图像尺寸信息的图像数据集' }
   return dataType === 'tabular' ? { compatible: true } : { compatible: false, reason: '仅支持二维或表格数值数据集' }
 }
 

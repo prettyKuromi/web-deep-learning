@@ -1,5 +1,6 @@
 import type { Trainer, TrainSnapshot, VisualCnnModel, VisualCnnTrainConfig } from './types'
 import { describeVisualNetwork, type VisualLayer } from './visualNetwork'
+import { classificationMetrics } from './metrics'
 
 type Tensor = { data: number[]; c: number; h: number; w: number }
 type Parameters = Record<string, { weights: number[]; biases: number[]; inputSize: number; outputSize: number }>
@@ -23,7 +24,13 @@ export function createVisualCnnTrainer(): Trainer<VisualCnnTrainConfig, VisualCn
           Object.keys(parameters).forEach((key) => { parameters[key].weights.forEach((_, i) => { parameters[key].weights[i] -= rate * gradients[key].weights[i] / batch.length }); parameters[key].biases.forEach((_, i) => { parameters[key].biases[i] -= rate * gradients[key].biases[i] / batch.length }) })
         }
         const loss = config.samples.reduce((total, sample, index) => total - Math.log(Math.max(forward(sample, config.layers, config.imageShape, parameters, false, random).probabilities[labels.indexOf(config.labels[index])], 1e-12)), 0) / config.samples.length
-        if (epoch === 0 || epoch === epochs - 1 || (epoch + 1) % Math.max(1, Math.floor(epochs / 10)) === 0) { const snapshot = { iteration: epoch + 1, epoch: epoch + 1, loss, network: description.layers.map((layer) => ({ name: layer.name, shape: layer.shape, parameters: layer.parameters, activation: .5 })) }; snapshots.push(snapshot); emit?.(snapshot) }
+        if (epoch === 0 || epoch === epochs - 1 || (epoch + 1) % Math.max(1, Math.floor(epochs / 10)) === 0) {
+          const runs = config.samples.map((sample) => forward(sample, config.layers, config.imageShape, parameters, false, random))
+          const predicted = runs.map((run) => labels[run.probabilities.reduce((best, value, index) => value > run.probabilities[best] ? index : best, 0)])
+          const activations = averageActivations(runs)
+          const snapshot = { iteration: epoch + 1, epoch: epoch + 1, loss, metrics: classificationMetrics(config.labels, predicted), network: description.layers.map((layer, index) => ({ name: layer.name, shape: layer.shape, parameters: layer.parameters, activation: activations[index] ?? 0 })) }
+          snapshots.push(snapshot); emit?.(snapshot)
+        }
       }
       return { model: { kind: 'visual-cnn', labels, imageShape: config.imageShape, layers: config.layers, parameters, seed }, snapshots }
     },
@@ -67,9 +74,10 @@ function denseGrad(input: Tensor, delta: number[], _param: Parameters[string], g
 function denseBack(input: Tensor, delta: number[], param: Parameters[string]) { return input.data.map((_, col) => delta.reduce((sum, value, row) => sum + value * param.weights[row * param.inputSize + col], 0)) }
 function maxPool(input: Tensor) { const h = Math.floor(input.h / 2); const w = Math.floor(input.w / 2); const data: number[] = []; const indices: number[] = []; for (let c = 0; c < input.c; c += 1) for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) { const options = [0, 1, 2, 3].map((offset) => (c * input.h + y * 2 + Math.floor(offset / 2)) * input.w + x * 2 + offset % 2); const best = options.reduce((winner, option) => input.data[option] > input.data[winner] ? option : winner, options[0]); data.push(input.data[best]); indices.push(best) } return { output: { data, c: input.c, h, w }, indices } }
 function zeroGradients(parameters: Parameters): Parameters { return Object.fromEntries(Object.entries(parameters).map(([key, value]) => [key, { ...value, weights: Array(value.weights.length).fill(0), biases: Array(value.biases.length).fill(0) }])) }
+function averageActivations(runs: ReturnType<typeof forward>[]) { const totals: number[] = []; const counts: number[] = []; runs.forEach((run) => run.caches.forEach((cache, index) => { totals[index] = (totals[index] ?? 0) + cache.output.data.reduce((sum, value) => sum + Math.abs(value), 0); counts[index] = (counts[index] ?? 0) + cache.output.data.length })); return totals.map((total, index) => total / counts[index]) }
 function active(value: number, name: 'relu' | 'tanh' | 'sigmoid') { return name === 'relu' ? Math.max(0, value) : name === 'tanh' ? Math.tanh(value) : 1 / (1 + Math.exp(-value)) }
 function derivative(value: number, name: 'relu' | 'tanh' | 'sigmoid') { const output = active(value, name); return name === 'relu' ? Number(value > 0) : name === 'tanh' ? 1 - output ** 2 : output * (1 - output) }
 function softmax(values: number[]) { const max = Math.max(...values); const exp = values.map((value) => Math.exp(value - max)); const sum = exp.reduce((a, b) => a + b, 0); return exp.map((value) => value / sum) }
 function rng(seed: number) { let value = seed >>> 0; return () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 4294967296 } }
 function shuffle(values: number[], random: () => number) { for (let i = values.length - 1; i > 0; i -= 1) { const j = Math.floor(random() * (i + 1)); [values[i], values[j]] = [values[j], values[i]] } }
-function validate(config: VisualCnnTrainConfig) { const description = describeVisualNetwork(config.layers, config.imageShape, new Set(config.labels).size); if (!description.valid) throw new Error(description.errors.join('；')); const size = config.imageShape.width * config.imageShape.height * config.imageShape.channels; if (!config.samples.length || config.samples.length !== config.labels.length || config.samples.some((sample) => sample.length !== size || sample.some((value) => !Number.isFinite(value)))) throw new Error('图像特征、标签或尺寸无效') }
+function validate(config: VisualCnnTrainConfig) { if (!config.imageShape || !Number.isInteger(config.imageShape.width) || !Number.isInteger(config.imageShape.height) || !Number.isInteger(config.imageShape.channels) || config.imageShape.width < 1 || config.imageShape.height < 1 || config.imageShape.channels < 1) throw new Error('图像尺寸无效'); if (new Set(config.labels).size < 2) throw new Error('至少需要两个不同的类别'); const description = describeVisualNetwork(config.layers, config.imageShape, new Set(config.labels).size); if (!description.valid) throw new Error(description.errors.join('；')); const size = config.imageShape.width * config.imageShape.height * config.imageShape.channels; if (!config.samples.length || config.samples.length !== config.labels.length || config.samples.some((sample) => sample.length !== size || sample.some((value) => !Number.isFinite(value)))) throw new Error('图像特征、标签或尺寸无效') }
