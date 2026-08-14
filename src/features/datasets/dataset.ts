@@ -15,7 +15,7 @@ export const BUILTIN_DATASET_METADATA: Record<BuiltinDatasetId, DatasetMetadata>
   moons: { description: '默认约 200 条二维二分类样本。', characteristics: '两条带噪月牙，非线性可分，边界呈弯曲形状。' },
   circles: { description: '默认约 200 条二维二分类样本。', characteristics: '同心圆结构，非线性可分，适合观察环形决策边界。' },
   blobs: { description: '默认约 200 条二维二分类样本。', characteristics: '两个带高斯噪声的随机簇，类别通常近似线性可分。' },
-  digits: { description: '默认约 200 条 8×8 灰度数字图像，包含 0–9 十类。', characteristics: '单通道图像分类数据，适合卷积、池化和全连接网络；不适用于二维决策边界模型。' },
+  digits: { description: '默认约 500 条 8×8 灰度数字图像，包含 0–9 十类。', characteristics: '单通道图像分类数据，适合卷积、池化和全连接网络；不适用于二维决策边界模型。' },
 }
 
 export interface Dataset {
