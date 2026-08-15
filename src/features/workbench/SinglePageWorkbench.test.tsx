@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SinglePageWorkbench } from './SinglePageWorkbench'
@@ -39,6 +39,20 @@ describe('单页训练工作台', () => {
   it('在图像网络结构无效时禁用开始训练', () => {
     render(<SinglePageWorkbench model="visual-cnn" params={{}} status="等待训练" snapshots={[]} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={[...defaultVisualLayers(), { id: 'pool-2', type: 'max-pool' }, { id: 'pool-3', type: 'max-pool' }]} onVisualLayersChange={vi.fn()} onDatasetChange={vi.fn()} onModelChange={vi.fn()} onParamsChange={vi.fn()} onStartTraining={vi.fn()} />)
     expect(screen.getByRole('button', { name: '开始训练' })).toBeDisabled()
+  })
+
+  it('在训练主面板展示 CNN 构建器，并让左侧保留训练参数', () => {
+    render(<SinglePageWorkbench model="visual-cnn" params={{ learningRate: 0.03, epochs: 40, batchSize: 20, seed: 42 }} status="等待训练" snapshots={[]} dataset={{ features: [Array(64).fill(0), Array(64).fill(1)], labels: [0, 1], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} onDatasetChange={vi.fn()} onModelChange={vi.fn()} onParamsChange={vi.fn()} onStartTraining={vi.fn()} />)
+
+    const canvas = screen.getByRole('main', { name: '训练画布' })
+    const config = screen.getByRole('complementary', { name: '实验配置' })
+    expect(within(canvas).getByRole('region', { name: '网络结构搭建器' })).toBeInTheDocument()
+    expect(within(config).queryByRole('region', { name: '网络结构搭建器' })).not.toBeInTheDocument()
+    expect(within(config).getByRole('spinbutton', { name: '学习率' })).toHaveValue(0.03)
+    expect(within(config).getByRole('spinbutton', { name: '训练轮数' })).toHaveValue(40)
+    expect(within(config).getByRole('spinbutton', { name: '批大小' })).toHaveValue(20)
+    expect(within(config).getByRole('spinbutton', { name: '随机种子' })).toHaveValue(42)
+    expect(screen.getByTestId('cnn-training-card')).toHaveClass('training-canvas-card--cnn')
   })
 
   it('以步骤侧栏和紧凑数据集上下文组织实验流程', () => {
