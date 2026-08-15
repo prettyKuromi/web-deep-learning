@@ -55,12 +55,11 @@ describe('单页训练工作台', () => {
     expect(screen.getByTestId('cnn-training-card')).toHaveClass('training-canvas-card--cnn')
   })
 
-  it('以步骤侧栏和紧凑数据集上下文组织实验流程', () => {
+  it('移除实验步骤卡片并保留配置与数据集上下文', () => {
     render(<SinglePageWorkbench {...baseProps} />)
 
-    expect(screen.getByRole('navigation', { name: '实验步骤' })).toBeInTheDocument()
-    expect(screen.getByRole('listitem', { name: /数据集.*月牙形/ })).toBeInTheDocument()
-    expect(screen.getByRole('listitem', { name: '模型' })).toHaveAttribute('data-state', 'active')
+    expect(screen.queryByRole('navigation', { name: '实验步骤' })).not.toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: '实验配置' })).toBeInTheDocument()
     const datasetBar = screen.getByRole('region', { name: '当前数据集' })
     expect(datasetBar).toHaveTextContent('月牙形')
     expect(datasetBar.querySelector('button')).toHaveTextContent('更换数据集')

@@ -38,25 +38,8 @@ export function SinglePageWorkbench({ model, params, status, snapshots, dataset,
   const handleStart = () => { if (!model) { setStartError('请先选择模型'); return }; setStartError(''); onStartTraining() }
   const chooseTask = (nextTask: TaskKind) => { setTask(nextTask); onModelChange(modelGroups[nextTask][0]) }
   const chooseModel = (nextModel: ModelKind) => { setTask(modelTask[nextModel]); onModelChange(nextModel) }
-  const workflowSteps = [
-    { label: '数据集', detail: datasetName ?? '未选择', state: datasetName ? 'completed' : 'pending' },
-    { label: '模型', detail: model ? modelNames[model] : '未选择', state: model ? 'active' : 'pending' },
-    { label: '训练', detail: isRunning ? '进行中' : hasTraining ? '已生成快照' : '待开始', state: hasTraining ? 'completed' : 'pending' },
-    { label: '结果', detail: currentResult ? '可查看' : '待训练', state: currentResult ? 'active' : 'pending' },
-  ] as const
-
   return <div className="single-page-workbench single-page-workbench--immersive">
     <aside className="single-page-column single-page-config" aria-label="实验配置">
-      <nav className="workflow-steps" aria-label="实验步骤">
-        <div className="workflow-steps-heading"><span className="eyebrow">WORKFLOW</span><span>实验步骤</span></div>
-        <ol>
-          {workflowSteps.map((step, index) => <li key={step.label} aria-label={`${step.label}${step.label === '数据集' ? ` · ${step.detail}` : ''}`} data-state={step.state} className={`workflow-step workflow-step--${step.state}`}>
-            <span className="workflow-step-index">{String(index + 1).padStart(2, '0')}</span>
-            <span className="workflow-step-copy"><strong>{step.label}</strong><small>{step.detail}</small></span>
-            <span className="workflow-step-mark" aria-hidden="true">{step.state === 'completed' ? '✓' : step.state === 'active' ? '•' : ''}</span>
-          </li>)}
-        </ol>
-      </nav>
       <header className="single-page-heading"><p className="eyebrow">CONFIGURATION</p><h2>实验配置</h2><p>先选择任务类型，再选择算法并调整参数。</p></header>
       <section className="single-page-card" aria-label="模型选择与参数">
         <h3>模型与参数</h3>
