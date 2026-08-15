@@ -53,6 +53,7 @@ describe('单页训练工作台', () => {
     expect(within(config).getByRole('spinbutton', { name: '批大小' })).toHaveValue(20)
     expect(within(config).getByRole('spinbutton', { name: '随机种子' })).toHaveValue(42)
     expect(screen.getByTestId('cnn-training-card')).toHaveClass('training-canvas-card--cnn')
+    expect(within(canvas).getByLabelText('神经网络数据流').parentElement).toHaveClass('single-page-chart--cnn')
   })
 
   it('移除实验步骤卡片并保留配置与数据集上下文', () => {
