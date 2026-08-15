@@ -20,6 +20,7 @@ describe('工作台子页面', () => {
 
     expect(document.querySelector('.dataset-page')).toBeInTheDocument()
     expect(document.querySelector('.dataset-workspace')).toBeInTheDocument()
+    expect(document.querySelector('.dataset-workspace > .page-heading')).toBeInTheDocument()
     expect(document.querySelector('.dataset-actions')).toBeInTheDocument()
   })
 
