@@ -2,7 +2,7 @@ import type { FeatureMatrix, Labels, LogisticRegressionModel, LogisticRegression
 
 export function createLogisticRegressionTrainer(): Trainer<LogisticRegressionTrainConfig, LogisticRegressionModel> {
   return {
-    async train(config, emit) {
+    async train(config, emit, control) {
       validate(config)
       const { samples, labels } = config
       const classes = [...new Set(labels)]
@@ -14,6 +14,7 @@ export function createLogisticRegressionTrainer(): Trainer<LogisticRegressionTra
       const regularization = config.regularization ?? 0
       const snapshots: TrainSnapshot[] = []
       for (let iteration = 0; iteration < iterations; iteration++) {
+        await control?.checkpoint()
         let loss = 0
         const gradients = weights.map(() => Array(dimensions + 1).fill(0))
         x.forEach((row, i) => {
@@ -33,7 +34,7 @@ export function createLogisticRegressionTrainer(): Trainer<LogisticRegressionTra
           weight[j] -= learningRate * (gradients[classIndex][j] / x.length + penalty)
         }))
         const snapshot = { iteration: iteration + 1, loss: loss / x.length }
-        if (iteration === 0 || iteration === iterations - 1 || (iteration + 1) % Math.max(1, Math.floor(iterations / 10)) === 0) {
+        if (control || iteration === 0 || iteration === iterations - 1 || (iteration + 1) % Math.max(1, Math.floor(iterations / 10)) === 0) {
           snapshots.push(snapshot)
           emit?.(snapshot)
         }

@@ -140,7 +140,9 @@ export interface VisualCnnModel {
   seed: number
 }
 
+export interface TrainingControl { checkpoint(): Promise<void>; yield?(): Promise<void> }
+
 export interface Trainer<C = unknown, M = unknown, P = Labels> {
-  train(config: C, emit?: (snapshot: TrainSnapshot) => void): Promise<{ model: M; snapshots: TrainSnapshot[] }>
+  train(config: C, emit?: (snapshot: TrainSnapshot) => void, control?: TrainingControl): Promise<{ model: M; snapshots: TrainSnapshot[] }>
   predict(model: M, samples: FeatureMatrix): P
 }

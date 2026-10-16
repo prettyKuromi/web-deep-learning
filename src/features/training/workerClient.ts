@@ -21,7 +21,7 @@ import type {
   DecisionTreeModel, DecisionTreeTrainConfig, NaiveBayesModel, NaiveBayesTrainConfig,
   AdaBoostModel, AdaBoostTrainConfig, DbscanModel, DbscanTrainConfig, PerceptronModel, PerceptronTrainConfig, RandomForestModel, RandomForestTrainConfig,
   MlpModel, MlpTrainConfig, VisualCnnModel, VisualCnnTrainConfig,
-  TrainSnapshot,
+  TrainSnapshot, TrainingControl,
 } from './types'
 
 export type WorkerTrainConfig =
@@ -70,11 +70,12 @@ type WorkerMessage =
   | { type: 'complete'; result: WorkerTrainResult }
   | { type: 'error'; error: string }
   | { type: 'cancel' }
+  | { type: 'paused' | 'resumed' }
 
 export type WorkerControl = 'pause' | 'resume' | 'step' | 'stop'
 
 export function createTrainInWorkerClient(createWorker: () => WorkerLike = defaultWorker): {
-  trainInWorker(config: WorkerTrainConfig, onSnapshot?: (snapshot: TrainSnapshot) => void, signal?: AbortSignal): Promise<WorkerTrainResult>
+  trainInWorker(config: WorkerTrainConfig, onSnapshot?: (snapshot: TrainSnapshot) => void, signal?: AbortSignal, onControl?: (paused: boolean) => void): Promise<WorkerTrainResult>
   sendControl(control: WorkerControl): void
 } {
   let activeWorker: WorkerLike | undefined
@@ -82,7 +83,7 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
     sendControl(control) {
       if (activeWorker) activeWorker.postMessage({ type: control })
     },
-    trainInWorker(config, onSnapshot, signal) {
+    trainInWorker(config, onSnapshot, signal, onControl) {
       const worker = createWorker()
       activeWorker = worker
       return new Promise<WorkerTrainResult>((resolve, reject) => {
@@ -104,6 +105,7 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
           if (data.type === 'snapshot') onSnapshot?.(data.snapshot)
           else if (data.type === 'complete') finish(() => resolve(data.result))
           else if (data.type === 'error') finish(() => reject(new Error(data.error)))
+          else if (data.type === 'paused' || data.type === 'resumed') onControl?.(data.type === 'paused')
           else if (data.type === 'cancel') finish(() => reject(createAbortError()))
         }
         worker.onerror = event => finish(() => reject(new Error(event.message || 'Worker 训练失败')))
@@ -117,27 +119,27 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
 
 export const trainInWorker = createTrainInWorkerClient().trainInWorker
 
-export async function runTrainingInHandler(config: WorkerTrainConfig, emit?: (snapshot: TrainSnapshot) => void, isCancelled: () => boolean = () => false): Promise<WorkerTrainResult> {
+export async function runTrainingInHandler(config: WorkerTrainConfig, emit?: (snapshot: TrainSnapshot) => void, isCancelled: () => boolean = () => false, control?: TrainingControl): Promise<WorkerTrainResult> {
   if (isCancelled()) throw createAbortError()
   const snapshotEmit = (snapshot: TrainSnapshot) => {
     if (isCancelled()) throw createAbortError()
     emit?.(snapshot)
   }
-  if (config.kind === 'knn') return createKnnTrainer().train(config, snapshotEmit)
-  if (config.kind === 'logistic-regression') return createLogisticRegressionTrainer().train(config, snapshotEmit)
-  if (config.kind === 'linear-svm') return createLinearSvmTrainer().train(config, snapshotEmit)
-  if (config.kind === 'linear-regression') return createLinearRegressionTrainer().train(config, snapshotEmit)
-  if (config.kind === 'ridge-regression') return createRidgeRegressionTrainer().train(config, snapshotEmit)
-  if (config.kind === 'k-means') return createKMeansTrainer().train(config, snapshotEmit)
-  if (config.kind === 'pca') return createPcaTrainer().train(config, snapshotEmit)
-  if (config.kind === 'decision-tree') return createDecisionTreeTrainer().train(config, snapshotEmit)
-  if (config.kind === 'naive-bayes') return createNaiveBayesTrainer().train(config, snapshotEmit)
-  if (config.kind === 'perceptron') return createPerceptronTrainer().train(config, snapshotEmit)
-  if (config.kind === 'random-forest') return createRandomForestTrainer().train(config, snapshotEmit)
-  if (config.kind === 'adaboost') return createAdaBoostTrainer().train(config, snapshotEmit)
-  if (config.kind === 'mlp') return createMlpTrainer().train(config, snapshotEmit)
-  if (config.kind === 'visual-cnn') return createVisualCnnTrainer().train(config, snapshotEmit)
-  return createDbscanTrainer().train(config, snapshotEmit)
+  if (config.kind === 'knn') return createKnnTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'logistic-regression') return createLogisticRegressionTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'linear-svm') return createLinearSvmTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'linear-regression') return createLinearRegressionTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'ridge-regression') return createRidgeRegressionTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'k-means') return createKMeansTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'pca') return createPcaTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'decision-tree') return createDecisionTreeTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'naive-bayes') return createNaiveBayesTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'perceptron') return createPerceptronTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'random-forest') return createRandomForestTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'adaboost') return createAdaBoostTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'mlp') return createMlpTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'visual-cnn') return createVisualCnnTrainer().train(config, snapshotEmit, control)
+  return createDbscanTrainer().train(config, snapshotEmit, control)
 }
 
 function createAbortError(): DOMException {

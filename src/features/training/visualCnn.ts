@@ -8,7 +8,7 @@ type Cache = { input: Tensor; output: Tensor; pool?: number[]; mask?: number[] }
 
 export function createVisualCnnTrainer(): Trainer<VisualCnnTrainConfig, VisualCnnModel> {
   return {
-    async train(config, emit) {
+    async train(config, emit, control) {
       validate(config)
       const labels = [...new Set(config.labels)]
       const seed = config.seed ?? 1
@@ -17,14 +17,16 @@ export function createVisualCnnTrainer(): Trainer<VisualCnnTrainConfig, VisualCn
       const epochs = config.epochs ?? 40; const batchSize = config.batchSize ?? 20; const rate = config.learningRate ?? .03
       const snapshots: TrainSnapshot[] = []; const description = describeVisualNetwork(config.layers, config.imageShape, labels.length)
       for (let epoch = 0; epoch < epochs; epoch += 1) {
+        await control?.checkpoint()
         const order = config.samples.map((_, index) => index); shuffle(order, random)
         for (let start = 0; start < order.length; start += batchSize) {
+          await control?.yield?.()
           const gradients = zeroGradients(parameters); const batch = order.slice(start, start + batchSize)
           for (const index of batch) backward(config.samples[index], labels.indexOf(config.labels[index]), config.layers, config.imageShape, parameters, gradients, random)
           Object.keys(parameters).forEach((key) => { parameters[key].weights.forEach((_, i) => { parameters[key].weights[i] -= rate * gradients[key].weights[i] / batch.length }); parameters[key].biases.forEach((_, i) => { parameters[key].biases[i] -= rate * gradients[key].biases[i] / batch.length }) })
         }
         const loss = config.samples.reduce((total, sample, index) => total - Math.log(Math.max(forward(sample, config.layers, config.imageShape, parameters, false, random).probabilities[labels.indexOf(config.labels[index])], 1e-12)), 0) / config.samples.length
-        if (epoch === 0 || epoch === epochs - 1 || (epoch + 1) % Math.max(1, Math.floor(epochs / 10)) === 0) {
+        if (control || epoch === 0 || epoch === epochs - 1 || (epoch + 1) % Math.max(1, Math.floor(epochs / 10)) === 0) {
           const runs = config.samples.map((sample) => forward(sample, config.layers, config.imageShape, parameters, false, random))
           const predicted = runs.map((run) => labels[run.probabilities.reduce((best, value, index) => value > run.probabilities[best] ? index : best, 0)])
           const activations = averageActivations(runs)

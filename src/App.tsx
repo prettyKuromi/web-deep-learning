@@ -75,7 +75,7 @@ export default function App() {
       const onSnapshot = (snapshot: any) => { const normalized = normalizeTrainSnapshot(snapshot); snapshots.push(normalized); setTraining({ snapshots: [...snapshots], progress: normalized.iteration }) }
       const result = typeof Worker === 'undefined'
         ? await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted)
-        : await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal)
+        : await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal, paused => setTraining({ status: paused ? '训练已暂停' : '训练中…' }))
       if (controller.signal.aborted || abortRef.current !== controller) return
       const predictions = trainer.predict(result.model, dataset.features)
       const metrics = modelTask[kind] === 'classification' ? classificationMetrics(dataset.labels, predictions) : undefined
@@ -93,8 +93,8 @@ export default function App() {
     }
   }
 
-  const pauseTraining = () => { if (!workerClientRef.current || training.status !== '训练中…') return; workerClientRef.current.sendControl('pause'); setTraining({ status: '训练已暂停' }) }
-  const resumeTraining = () => { if (!workerClientRef.current || training.status !== '训练已暂停') return; workerClientRef.current.sendControl('resume'); setTraining({ status: '训练中…' }) }
+  const pauseTraining = () => { if (!workerClientRef.current || training.status !== '训练中…') return; workerClientRef.current.sendControl('pause') }
+  const resumeTraining = () => { if (!workerClientRef.current || training.status !== '训练已暂停') return; workerClientRef.current.sendControl('resume') }
   const stepTraining = () => {
     if (training.status === '训练已暂停') workerClientRef.current?.sendControl('step')
   }

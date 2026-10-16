@@ -4,7 +4,7 @@ type Activation = NonNullable<MlpTrainConfig['activation']>
 
 export function createMlpTrainer(): Trainer<MlpTrainConfig, MlpModel> {
   return {
-    async train(config, emit) {
+    async train(config, emit, control) {
       validate(config)
       const activation = config.activation ?? 'relu'
       const seed = config.seed ?? 1
@@ -28,9 +28,11 @@ export function createMlpTrainer(): Trainer<MlpTrainConfig, MlpModel> {
       const batchSize = config.batchSize ?? 32
       const snapshots: TrainSnapshot[] = []
       for (let epoch = 0; epoch < epochs; epoch++) {
+        await control?.checkpoint()
         const order = [...trainIndices]
         for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [order[i], order[j]] = [order[j], order[i]] }
         for (let start = 0; start < order.length; start += batchSize) {
+          await control?.yield?.()
           const batch = order.slice(start, start + batchSize)
           const gw = weights.map(layer => layer.map(row => Array(row.length).fill(0)))
           const gb = biases.map(layer => Array(layer.length).fill(0))
@@ -55,7 +57,7 @@ export function createMlpTrainer(): Trainer<MlpTrainConfig, MlpModel> {
         }
         const loss = trainIndices.reduce((sum, i) => { const out = forward(data[i], weights, biases, activation).activations.at(-1)!; return sum - Math.log(Math.max(out[labels.indexOf(config.labels[i])], 1e-12)) }, 0) / trainCount
         const snapshot = { iteration: epoch + 1, loss }
-        if (epoch === 0 || epoch === epochs - 1 || (epoch + 1) % Math.max(1, Math.floor(epochs / 10)) === 0) { snapshots.push(snapshot); emit?.(snapshot) }
+        if (control || epoch === 0 || epoch === epochs - 1 || (epoch + 1) % Math.max(1, Math.floor(epochs / 10)) === 0) { snapshots.push(snapshot); emit?.(snapshot) }
       }
       return { model: { kind: 'mlp', labels, layers, activation, weights, biases, means, scales, seed }, snapshots }
     },

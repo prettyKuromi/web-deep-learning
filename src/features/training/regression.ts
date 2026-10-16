@@ -5,7 +5,7 @@ export function createRidgeRegressionTrainer(): Trainer<RegressionTrainConfig, R
 
 function create(ridge: boolean): Trainer<RegressionTrainConfig, RegressionModel, number[]> {
   return {
-    async train(config, emit) {
+    async train(config, emit, control) {
       validate(config)
       const dimensions = config.samples[0].length
       const x = config.samples.map(row => [1, ...row])
@@ -15,11 +15,12 @@ function create(ridge: boolean): Trainer<RegressionTrainConfig, RegressionModel,
       const regularization = ridge ? (config.regularization ?? 0.01) : 0
       const snapshots: TrainSnapshot[] = []
       for (let iteration = 0; iteration < iterations; iteration++) {
+        await control?.checkpoint()
         const gradients = Array(dimensions + 1).fill(0)
         let loss = 0
         x.forEach((row, i) => { const error = dot(weights, row) - config.labels[i]; loss += error * error; row.forEach((v, j) => { gradients[j] += error * v }) })
         weights.forEach((_, j) => { gradients[j] = gradients[j] / x.length + (j === 0 ? 0 : regularization * weights[j]); weights[j] -= rate * gradients[j] })
-        if (iteration === 0 || iteration === iterations - 1 || (iteration + 1) % Math.max(1, Math.floor(iterations / 10)) === 0) { const snapshot = { iteration: iteration + 1, loss: loss / (2 * x.length) }; snapshots.push(snapshot); emit?.(snapshot) }
+        if (control || iteration === 0 || iteration === iterations - 1 || (iteration + 1) % Math.max(1, Math.floor(iterations / 10)) === 0) { const snapshot = { iteration: iteration + 1, loss: loss / (2 * x.length) }; snapshots.push(snapshot); emit?.(snapshot) }
       }
       return { model: { kind: ridge ? 'ridge-regression' : 'linear-regression', weights, dimensions }, snapshots }
     },

@@ -1,3 +1,4 @@
+import { supportsTrainingControl } from '../training/trainingControl'
 import { useState, type ReactNode } from 'react'
 import type { Dataset } from '../datasets/dataset'
 import { isModelCompatible } from '../../app/workbenchTypes'
@@ -35,6 +36,7 @@ export function SinglePageWorkbench({ model, params, status, snapshots, dataset,
   const isRunning = status === '训练中…'
   const isPaused = status === '训练已暂停'
   const isActive = isRunning || isPaused
+  const controllable = supportsTrainingControl(model)
   const hasTraining = snapshots.length > 0 || isActive || ['训练完成', '训练已停止', '训练已取消', '训练失败'].includes(status)
   const chooseTask = (nextTask: TaskKind) => { setTask(nextTask); onModelChange(modelGroups[nextTask][0]) }
   const chooseModel = (nextModel: ModelKind) => { setTask(modelTask[nextModel]); onModelChange(nextModel) }
@@ -57,10 +59,11 @@ export function SinglePageWorkbench({ model, params, status, snapshots, dataset,
         <div className={`single-page-chart${isVisualCnn ? ' single-page-chart--cnn' : ''}`}>{model === 'visual-cnn' && activeDataset.imageShape ? <NetworkFlowCanvas layers={activeVisualLayers} imageShape={activeDataset.imageShape} status={status} snapshots={snapshots} /> : <TrainingProgressChart snapshots={snapshots} status={status} />}</div>
         <div className="single-page-controls" aria-label="训练控制">
           <button type="button" className="primary-button" onClick={onStartTraining} disabled={!model || !visualNetworkValid || isActive}>开始训练</button>
-          <button type="button" onClick={onPauseTraining} disabled={!isRunning}>暂停</button><button type="button" onClick={onStepTraining} disabled={!isPaused}>单步</button>
-          <button type="button" onClick={onResumeTraining} disabled={!isPaused}>继续</button><button type="button" onClick={onStopTraining} disabled={!isActive}>停止</button>
+          <button type="button" onClick={onPauseTraining} disabled={!isRunning || !controllable}>暂停</button><button type="button" onClick={onStepTraining} disabled={!isPaused || !controllable}>单步</button>
+          <button type="button" onClick={onResumeTraining} disabled={!isPaused || !controllable}>继续</button><button type="button" onClick={onStopTraining} disabled={!isActive}>停止</button>
           <button type="button" onClick={onResetTraining} disabled={!hasTraining}>重置</button>
         </div>
+        {model && <p className="single-page-hint">{controllable ? '单步推进一个完整迭代（神经网络为一轮）；暂停会等待本轮计算结束。' : '该模型一次完成拟合，不支持暂停、继续或单步；可停止计算。'}</p>}
         {error && <p role="alert" className="single-page-error">{error}</p>}
       </section>
       {snapshots.length > 0 && <section className="single-page-card"><h3>训练时间线</h3><ol className="single-page-timeline">{snapshots.slice(-8).map((snapshot) => <li key={`${snapshot.iteration}-${snapshot.timestamp}`}>{snapshot.iteration === 0 && snapshot.loss == null ? status === '训练完成' ? '已完成拟合' : '已接收训练快照' : `第 ${snapshot.iteration} 次迭代${snapshot.loss != null ? ` · 损失 ${snapshot.loss.toFixed(4)}` : ''}`}</li>)}</ol></section>}

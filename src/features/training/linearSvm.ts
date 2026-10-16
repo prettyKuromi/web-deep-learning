@@ -2,7 +2,7 @@ import type { FeatureMatrix, Labels, LinearSvmModel, LinearSvmTrainConfig, Train
 
 export function createLinearSvmTrainer(): Trainer<LinearSvmTrainConfig, LinearSvmModel> {
   return {
-    async train(config, emit) {
+    async train(config, emit, control) {
       validate(config)
       const classes = [...new Set(config.labels)]
       const x = config.samples.map(row => [1, ...row])
@@ -14,6 +14,7 @@ export function createLinearSvmTrainer(): Trainer<LinearSvmTrainConfig, LinearSv
       const margin = config.margin ?? 1
       const snapshots: TrainSnapshot[] = []
       for (let iteration = 0; iteration < iterations; iteration++) {
+        await control?.checkpoint()
         const gradients = weights.map(() => Array(dimensions + 1).fill(0))
         let loss = 0
         x.forEach((row, i) => {
@@ -30,7 +31,7 @@ export function createLinearSvmTrainer(): Trainer<LinearSvmTrainConfig, LinearSv
           weight[j] -= learningRate * gradients[classIndex][j]
         }))
         const snapshot = { iteration: iteration + 1, loss: loss / x.length }
-        if (iteration === 0 || iteration === iterations - 1 || (iteration + 1) % Math.max(1, Math.floor(iterations / 10)) === 0) {
+        if (control || iteration === 0 || iteration === iterations - 1 || (iteration + 1) % Math.max(1, Math.floor(iterations / 10)) === 0) {
           snapshots.push(snapshot)
           emit?.(snapshot)
         }
