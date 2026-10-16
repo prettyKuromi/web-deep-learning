@@ -36,7 +36,8 @@ const predictionLabel = (kind: ModelKind, model: unknown, point: readonly number
 
 export default function App() {
   const { dataset, setDataset, modelConfig, setModelConfig, training, setTraining, experiments, addExperiment } = useWorkbenchStore()
-  const [selectedId, setSelectedId] = useState<string>()
+  const [currentExperimentId, setCurrentExperimentId] = useState<string>()
+  const [historySelectedId, setHistorySelectedId] = useState<string>()
   const [topPage, setTopPage] = useState<TopLevelPage>('dataset')
   const [datasetConfirmed, setDatasetConfirmed] = useState(false)
   const [datasetImportState, setDatasetImportState] = useState<DatasetImportState>({ pending: false, error: '' })
@@ -46,7 +47,8 @@ export default function App() {
   const workerClientRef = useRef<ReturnType<typeof createTrainInWorkerClient> | null>(null)
   const stopRequestedRef = useRef(false)
   const trainers = useMemo(() => Object.fromEntries((Object.keys(defaults) as ModelKind[]).map((kind) => [kind, createTrainer(kind)])) as Record<string, any>, [])
-  const selected = experiments.find((record) => record.id === selectedId)
+  const currentExperiment = experiments.find((record) => record.id === currentExperimentId)
+  const historySelected = experiments.find((record) => record.id === historySelectedId)
   const handleImportStateChange = useCallback((state: DatasetImportState) => {
     setDatasetImportState(state)
     if (state.pending || state.error) setDatasetConfirmed(false)
@@ -61,7 +63,7 @@ export default function App() {
     abortRef.current = controller
     stopRequestedRef.current = false
     setSelectedStep(undefined)
-    setSelectedId(undefined)
+    setCurrentExperimentId(undefined)
     setTraining({ status: '训练中…', progress: 0, snapshots: [], error: undefined, metrics: undefined })
     try {
       const kind = modelConfig.kind
@@ -81,7 +83,8 @@ export default function App() {
       addExperiment(record)
       void saveExperiment(record)
       setTraining({ status: '训练完成', progress: 100, snapshots: result.snapshots, metrics })
-      setSelectedId(record.id)
+      setCurrentExperimentId(record.id)
+      setHistorySelectedId(record.id)
     } catch (error) {
       if (abortRef.current !== controller) return
       setTraining({ status: stopRequestedRef.current ? '训练已停止' : error instanceof DOMException && error.name === 'AbortError' ? '训练已取消' : '训练失败', error: stopRequestedRef.current ? undefined : error instanceof Error ? error.message : '训练失败' })
@@ -96,7 +99,7 @@ export default function App() {
     if (training.status === '训练已暂停') workerClientRef.current?.sendControl('step')
   }
   const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); abortRef.current?.abort(); setTraining({ status: '训练已停止', error: undefined }) }
-  const resetTraining = () => { abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setSelectedId(undefined); setSelectedStep(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
+  const resetTraining = () => { abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setCurrentExperimentId(undefined); setSelectedStep(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
   const handleDatasetChange = (nextDataset: typeof dataset) => {
     abortRef.current?.abort()
     abortRef.current = null
@@ -104,7 +107,7 @@ export default function App() {
     setDatasetConfirmed(false)
     setDatasetImportState({ pending: false, error: '' })
     setSelectedStep(undefined)
-    setSelectedId(undefined)
+    setCurrentExperimentId(undefined)
     setDataset(nextDataset)
     if (modelConfig.kind && !isModelCompatible(modelConfig.kind, nextDataset).compatible) setModelConfig({ kind: recommendedModel(nextDataset), params: defaults[recommendedModel(nextDataset)] })
     setTraining({ status: '请重新训练', progress: 0, snapshots: [], error: undefined, metrics: undefined })
@@ -116,7 +119,7 @@ export default function App() {
   }
 
   const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), metrics: record.metrics ?? {} }))
-  const explanationPanel = modelConfig.kind ? <ModelExplanationPanel kind={modelConfig.kind} model={selected?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.features[0]?.length} /> : undefined
+  const explanationPanel = modelConfig.kind ? <ModelExplanationPanel kind={modelConfig.kind} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.features[0]?.length} /> : undefined
   return <main className="app-shell">
     <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">浏览器机器学习实验</p><h1>机器学习实验工作台</h1><p className="header-subtitle">先选择数据，再观察训练并理解模型。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
     <TopLevelNavigation activePage={topPage} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
@@ -125,8 +128,8 @@ export default function App() {
       onDatasetChange={handleDatasetChange} onChangeDataset={() => setTopPage('dataset')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
       onModelChange={(kind) => { resetTraining(); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => setModelConfig({ params })}
       onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining}
-      explanation={explanationPanel} currentResult={selected?.metrics && modelConfig.kind && modelTask[modelConfig.kind] === 'classification' ? { dataset: selected.dataset, predictions: selected.predictions, metrics: selected.metrics, predict: (point) => predictionLabel(selected.modelKind, selected.model, point) } : undefined} error={training.error}
-    /> : <HistoryPage records={records} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id)} selectedDetail={selected ? <ExperimentDetail record={selected} /> : undefined} />}</section>
+      explanation={explanationPanel} currentResult={currentExperiment?.metrics && modelConfig.kind && modelTask[modelConfig.kind] === 'classification' ? { dataset: currentExperiment.dataset, predictions: currentExperiment.predictions, metrics: currentExperiment.metrics, predict: (point) => predictionLabel(currentExperiment.modelKind, currentExperiment.model, point) } : undefined} error={training.error}
+    /> : <HistoryPage records={records} selectedId={historySelectedId} onSelect={(item) => setHistorySelectedId(item.id)} selectedDetail={historySelected ? <ExperimentDetail record={historySelected} /> : undefined} />}</section>
   </main>
 }
 
