@@ -97,4 +97,20 @@ describe('DatasetPanel', () => {
     expect(screen.getAllByTitle('1.123456789')).toHaveLength(2)
     expect(screen.getByLabelText('内置数据集')).toHaveValue('csv')
   })
+
+  it('解析中卸载会通知中断，迟到的文件结果不覆盖已离开的页面', async () => {
+    const user = userEvent.setup()
+    const onDatasetChange = vi.fn()
+    const onImportStateChange = vi.fn()
+    let resolveText!: (value: string) => void
+    const file = new File([''], 'pending.csv', { type: 'text/csv' })
+    Object.defineProperty(file, 'text', { value: () => new Promise<string>((resolve) => { resolveText = resolve }) })
+    const { unmount } = render(<DatasetPanel onDatasetChange={onDatasetChange} onImportStateChange={onImportStateChange} />)
+    await user.upload(screen.getByLabelText('上传 CSV'), file)
+    expect(screen.getByRole('status')).toHaveTextContent('正在读取 CSV')
+    unmount()
+    expect(onImportStateChange).toHaveBeenLastCalledWith({ pending: false, error: 'CSV 导入已中断，请重新导入或选择内置数据集。' })
+    resolveText('x,y,label\n1,2,A\n3,4,B')
+    await waitFor(() => expect(onDatasetChange).not.toHaveBeenCalled())
+  })
 })

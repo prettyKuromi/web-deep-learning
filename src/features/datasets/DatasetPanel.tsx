@@ -1,6 +1,8 @@
-import { useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react'
 import { BUILTIN_DATASET_METADATA, BUILTIN_DATASETS, createDatasetPreview, generateBuiltinDataset, parseCsvDataset, type Dataset, type BuiltinDatasetId } from './dataset'
 import { isModelCompatible, modelGroups, type ModelKind } from '../../app/workbenchTypes'
+
+export interface DatasetImportState { pending: boolean; error: string }
 
 export interface DatasetPanelProps {
   onDatasetChange: (dataset: Dataset) => void
@@ -8,19 +10,31 @@ export interface DatasetPanelProps {
   onValidityChange?: (valid: boolean) => void
   action?: ReactNode | ((valid: boolean) => ReactNode)
   initialDataset?: Dataset
+  importState?: DatasetImportState
+  onImportStateChange?: (state: DatasetImportState) => void
 }
 
-export function DatasetPanel({ onDatasetChange, onError, onValidityChange, action, initialDataset }: DatasetPanelProps) {
+export function DatasetPanel({ onDatasetChange, onError, onValidityChange, action, initialDataset, importState, onImportStateChange }: DatasetPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const importRequestRef = useRef(0)
+  const importPendingRef = useRef(false)
   const [currentDataset, setCurrentDataset] = useState(() => initialDataset ?? generateBuiltinDataset('linear'))
   const [skippedRows, setSkippedRows] = useState(0)
-  const [error, setError] = useState('')
-  const [isImporting, setIsImporting] = useState(false)
+  const [localImportState, setLocalImportState] = useState<DatasetImportState>({ pending: false, error: '' })
+  const { pending: isImporting, error } = importState ?? localImportState
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const preview = useMemo(() => createDatasetPreview(currentDataset), [currentDataset])
   const selectedId = BUILTIN_DATASETS.find(({ name }) => name === currentDataset.name)?.id
   const valid = !error && !isImporting
+  useEffect(() => () => {
+    importRequestRef.current += 1
+    if (importPendingRef.current) onImportStateChange?.({ pending: false, error: 'CSV 导入已中断，请重新导入或选择内置数据集。' })
+  }, [onImportStateChange])
+  const updateImportState = (state: DatasetImportState) => {
+    importPendingRef.current = state.pending
+    setLocalImportState(state)
+    onImportStateChange?.(state)
+  }
   const warnings = [
     preview.featureCount > 2 && '高维数据的二维投影仅用于观察，不代表真实决策边界。',
     preview.sampleCount < 30 && '样本量较少，训练和评估结果可能不稳定。',
@@ -31,19 +45,18 @@ export function DatasetPanel({ onDatasetChange, onError, onValidityChange, actio
   const applyDataset = (dataset: Dataset, skipped = 0) => {
     setCurrentDataset(dataset)
     setSkippedRows(skipped)
-    setError('')
+    updateImportState({ pending: false, error: '' })
     onValidityChange?.(true)
     onDatasetChange(dataset)
   }
   const selectBuiltin = (id: BuiltinDatasetId) => {
     importRequestRef.current += 1
-    setIsImporting(false)
     applyDataset(generateBuiltinDataset(id))
   }
   const importFile = async (file?: File) => {
     if (!file) return
     const request = ++importRequestRef.current
-    setIsImporting(true)
+    updateImportState({ pending: true, error: '' })
     onValidityChange?.(false)
     try {
       const text = typeof file.text === 'function' ? await file.text() : await new Promise<string>((resolve, reject) => {
@@ -58,10 +71,8 @@ export function DatasetPanel({ onDatasetChange, onError, onValidityChange, actio
     } catch {
       if (request !== importRequestRef.current) return
       const message = 'CSV 无有效数据，至少需要一行有效数据（数值特征和非空标签，并包含至少两个类别）'
-      setError(message)
+      updateImportState({ pending: false, error: message })
       onError?.(message)
-    } finally {
-      if (request === importRequestRef.current) setIsImporting(false)
     }
   }
   const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {

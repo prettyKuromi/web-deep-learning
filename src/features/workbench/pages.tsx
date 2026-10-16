@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { DatasetPanel } from '../datasets/DatasetPanel'
+import { DatasetPanel, type DatasetImportState } from '../datasets/DatasetPanel'
 import type { Dataset } from '../datasets/dataset'
 import { isModelCompatible, modelGroups, modelTask, taskLabels, workbenchStages, type ModelKind, type TaskKind, type WorkbenchStage } from '../../app/workbenchTypes'
 import './pages.css'
@@ -20,10 +20,12 @@ export interface DatasetPageProps {
   onContinue?: () => void
   initialDataset?: Dataset
   onValidityChange?: (valid: boolean) => void
+  importState?: DatasetImportState
+  onImportStateChange?: (state: DatasetImportState) => void
 }
 
-export function DatasetPage({ onDatasetChange, onError, onContinue, initialDataset, onValidityChange }: DatasetPageProps) {
-  return <section className="workbench-page dataset-page" aria-labelledby="page-数据集"><div className="dataset-workspace"><header className="page-heading"><p className="eyebrow">数据准备 / 01</p><h2 id="page-数据集">数据集</h2><p>选择内置数据集，或上传自己的多维数值特征 CSV 文件。</p></header><DatasetPanel initialDataset={initialDataset} onValidityChange={onValidityChange} onDatasetChange={onDatasetChange} onError={onError} action={(valid) => <button className="primary-button dataset-continue" type="button" disabled={!valid} onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></section>
+export function DatasetPage({ onDatasetChange, onError, onContinue, initialDataset, onValidityChange, importState, onImportStateChange }: DatasetPageProps) {
+  return <section className="workbench-page dataset-page" aria-labelledby="page-数据集"><div className="dataset-workspace"><header className="page-heading"><p className="eyebrow">数据准备 / 01</p><h2 id="page-数据集">数据集</h2><p>选择内置数据集，或上传自己的多维数值特征 CSV 文件。</p></header><DatasetPanel initialDataset={initialDataset} importState={importState} onImportStateChange={onImportStateChange} onValidityChange={onValidityChange} onDatasetChange={onDatasetChange} onError={onError} action={(valid) => <button className="primary-button dataset-continue" type="button" disabled={!valid} onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></section>
 }
 
 export interface ModelPageProps {

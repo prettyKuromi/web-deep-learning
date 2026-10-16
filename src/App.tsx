@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useMemo, useRef, useState } from 'react'
 import { isModelCompatible, modelTask, recommendedModel, type ModelKind } from './app/workbenchTypes'
 import { useWorkbenchStore } from './app/workbenchStore'
 import { classificationMetrics } from './features/training/metrics'
@@ -18,6 +18,7 @@ import { createTrainInWorkerClient, runTrainingInHandler, type WorkerTrainConfig
 import { saveExperiment } from './features/persistence/persistence'
 import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/workbench/HistoryPage'
 import { DatasetPage } from './features/workbench/pages'
+import type { DatasetImportState } from './features/datasets/DatasetPanel'
 import { DecisionBoundaryChart } from './features/visualization/DecisionBoundaryChart'
 import { SinglePageWorkbench } from './features/workbench/SinglePageWorkbench'
 import { ModelExplanationPanel } from './features/visualization/ModelExplanationPanel'
@@ -38,12 +39,19 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string>()
   const [topPage, setTopPage] = useState<TopLevelPage>('dataset')
   const [datasetConfirmed, setDatasetConfirmed] = useState(false)
+  const [datasetImportState, setDatasetImportState] = useState<DatasetImportState>({ pending: false, error: '' })
+  const [selectedStep, setSelectedStep] = useState<number>()
   const [visualLayers, setVisualLayers] = useState(defaultVisualLayers)
   const abortRef = useRef<AbortController | null>(null)
   const workerClientRef = useRef<ReturnType<typeof createTrainInWorkerClient> | null>(null)
   const stopRequestedRef = useRef(false)
   const trainers = useMemo(() => Object.fromEntries((Object.keys(defaults) as ModelKind[]).map((kind) => [kind, createTrainer(kind)])) as Record<string, any>, [])
   const selected = experiments.find((record) => record.id === selectedId)
+  const handleImportStateChange = useCallback((state: DatasetImportState) => {
+    setDatasetImportState(state)
+    if (state.pending || state.error) setDatasetConfirmed(false)
+    if (state.error) setTraining({ status: '数据集错误', error: state.error })
+  }, [setTraining])
 
   const runTraining = async () => {
     if (!modelConfig.kind) { setTraining({ status: '等待训练', error: '请先选择模型' }); return }
@@ -52,6 +60,7 @@ export default function App() {
     const controller = new AbortController()
     abortRef.current = controller
     stopRequestedRef.current = false
+    setSelectedStep(undefined)
     setSelectedId(undefined)
     setTraining({ status: '训练中…', progress: 0, snapshots: [], error: undefined, metrics: undefined })
     try {
@@ -87,12 +96,14 @@ export default function App() {
     if (training.status === '训练已暂停') workerClientRef.current?.sendControl('step')
   }
   const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); abortRef.current?.abort(); setTraining({ status: '训练已停止', error: undefined }) }
-  const resetTraining = () => { abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setSelectedId(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
+  const resetTraining = () => { abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setSelectedId(undefined); setSelectedStep(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
   const handleDatasetChange = (nextDataset: typeof dataset) => {
     abortRef.current?.abort()
     abortRef.current = null
     workerClientRef.current = null
     setDatasetConfirmed(false)
+    setDatasetImportState({ pending: false, error: '' })
+    setSelectedStep(undefined)
     setSelectedId(undefined)
     setDataset(nextDataset)
     if (modelConfig.kind && !isModelCompatible(modelConfig.kind, nextDataset).compatible) setModelConfig({ kind: recommendedModel(nextDataset), params: defaults[recommendedModel(nextDataset)] })
@@ -105,11 +116,11 @@ export default function App() {
   }
 
   const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), metrics: record.metrics ?? {} }))
-  const explanationPanel = modelConfig.kind ? <ModelExplanationPanel kind={modelConfig.kind} model={selected?.model} snapshots={training.snapshots} status={training.status} dimensions={dataset.features[0]?.length} /> : undefined
+  const explanationPanel = modelConfig.kind ? <ModelExplanationPanel kind={modelConfig.kind} model={selected?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.features[0]?.length} /> : undefined
   return <main className="app-shell">
     <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">浏览器机器学习实验</p><h1>机器学习实验工作台</h1><p className="header-subtitle">先选择数据，再观察训练并理解模型。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
     <TopLevelNavigation activePage={topPage} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
-    <section className="app-content">{topPage === 'dataset' ? <DatasetPage initialDataset={dataset} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench
+    <section className="app-content">{topPage === 'dataset' ? <DatasetPage initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench
       dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={setVisualLayers} model={modelConfig.kind} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots}
       onDatasetChange={handleDatasetChange} onChangeDataset={() => setTopPage('dataset')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
       onModelChange={(kind) => { resetTraining(); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => setModelConfig({ params })}

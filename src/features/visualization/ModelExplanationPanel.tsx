@@ -18,7 +18,7 @@ export interface ModelExplanationPanelProps {
 export function ModelExplanationPanel({ kind, model, snapshots = [], selectedStep, onStepChange, dimensions, status }: ModelExplanationPanelProps) {
   const explanation = createModelExplanation(kind, model)
   const steps = snapshots.map((snapshot) => snapshot.step ?? snapshot.iteration)
-  const currentStep = selectedStep ?? steps.at(-1)
+  const currentStep = selectedStep != null && steps.includes(selectedStep) ? selectedStep : steps.at(-1)
   const currentSnapshot = snapshots.find((snapshot) => (snapshot.step ?? snapshot.iteration) === currentStep)
   const visualization = explanation.visualization
 
@@ -32,7 +32,7 @@ export function ModelExplanationPanel({ kind, model, snapshots = [], selectedSte
         {steps.length > 0 && (
           <label>
             训练步骤
-            <select aria-label="训练步骤" value={currentStep ?? ''} onChange={(event) => onStepChange?.(Number(event.target.value))}>
+            <select aria-label="训练步骤" value={currentStep ?? ''} disabled={!onStepChange || status === '训练中…'} onChange={(event) => onStepChange?.(Number(event.target.value))}>
               {steps.map((step) => <option key={step} value={step}>{step}</option>)}
             </select>
           </label>
@@ -45,6 +45,7 @@ export function ModelExplanationPanel({ kind, model, snapshots = [], selectedSte
 
       {explanation.level === 'detailed' ? <DetailedVisualization visualization={visualization} /> : <p className="model-explanation-basic">训练过程以时间线和损失曲线呈现，模型内部结构暂不展开。</p>}
 
+      {currentSnapshot && <p className="model-explanation-basic" aria-label="当前快照">{currentStep === 0 ? '拟合快照' : `第 ${currentStep} 步`}{Number.isFinite(currentSnapshot.loss) ? ` · 损失 ${currentSnapshot.loss!.toFixed(4)}` : ''}</p>}
       {currentSnapshot?.explanation && <pre className="snapshot-explanation">{JSON.stringify(currentSnapshot.explanation, null, 2)}</pre>}
       {snapshots.length > 0 && <TrainingProgressChart snapshots={snapshots} status={status} />}
       {(dimensions ?? inferDimensions(model)) > 2 && <p className="projection-notice">当前图表仅展示前两个特征的投影，不代表真实的高维决策边界。</p>}
