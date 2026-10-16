@@ -14,8 +14,11 @@ describe('实验工作台', () => {
   it('默认显示数据集选择页，并可进入实验流程', async () => {
     render(<App />)
     expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('tab', { name: '实验流程' }))
+    expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '开始训练' })).toBeDisabled()
   })
 
   it('支持调整 KNN 参数并显示训练损失曲线', async () => {

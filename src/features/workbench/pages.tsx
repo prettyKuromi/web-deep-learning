@@ -18,10 +18,11 @@ export interface DatasetPageProps {
   onDatasetChange: (dataset: Dataset) => void
   onError?: (message: string) => void
   onContinue?: () => void
+  initialDataset?: Dataset
 }
 
-export function DatasetPage({ onDatasetChange, onError, onContinue }: DatasetPageProps) {
-  return <section className="workbench-page dataset-page" aria-labelledby="page-数据集"><div className="dataset-workspace"><header className="page-heading"><p className="eyebrow">DATASET / 01</p><h2 id="page-数据集">数据集</h2><p>选择内置数据集，或上传自己的多维数值特征 CSV 文件。</p></header><DatasetPanel onDatasetChange={onDatasetChange} onError={onError} action={<button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></section>
+export function DatasetPage({ onDatasetChange, onError, onContinue, initialDataset }: DatasetPageProps) {
+  return <section className="workbench-page dataset-page" aria-labelledby="page-数据集"><div className="dataset-workspace"><header className="page-heading"><p className="eyebrow">DATASET / 01</p><h2 id="page-数据集">数据集</h2><p>选择内置数据集，或上传自己的多维数值特征 CSV 文件。</p></header><DatasetPanel initialDataset={initialDataset} onDatasetChange={onDatasetChange} onError={onError} action={<button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></section>
 }
 
 export interface ModelPageProps {

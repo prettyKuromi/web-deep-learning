@@ -6,6 +6,7 @@ export interface DatasetPanelProps {
   onDatasetChange: (dataset: Dataset) => void
   onError?: (message: string) => void
   action?: ReactNode
+  initialDataset?: Dataset
 }
 
 const displayNames: Record<BuiltinDatasetId, string> = {
@@ -17,11 +18,12 @@ const displayNames: Record<BuiltinDatasetId, string> = {
   digits: '8×8 数字图像（0–9）',
 }
 
-export function DatasetPanel({ onDatasetChange, onError, action }: DatasetPanelProps) {
+export function DatasetPanel({ onDatasetChange, onError, action, initialDataset: providedDataset }: DatasetPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [selectedId, setSelectedId] = useState<BuiltinDatasetId>('linear')
+  const initialDataset = providedDataset ?? { ...generateBuiltinDataset('linear'), name: displayNames.linear }
+  const initialBuiltinId = (Object.entries(displayNames).find(([, name]) => name === initialDataset.name)?.[0] ?? 'linear') as BuiltinDatasetId
+  const [selectedId, setSelectedId] = useState<BuiltinDatasetId>(initialBuiltinId)
   const [summary, setSummary] = useState<{ name: string; count: number; skipped?: number } | null>(null)
-  const initialDataset = { ...generateBuiltinDataset('linear'), name: displayNames.linear }
   const [preview, setPreview] = useState<DatasetPreview | null>(() => createDatasetPreview(initialDataset))
   const [currentDataset, setCurrentDataset] = useState<Dataset | null>(initialDataset)
   const [error, setError] = useState('')

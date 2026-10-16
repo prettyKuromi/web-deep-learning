@@ -95,12 +95,8 @@ describe('单页训练工作台', () => {
     expect(onResetTraining).not.toHaveBeenCalled()
   })
 
-  it('未选择模型时给出中文错误提示', async () => {
-    const user = userEvent.setup()
+  it('未选择模型时禁用开始训练', () => {
     render(<SinglePageWorkbench {...baseProps} model={undefined} />)
-
-    await user.click(screen.getByRole('button', { name: '开始训练' }))
-
-    expect(screen.getByRole('alert')).toHaveTextContent('请先选择模型')
+    expect(screen.getByRole('button', { name: '开始训练' })).toBeDisabled()
   })
 })
