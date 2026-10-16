@@ -12,9 +12,10 @@ export interface ModelExplanationPanelProps {
   selectedStep?: number
   onStepChange?: (step: number) => void
   dimensions?: number
+  status?: string
 }
 
-export function ModelExplanationPanel({ kind, model, snapshots = [], selectedStep, onStepChange, dimensions }: ModelExplanationPanelProps) {
+export function ModelExplanationPanel({ kind, model, snapshots = [], selectedStep, onStepChange, dimensions, status }: ModelExplanationPanelProps) {
   const explanation = createModelExplanation(kind, model)
   const steps = snapshots.map((snapshot) => snapshot.step ?? snapshot.iteration)
   const currentStep = selectedStep ?? steps.at(-1)
@@ -45,7 +46,7 @@ export function ModelExplanationPanel({ kind, model, snapshots = [], selectedSte
       {explanation.level === 'detailed' ? <DetailedVisualization visualization={visualization} /> : <p className="model-explanation-basic">训练过程以时间线和损失曲线呈现，模型内部结构暂不展开。</p>}
 
       {currentSnapshot?.explanation && <pre className="snapshot-explanation">{JSON.stringify(currentSnapshot.explanation, null, 2)}</pre>}
-      {snapshots.length > 0 && <TrainingProgressChart snapshots={snapshots} />}
+      {snapshots.length > 0 && <TrainingProgressChart snapshots={snapshots} status={status} />}
       {(dimensions ?? inferDimensions(model)) > 2 && <p className="projection-notice">当前图表仅展示前两个特征的投影，不代表真实的高维决策边界。</p>}
     </section>
   )

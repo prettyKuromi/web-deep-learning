@@ -6,6 +6,17 @@ import { TrainingProgressChart } from './TrainingProgressChart'
 describe('TrainingProgressChart', () => {
   afterEach(() => cleanup())
 
+  it.each([
+    ['训练中…', '正在训练，等待过程数据'],
+    ['训练已暂停', '训练已暂停'],
+    ['训练已停止', '训练已停止'],
+    ['训练完成', '已完成拟合'],
+  ])('无损失快照在 %s 时展示真实状态', (status, message) => {
+    render(<TrainingProgressChart snapshots={[{ iteration: 0 }]} status={status} />)
+    expect(screen.getByText(message)).toBeInTheDocument()
+    if (status !== '训练完成') expect(screen.queryByText('已完成拟合')).not.toBeInTheDocument()
+  })
+
   it('在没有训练快照时显示空状态', () => {
     render(<TrainingProgressChart snapshots={[]} />)
 

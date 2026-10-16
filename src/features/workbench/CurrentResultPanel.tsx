@@ -15,7 +15,7 @@ export function CurrentResultPanel({ result }: { result: CurrentResult }) {
     <section className="workbench-page-card current-result current-result--padded" aria-labelledby="current-result-title">
       <h3 id="current-result-title">当前结果</h3>
       <div className="metric-grid">
-        {([['准确率', metrics.accuracy], ['Precision', metrics.precision], ['Recall', metrics.recall], ['F1', metrics.f1]] as const).map(([label, value]) => (
+        {([['准确率', metrics.accuracy], ['精确率', metrics.precision], ['召回率', metrics.recall], ['F1', metrics.f1]] as const).map(([label, value]) => (
           <div key={label}><strong>{(value * 100).toFixed(1)}%</strong><span>{label}</span></div>
         ))}
       </div>

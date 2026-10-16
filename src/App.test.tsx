@@ -1,4 +1,4 @@
-﻿import { cleanup, render, screen } from '@testing-library/react'
+﻿import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
@@ -46,5 +46,52 @@ describe('实验工作台', () => {
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('knn')
     expect(screen.getByText('请重新训练')).toBeInTheDocument()
+  })
+
+  it('确认后返回保留导航权限，实际更改数据后需重新确认', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const workflow = screen.getByRole('tab', { name: '实验流程' })
+    expect(workflow).toBeDisabled()
+    expect(workflow).toHaveAttribute('title', '请先确认数据集')
+    expect(screen.getByText('请先确认数据集，再进入实验流程。')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.click(screen.getByRole('button', { name: '更换数据集' }))
+    expect(workflow).toBeEnabled()
+    await user.selectOptions(screen.getByLabelText('内置数据集'), 'xor')
+    expect(workflow).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    expect(workflow).toBeEnabled()
+    expect(screen.getByRole('region', { name: '当前数据集' })).toHaveTextContent('XOR')
+  })
+
+  it('CSV 错误禁用确认，重新选择或导入合法数据可恢复', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const confirm = screen.getByRole('button', { name: '确认数据集并进入实验流程' })
+    await user.upload(screen.getByLabelText('上传 CSV'), new File(['x,y,label\nnope,,'], 'bad.csv', { type: 'text/csv' }))
+    await screen.findByRole('alert')
+    expect(confirm).toBeDisabled()
+    await user.selectOptions(screen.getByLabelText('内置数据集'), 'xor')
+    expect(confirm).toBeEnabled()
+    await user.upload(screen.getByLabelText('上传 CSV'), new File(['x,y,label\n1,2,A\n3,4,B'], 'good.csv', { type: 'text/csv' }))
+    await waitFor(() => expect(screen.getByLabelText('内置数据集')).toHaveValue('csv'))
+    expect(confirm).toBeEnabled()
+    await user.click(confirm)
+    await user.click(screen.getByRole('button', { name: '更换数据集' }))
+    expect(screen.getByLabelText('内置数据集')).toHaveValue('csv')
+    expect(screen.getByRole('option', { name: '当前导入的 CSV 数据集' })).toBeInTheDocument()
+    expect(screen.getByText('前 2 条有效样本')).toBeInTheDocument()
+  })
+
+  it('单步在没有活动 Worker 时不会伪造快照', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
+    act(() => useWorkbenchStore.getState().setTraining({ status: '训练已暂停', snapshots: [{ iteration: 1, loss: 1 }] }))
+    await user.click(screen.getByRole('button', { name: '单步' }))
+    expect(useWorkbenchStore.getState().training.snapshots).toEqual([{ iteration: 1, loss: 1 }])
+    expect(within(screen.getByRole('main', { name: '训练画布' })).getByText('第 1 次迭代 · 损失 1.0000')).toBeInTheDocument()
   })
 })

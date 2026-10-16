@@ -52,7 +52,7 @@ export function StepLabLayout({ activeStage, stages, stageProgress = {}, summary
     </main>
 
     <aside className="step-lab-summary" aria-label="实验摘要">
-      <p className="eyebrow">EXPERIMENT</p><h2>实验摘要</h2>
+      <p className="eyebrow">当前实验</p><h2>实验摘要</h2>
       <dl>
         <div><dt>数据集</dt><dd>{summary.datasetName || '未选择'}</dd></div>
         <div><dt>样本数</dt><dd>{summary.sampleCount ?? '—'}</dd></div>

@@ -6,6 +6,30 @@ import { defaultVisualLayers } from '../training/visualNetwork'
 
 describe('单页训练工作台', () => {
   afterEach(cleanup)
+
+  it.each(['训练完成', '训练已停止', '训练失败'])('终态 %s 禁止继续、单步与停止', (status) => {
+    render(<SinglePageWorkbench {...baseProps} status={status} snapshots={[{ iteration: 0 }]} />)
+    for (const name of ['暂停', '继续', '单步', '停止']) expect(screen.getByRole('button', { name })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '开始训练' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '重置' })).toBeEnabled()
+  })
+
+  it('运行与暂停期间的控制按钮随状态变化', () => {
+    const { rerender } = render(<SinglePageWorkbench {...baseProps} status="训练中…" snapshots={[]} />)
+    expect(screen.getByRole('button', { name: '开始训练' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '暂停' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '停止' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '单步' })).toBeDisabled()
+    rerender(<SinglePageWorkbench {...baseProps} status="训练已暂停" snapshots={[]} />)
+    expect(screen.getByRole('button', { name: '暂停' })).toBeDisabled()
+    for (const name of ['继续', '单步', '停止']) expect(screen.getByRole('button', { name })).toBeEnabled()
+  })
+
+  it('非迭代模型完成时展示拟合完成时间线', () => {
+    render(<SinglePageWorkbench {...baseProps} model="knn" status="训练完成" snapshots={[{ iteration: 0 }]} />)
+    expect(screen.queryByText('第 0 次迭代')).not.toBeInTheDocument()
+    expect(screen.getByRole('listitem')).toHaveTextContent('已完成拟合')
+  })
   const baseProps = {
     model: 'logistic-regression' as const,
     params: { learningRate: 0.1, iterations: 20, regularization: 0.001 },

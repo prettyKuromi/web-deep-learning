@@ -19,10 +19,11 @@ export interface DatasetPageProps {
   onError?: (message: string) => void
   onContinue?: () => void
   initialDataset?: Dataset
+  onValidityChange?: (valid: boolean) => void
 }
 
-export function DatasetPage({ onDatasetChange, onError, onContinue, initialDataset }: DatasetPageProps) {
-  return <section className="workbench-page dataset-page" aria-labelledby="page-数据集"><div className="dataset-workspace"><header className="page-heading"><p className="eyebrow">DATASET / 01</p><h2 id="page-数据集">数据集</h2><p>选择内置数据集，或上传自己的多维数值特征 CSV 文件。</p></header><DatasetPanel initialDataset={initialDataset} onDatasetChange={onDatasetChange} onError={onError} action={<button className="primary-button dataset-continue" type="button" onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></section>
+export function DatasetPage({ onDatasetChange, onError, onContinue, initialDataset, onValidityChange }: DatasetPageProps) {
+  return <section className="workbench-page dataset-page" aria-labelledby="page-数据集"><div className="dataset-workspace"><header className="page-heading"><p className="eyebrow">数据准备 / 01</p><h2 id="page-数据集">数据集</h2><p>选择内置数据集，或上传自己的多维数值特征 CSV 文件。</p></header><DatasetPanel initialDataset={initialDataset} onValidityChange={onValidityChange} onDatasetChange={onDatasetChange} onError={onError} action={(valid) => <button className="primary-button dataset-continue" type="button" disabled={!valid} onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></section>
 }
 
 export interface ModelPageProps {
@@ -51,7 +52,7 @@ const modelInfo: Record<ModelKind, { name: string; description: string }> = {
 
 export function ModelPage({ value, onChange, dataset }: ModelPageProps) {
   const [task, setTask] = useState<TaskKind>(modelTask[value])
-  return <PageShell eyebrow="MODEL / 02" title="模型" description="选择要训练的算法，并查看其适用范围。">
+  return <PageShell eyebrow="选择模型 / 02" title="模型" description="选择要训练的算法，并查看其适用范围。">
     <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => setTask(kind)}>{taskLabels[kind]}</button>)}</div>
     {value === 'mlp' && <p className="model-suitability-notice">适用提醒：MLP 适合数值特征和较复杂的非线性关系；样本过少、类别极不平衡或特征尺度差异很大时，结果可能不稳定。请先进行标准化，并结合验证集指标判断模型是否过拟合。</p>}
     <div className="workbench-page-card model-options" role="radiogroup" aria-label="模型类型">
@@ -71,7 +72,7 @@ export interface TrainingPageProps {
 }
 
 export function TrainingPage({ status, onTrain, disabled, children }: TrainingPageProps) {
-  return <PageShell eyebrow="TRAINING / 03" title="训练" description="设置参数并启动训练。训练状态和进度会实时显示。">
+  return <PageShell eyebrow="开始训练 / 03" title="训练" description="设置参数并启动训练。训练状态和进度会实时显示。">
     <div className="workbench-page-card training-panel">
       <div className="training-status-large" role="status">{status}</div>
       {children}
@@ -87,12 +88,12 @@ export interface ResultsPageProps {
 }
 
 export function ResultsPage({ records, onSelect, selectedId }: ResultsPageProps) {
-  return <PageShell eyebrow="RESULTS / 04" title="结果" description="查看此前实验的指标、参数和训练时间，随时回看结果。">
+  return <PageShell eyebrow="实验结果 / 04" title="结果" description="查看此前实验的指标、参数和训练时间，随时回看结果。">
     <div className="workbench-page-card results-panel">
-      {records.length === 0 ? <p className="empty-state">暂无训练记录。完成一次训练后，结果会显示在这里。</p> : <div className="results-list">{records.map((record) => <article className="result-row" key={record.id}>
+      {records.length === 0 ? <p className="empty-state">暂无训练记录。完成一次训练后，结果会显示在这里。</p> : <div className="results-list">{records.map((record) => <article className={`result-row${selectedId === record.id ? ' is-selected' : ''}`} key={record.id}>
         <div><strong>{record.datasetName}</strong><span>{record.model} · {record.timestamp}</span></div>
         <div className="result-metric">准确率 {record.metrics.accuracy == null ? '—' : `${(record.metrics.accuracy * 100).toFixed(1)}%`}</div>
-        {onSelect && <button className={selectedId === record.id ? 'is-selected' : ''} type="button" onClick={() => onSelect(record)}>查看详情</button>}
+        {onSelect && <button className={selectedId === record.id ? 'is-selected' : ''} aria-pressed={selectedId === record.id} type="button" onClick={() => onSelect(record)}>{selectedId === record.id ? '当前查看' : '查看详情'}</button>}
       </article>)}</div>}
     </div>
   </PageShell>

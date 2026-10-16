@@ -6,14 +6,15 @@ export type TopLevelPage = 'dataset' | 'workflow' | 'history'
 export interface TopLevelNavigationProps {
   activePage: TopLevelPage
   onPageChange: (page: TopLevelPage) => void
+  workflowDisabled?: boolean
 }
 
-export function TopLevelNavigation({ activePage, onPageChange }: TopLevelNavigationProps) {
-  return <nav className="top-level-navigation" aria-label="主导航" role="tablist">
+export function TopLevelNavigation({ activePage, onPageChange, workflowDisabled = false }: TopLevelNavigationProps) {
+  return <div className="top-level-navigation-wrap"><nav className="top-level-navigation" aria-label="主导航" role="tablist">
     <button type="button" role="tab" aria-selected={activePage === 'dataset'} className={activePage === 'dataset' ? 'active' : ''} onClick={() => onPageChange('dataset')}>数据集选择</button>
-    <button type="button" role="tab" aria-selected={activePage === 'workflow'} className={activePage === 'workflow' ? 'active' : ''} onClick={() => onPageChange('workflow')}>实验流程</button>
+    <button type="button" role="tab" aria-selected={activePage === 'workflow'} disabled={workflowDisabled} title={workflowDisabled ? '请先确认数据集' : '配置模型并训练'} aria-describedby={workflowDisabled ? 'workflow-navigation-hint' : undefined} className={activePage === 'workflow' ? 'active' : ''} onClick={() => onPageChange('workflow')}>实验流程</button>
     <button type="button" role="tab" aria-selected={activePage === 'history'} className={activePage === 'history' ? 'active' : ''} onClick={() => onPageChange('history')}>历史记录</button>
-  </nav>
+  </nav>{workflowDisabled && <p className="navigation-hint" id="workflow-navigation-hint">请先确认数据集，再进入实验流程。</p>}</div>
 }
 
 export interface HistoryPageProps {
@@ -26,7 +27,7 @@ export interface HistoryPageProps {
 export function HistoryPage({ records, onSelect, selectedDetail, selectedId }: HistoryPageProps) {
   return <section className="history-page" aria-labelledby="history-page-title">
     <header className="page-heading">
-      <p className="eyebrow">HISTORY / 01</p>
+      <p className="eyebrow">实验回顾</p>
       <h2 id="history-page-title">历史训练记录</h2>
       <p>查看已保存的训练实验，回顾模型参数与评估结果。</p>
     </header>
@@ -34,7 +35,7 @@ export function HistoryPage({ records, onSelect, selectedDetail, selectedId }: H
       <section className="history-list-panel" data-testid="history-list-panel" aria-label="训练记录列表">
         <div className="history-panel-heading">
           <div>
-            <p className="eyebrow">SAVED EXPERIMENTS</p>
+            <p className="eyebrow">已保存的实验</p>
             <h3>全部记录</h3>
           </div>
           <span className="history-count">{records.length} 条</span>

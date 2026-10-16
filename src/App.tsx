@@ -52,7 +52,8 @@ export default function App() {
     const controller = new AbortController()
     abortRef.current = controller
     stopRequestedRef.current = false
-    setTraining({ status: '训练中…', progress: 0, snapshots: [], error: undefined })
+    setSelectedId(undefined)
+    setTraining({ status: '训练中…', progress: 0, snapshots: [], error: undefined, metrics: undefined })
     try {
       const kind = modelConfig.kind
       const trainer = trainers[kind] as any
@@ -64,6 +65,7 @@ export default function App() {
       const result = typeof Worker === 'undefined'
         ? await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted)
         : await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal)
+      if (controller.signal.aborted || abortRef.current !== controller) return
       const predictions = trainer.predict(result.model, dataset.features)
       const metrics = modelTask[kind] === 'classification' ? classificationMetrics(dataset.labels, predictions) : undefined
       const record = { id: String(Date.now()), createdAt: Date.now(), dataset, modelKind: kind, config: modelConfig.params, metrics, snapshots: result.snapshots, model: result.model, predictions }
@@ -72,24 +74,25 @@ export default function App() {
       setTraining({ status: '训练完成', progress: 100, snapshots: result.snapshots, metrics })
       setSelectedId(record.id)
     } catch (error) {
+      if (abortRef.current !== controller) return
       setTraining({ status: stopRequestedRef.current ? '训练已停止' : error instanceof DOMException && error.name === 'AbortError' ? '训练已取消' : '训练失败', error: stopRequestedRef.current ? undefined : error instanceof Error ? error.message : '训练失败' })
     } finally {
-      workerClientRef.current = null
+      if (abortRef.current === controller) workerClientRef.current = null
     }
   }
 
-  const pauseTraining = () => { workerClientRef.current?.sendControl('pause'); setTraining({ status: '训练已暂停' }) }
-  const resumeTraining = () => { workerClientRef.current?.sendControl('resume'); setTraining({ status: '训练中…' }) }
+  const pauseTraining = () => { if (!workerClientRef.current || training.status !== '训练中…') return; workerClientRef.current.sendControl('pause'); setTraining({ status: '训练已暂停' }) }
+  const resumeTraining = () => { if (!workerClientRef.current || training.status !== '训练已暂停') return; workerClientRef.current.sendControl('resume'); setTraining({ status: '训练中…' }) }
   const stepTraining = () => {
-    workerClientRef.current?.sendControl('step')
-    const last = training.snapshots.at(-1)
-    if (!last) return
-    setTraining({ snapshots: [...training.snapshots, { ...last, iteration: last.iteration + 1, step: (last.step ?? last.iteration) + 1 }] })
+    if (training.status === '训练已暂停') workerClientRef.current?.sendControl('step')
   }
   const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); abortRef.current?.abort(); setTraining({ status: '训练已停止', error: undefined }) }
-  const resetTraining = () => { abortRef.current?.abort(); setSelectedId(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
+  const resetTraining = () => { abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setSelectedId(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
   const handleDatasetChange = (nextDataset: typeof dataset) => {
     abortRef.current?.abort()
+    abortRef.current = null
+    workerClientRef.current = null
+    setDatasetConfirmed(false)
     setSelectedId(undefined)
     setDataset(nextDataset)
     if (modelConfig.kind && !isModelCompatible(modelConfig.kind, nextDataset).compatible) setModelConfig({ kind: recommendedModel(nextDataset), params: defaults[recommendedModel(nextDataset)] })
@@ -102,10 +105,20 @@ export default function App() {
   }
 
   const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), metrics: record.metrics ?? {} }))
-  const explanationPanel = modelConfig.kind ? <ModelExplanationPanel kind={modelConfig.kind} model={selected?.model} snapshots={training.snapshots} dimensions={dataset.features[0]?.length} /> : undefined
-  return <main className="app-shell"><header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">WEB DEEP LEARNING / WORKBENCH</p><h1>机器学习实验工作台</h1><p className="header-subtitle">先选择数据，再观察训练并理解模型。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">MVP 实验版</span></div></header><TopLevelNavigation activePage={topPage} onPageChange={handleTopPageChange} /><section className="app-content">{topPage === 'dataset' ? <DatasetPage initialDataset={dataset} onDatasetChange={handleDatasetChange} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={setVisualLayers} model={modelConfig.kind} params={modelConfig.params} datasetName={dataset.name} status={training.error ? `${training.status}：${training.error}` : training.status} snapshots={training.snapshots} onDatasetChange={handleDatasetChange} onChangeDataset={() => { setDatasetConfirmed(false); setTopPage('dataset') }} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })} onModelChange={(kind) => { setSelectedId(undefined); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => setModelConfig({ params })} onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining} explanation={explanationPanel} currentResult={selected?.metrics && modelConfig.kind && modelTask[modelConfig.kind] === 'classification' ? { dataset: selected.dataset, predictions: selected.predictions, metrics: selected.metrics, predict: (point) => predictionLabel(selected.modelKind, selected.model, point) } : undefined} error={training.error} /> : <HistoryPage records={records} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id)} selectedDetail={selected ? <ExperimentDetail record={selected} /> : undefined} />}</section></main>
+  const explanationPanel = modelConfig.kind ? <ModelExplanationPanel kind={modelConfig.kind} model={selected?.model} snapshots={training.snapshots} status={training.status} dimensions={dataset.features[0]?.length} /> : undefined
+  return <main className="app-shell">
+    <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">浏览器机器学习实验</p><h1>机器学习实验工作台</h1><p className="header-subtitle">先选择数据，再观察训练并理解模型。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
+    <TopLevelNavigation activePage={topPage} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
+    <section className="app-content">{topPage === 'dataset' ? <DatasetPage initialDataset={dataset} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench
+      dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={setVisualLayers} model={modelConfig.kind} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots}
+      onDatasetChange={handleDatasetChange} onChangeDataset={() => setTopPage('dataset')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
+      onModelChange={(kind) => { resetTraining(); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => setModelConfig({ params })}
+      onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining}
+      explanation={explanationPanel} currentResult={selected?.metrics && modelConfig.kind && modelTask[modelConfig.kind] === 'classification' ? { dataset: selected.dataset, predictions: selected.predictions, metrics: selected.metrics, predict: (point) => predictionLabel(selected.modelKind, selected.model, point) } : undefined} error={training.error}
+    /> : <HistoryPage records={records} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id)} selectedDetail={selected ? <ExperimentDetail record={selected} /> : undefined} />}</section>
+  </main>
 }
 
 function ExperimentDetail({ record }: { record: ReturnType<typeof useWorkbenchStore.getState>['experiments'][number] }) {
-  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2>{record.metrics ? <><div className="metric-grid">{[['准确率', record.metrics.accuracy], ['Precision', record.metrics.precision], ['Recall', record.metrics.recall], ['F1', record.metrics.f1]].map(([label, value]) => <div key={String(label)}><strong>{Number(value).toFixed(3)}</strong><span>{label}</span></div>)}</div><p className="detail-explanation">准确率是整体预测正确比例，Precision、Recall、F1 是各类别宏平均。</p><div className="matrix-wrap"><h3>混淆矩阵</h3><table><tbody>{record.metrics.confusionMatrix.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table></div>{record.dataset.dataType !== 'image' && <div className="chart-frame"><DecisionBoundaryChart features={record.dataset.features} labels={record.dataset.labels} predictions={record.predictions} predict={(point) => predictionLabel(record.modelKind, record.model, point)} /></div>}</> : <p>该任务已完成计算，当前结果为无监督或连续值预测结果。</p>}</section>
+  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2>{record.metrics ? <><div className="metric-grid">{[['准确率', record.metrics.accuracy], ['精确率', record.metrics.precision], ['召回率', record.metrics.recall], ['F1', record.metrics.f1]].map(([label, value]) => <div key={String(label)}><strong>{(Number(value) * 100).toFixed(1)}%</strong><span>{label}</span></div>)}</div><p className="detail-explanation">准确率是整体预测正确比例，精确率、召回率、F1 是各类别宏平均。</p><div className="matrix-wrap"><h3>混淆矩阵</h3><table><tbody>{record.metrics.confusionMatrix.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table></div>{record.dataset.dataType !== 'image' && <div className="chart-frame"><DecisionBoundaryChart features={record.dataset.features} labels={record.dataset.labels} predictions={record.predictions} predict={(point) => predictionLabel(record.modelKind, record.model, point)} /></div>}</> : <p>该任务已完成计算，当前结果为无监督或连续值预测结果。</p>}</section>
 }

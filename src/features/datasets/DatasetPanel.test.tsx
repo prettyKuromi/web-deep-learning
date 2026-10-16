@@ -90,4 +90,11 @@ describe('DatasetPanel', () => {
     await waitFor(() => expect(screen.getByText(/高维数据的二维投影仅用于观察/)).toBeInTheDocument())
     expect(screen.getByText(/样本量较少/)).toBeInTheDocument()
   })
+
+  it('数值预览最多四位小数并保留完整值', () => {
+    render(<DatasetPanel initialDataset={{ name: 'CSV 数据集', features: [[1.123456789, 2], [3, 4]], labels: ['A', 'B'] }} onDatasetChange={vi.fn()} />)
+    expect(screen.getByRole('cell', { name: '1.1235' })).toHaveAttribute('title', '1.123456789')
+    expect(screen.getAllByTitle('1.123456789')).toHaveLength(2)
+    expect(screen.getByLabelText('内置数据集')).toHaveValue('csv')
+  })
 })

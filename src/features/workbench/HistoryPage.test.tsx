@@ -21,8 +21,9 @@ describe('HistoryPage', () => {
     render(<HistoryPage records={[record]} selectedId={record.id} onSelect={onSelect} />)
 
     expect(screen.getByText('月牙形')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '查看详情' })).toHaveClass('is-selected')
-    await user.click(screen.getByRole('button', { name: '查看详情' }))
+    expect(screen.getByRole('button', { name: '当前查看' })).toHaveClass('is-selected')
+    expect(screen.getByRole('button', { name: '当前查看' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: '当前查看' }))
     expect(onSelect).toHaveBeenCalledWith(record)
   })
 
