@@ -15,8 +15,9 @@ export function TrainingProgressChart({ snapshots, width = 640, height = 280 }: 
 
   if (points.length === 0) {
     return (
-      <div role="img" aria-label="训练损失曲线" style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>
-        暂无训练过程数据
+      <div role="img" aria-label="训练损失曲线" style={{ display: 'grid', gap: 8, padding: 32, textAlign: 'center', color: '#64748b' }}>
+        <strong style={{ color: '#dbeafe', fontSize: 14 }}>{snapshots.length > 0 ? '模型已完成训练' : '暂无训练过程数据'}</strong>
+        <span style={{ color: '#9fb4d2' }}>{snapshots.length > 0 ? '该模型无需迭代，已可用于预测。' : '开始训练后，这里会显示损失变化。'}</span>
       </div>
     )
   }
