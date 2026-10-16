@@ -8,6 +8,10 @@ export interface TopLevelNavigationProps {
   onPageChange: (page: TopLevelPage) => void
   workflowDisabled?: boolean
   configurationDisabled?: boolean
+  onImport?: (file: File) => void
+  onExport?: () => void
+  onDelete?: () => void
+  importError?: string
 }
 
 export function TopLevelNavigation({ activePage, onPageChange, workflowDisabled = false, configurationDisabled = false }: TopLevelNavigationProps) {
@@ -19,13 +23,17 @@ export function TopLevelNavigation({ activePage, onPageChange, workflowDisabled 
 }
 
 export interface HistoryPageProps {
+  onImport?: (file: File) => void
+  onExport?: () => void
+  onDelete?: () => void
+  importError?: string
   records: readonly ExperimentRecord[]
   onSelect?: (record: ExperimentRecord) => void
   selectedDetail?: ReactNode
   selectedId?: string
 }
 
-export function HistoryPage({ records, onSelect, selectedDetail, selectedId }: HistoryPageProps) {
+export function HistoryPage({ records, onSelect, selectedDetail, selectedId, onImport, onExport, onDelete, importError }: HistoryPageProps) {
   return <section className="history-page" aria-labelledby="history-page-title">
     <header className="page-heading">
       <p className="eyebrow">实验回顾</p>
@@ -39,9 +47,9 @@ export function HistoryPage({ records, onSelect, selectedDetail, selectedId }: H
             <p className="eyebrow">已保存的实验</p>
             <h3>全部记录</h3>
           </div>
-          <span className="history-count">{records.length} 条</span>
+          <span className="history-count">{records.length} 条</span><div className="history-actions">{onExport && <button type="button" onClick={onExport} disabled={!records.length}>导出 JSON</button>}{onImport && <label><span className="visually-hidden">导入 JSON</span><input type="file" accept="application/json,.json" onChange={event => { const file = event.target.files?.[0]; if (file) onImport(file); event.currentTarget.value = "" }} />导入 JSON</label>}{onDelete && <button type="button" onClick={onDelete} disabled={!selectedId}>删除当前</button>}</div>
         </div>
-        <div className="history-list-scroll">
+        {importError && <p role="alert" className="single-page-error">{importError}</p>}<div className="history-list-scroll">
           {records.length === 0 ? <p className="empty-state history-empty-list">暂无训练记录。完成一次训练后，记录会保存在这里。</p> : <ResultsPage records={records} onSelect={onSelect} selectedId={selectedId} />}
         </div>
       </section>

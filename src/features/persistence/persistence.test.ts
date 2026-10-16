@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ExperimentRecord } from '../../app/workbenchTypes'
 import {
   deleteExperiment,
@@ -8,6 +8,12 @@ import {
   saveExperiment,
 } from './persistence'
 
+const storage = vi.hoisted(() => ({ records: new Map<string, ExperimentRecord>(), fail: false }))
+vi.mock('dexie', () => ({ default: class {
+  experiments = { bulkPut: async (items: ExperimentRecord[]) => { items.forEach(item => storage.records.set(item.id, item)) }, bulkDelete: async (ids: string[]) => { ids.forEach(id => storage.records.delete(id)) }, delete: async (id: string) => { storage.records.delete(id) }, toArray: async () => [...storage.records.values()] }
+  version() { return { stores() {} } }
+  async transaction(_mode: unknown, _table: unknown, callback: () => Promise<unknown>) { if (storage.fail) throw new Error('quota'); return callback() }
+} }))
 const record = (id: string, createdAt = 1): ExperimentRecord => ({
   id,
   createdAt,
@@ -20,6 +26,7 @@ const record = (id: string, createdAt = 1): ExperimentRecord => ({
 
 describe('实验持久化', () => {
   beforeEach(async () => {
+    storage.fail = false; storage.records.clear()
     for (const item of await listExperiments()) await deleteExperiment(item.id)
   })
 
@@ -44,3 +51,20 @@ describe('实验持久化', () => {
     await expect(importExperiments('{"version":1,"experiments":[{}]}')).rejects.toThrow('必填')
   })
 })
+
+it('导入任意非法模型或维度时全量拒绝，不部分写入', async () => {
+  await saveExperiment(record('original'))
+  const before = await listExperiments()
+  await expect(importExperiments(JSON.stringify({version: 1, experiments: [record('valid'), {...record('invalid'), modelKind: 'unknown-model'}]}))).rejects.toThrow('模型')
+  expect(await listExperiments()).toEqual(before)
+  await expect(importExperiments(JSON.stringify({version: 1, experiments: [{...record('invalid'), dataset: {features: [[0, 1], [1]], labels: [0, 1]}}]}))).rejects.toThrow('维度')
+})
+it('拒绝模型权重形状、预测长度与指标错误', async () => {
+  for (const invalid of [
+    {...record('bad'), predictions: [0]},
+    {...record('bad'), metrics: {accuracy: 5}},
+    {...record('bad'), modelKind: 'mlp', model: {kind: 'mlp', layers: [2, 2], labels: [0, 1], weights: [], biases: []}},
+  ]) await expect(importExperiments(JSON.stringify({version: 1, experiments: [invalid]}))).rejects.toThrow()
+})
+
+it("保存故障不静默冒充持久化", async () => { if (typeof indexedDB === "undefined") return; storage.fail = true; await expect(saveExperiment(record("failure"))).rejects.toThrow("本地存储"); expect(storage.records.size).toBe(0) })

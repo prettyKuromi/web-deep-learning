@@ -1,6 +1,7 @@
-import { ExperimentResultPanel, experimentSummary } from './features/workbench/ExperimentResultPanel'
+import { ExperimentResultPanel } from './features/workbench/ExperimentResultPanel'
+import { experimentSummary } from './features/workbench/resultUtils'
 import { defaultParameters, validateParameters } from './features/training/modelParameters'
-﻿import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { isModelCompatible, modelTask, recommendedModel, type ModelKind } from './app/workbenchTypes'
 import { useWorkbenchStore } from './app/workbenchStore'
 import { classificationMetrics } from './features/training/metrics'
@@ -17,7 +18,7 @@ import { createDbscanTrainer } from './features/training/dbscan'
 import { createMlpTrainer } from './features/training/mlp'
 import { createVisualCnnTrainer } from './features/training/visualCnn'
 import { createTrainInWorkerClient, runTrainingInHandler, type WorkerTrainConfig } from './features/training/workerClient'
-import { saveExperiment } from './features/persistence/persistence'
+import { saveExperiment, exportExperiments, importExperiments, deleteExperiment } from './features/persistence/persistence'
 import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/workbench/HistoryPage'
 import { DatasetPage } from './features/workbench/pages'
 import type { DatasetImportState } from './features/datasets/DatasetPanel'
@@ -40,11 +41,14 @@ export default function App() {
   const [currentExperimentId, setCurrentExperimentId] = useState<string>()
   const [historySelectedId, setHistorySelectedId] = useState<string>()
   const [topPage, setTopPage] = useState<TopLevelPage>('dataset')
+  const [persistenceNotice, setPersistenceNotice] = useState('')
+  const [historyError, setHistoryError] = useState('')
   const [datasetConfirmed, setDatasetConfirmed] = useState(false)
   const [datasetImportState, setDatasetImportState] = useState<DatasetImportState>({ pending: false, error: '' })
   const [parametersValid, setParametersValid] = useState(true)
   const [selectedStep, setSelectedStep] = useState<number>()
   const [visualLayers, setVisualLayers] = useState(defaultVisualLayers)
+  useEffect(() => { if (typeof indexedDB !== 'undefined') void useWorkbenchStore.getState().loadExperiments().catch(error => setHistoryError(error instanceof Error ? error.message : '历史记录加载失败')) }, [])
   const abortRef = useRef<AbortController | null>(null)
   const workerClientRef = useRef<ReturnType<typeof createTrainInWorkerClient> | null>(null)
   const stopRequestedRef = useRef(false)
@@ -87,7 +91,7 @@ export default function App() {
       const metrics = modelTask[kind] === 'classification' ? classificationMetrics(dataset.labels, predictions) : undefined
       const record = { id: String(Date.now()), createdAt: Date.now(), dataset, modelKind: kind, config: { ...effectiveParams, ...mlpParams, ...cnnParams }, metrics, snapshots: result.snapshots, model: result.model, predictions }
       addExperiment(record)
-      void saveExperiment(record)
+      void saveExperiment(record).then(() => setPersistenceNotice('')).catch(() => setPersistenceNotice('训练已完成，但未保存；刷新页面可能丢失本次记录。'))
       setTraining({ status: '训练完成', progress: 100, snapshots: result.snapshots, metrics })
       setCurrentExperimentId(record.id)
       setHistorySelectedId(record.id)
@@ -138,7 +142,7 @@ export default function App() {
       onModelChange={(kind) => { resetTraining(); setParametersValid(true); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => { invalidateConfiguration(); setModelConfig({ params }) }}
       onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining}
       explanation={explanationPanel} resultPanel={currentExperiment ? <ExperimentResultPanel record={currentExperiment} predict={(point) => predictionLabel(currentExperiment.modelKind, currentExperiment.model, point)} /> : undefined} error={training.error}
-    /> : <HistoryPage records={records} selectedId={historySelectedId} onSelect={(item) => setHistorySelectedId(item.id)} selectedDetail={historySelected ? <ExperimentDetail record={historySelected} /> : undefined} />}</section>
+    /> : <HistoryPage records={records} selectedId={historySelectedId} onSelect={(item) => setHistorySelectedId(item.id)} selectedDetail={historySelected ? <ExperimentDetail record={historySelected} /> : undefined} importError={historyError || persistenceNotice} onExport={async () => { const json = await exportExperiments(useWorkbenchStore.getState().experiments); const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'web-deep-learning-experiments.json'; anchor.click(); URL.revokeObjectURL(url) }} onImport={async (file: File) => { try { const records = await importExperiments(await file.text()); useWorkbenchStore.getState().mergeExperiments(records); setHistoryError('') } catch (error) { setHistoryError(error instanceof Error ? error.message : '导入失败') } }} onDelete={() => { if (!historySelectedId) return; const id = historySelectedId; void Promise.resolve(deleteExperiment(id)).then(() => { useWorkbenchStore.getState().removeExperiment(id); setHistorySelectedId(undefined) }).catch(() => setHistoryError('删除失败：本地存储不可用')) }} />}</section>
   </main>
 }
 

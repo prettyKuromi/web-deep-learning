@@ -59,3 +59,7 @@ h1, h2, h3, h4, p { margin-top: 0; } h1 { margin-bottom: 3px; color: var(--ink-s
 .experiment-parameters { display: grid; gap: 8px; font-size: 13px; overflow-wrap: anywhere; }
 .experiment-parameters div { display: flex; gap: 12px; flex-wrap: wrap; }
 .experiment-parameters dd { margin: 0; }
+
+.history-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.history-actions input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.history-actions label, .history-actions button { cursor: pointer; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 9px; background: #fff; color: #334155; font-size: 12px; }

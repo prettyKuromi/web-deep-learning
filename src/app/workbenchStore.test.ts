@@ -21,7 +21,7 @@ describe('workbench store', () => {
     expect(useWorkbenchStore.getState().activeStage).toBe('结果')
   })
 
-  it('keeps only the latest 20 experiments and persists them', () => {
+  it('仅在会话保存最近 20 条，不双写 localStorage', () => {
     const add = useWorkbenchStore.getState().addExperiment
     for (let index = 0; index < 21; index += 1) {
       add({ id: String(index), createdAt: index, dataset: { features: [[index, index]], labels: [index] }, modelKind: 'knn', config: { k: 3 }, metrics: undefined, snapshots: [], model: undefined, predictions: [] })
@@ -29,14 +29,14 @@ describe('workbench store', () => {
     const experiments = useWorkbenchStore.getState().experiments
     expect(experiments).toHaveLength(20)
     expect(experiments[0].id).toBe('20')
-    const saved = JSON.parse(localStorage.getItem('web-deep-learning-workbench') ?? '{}')
-    expect(saved.experiments).toHaveLength(20)
+    expect(localStorage.getItem('web-deep-learning-workbench')).toBeNull()
   })
 
-  it('restores experiments from localStorage on load', () => {
-    localStorage.setItem('web-deep-learning-workbench', JSON.stringify({ state: { experiments: [{ id: 'saved' }] } }))
-    useWorkbenchStore.getState().loadExperiments()
-    expect(useWorkbenchStore.getState().experiments[0].id).toBe('saved')
+  it('合并加载的历史不会覆盖会话中新完成的记录', () => {
+    const current = { id: 'current', createdAt: 2 } as never
+    useWorkbenchStore.getState().addExperiment(current)
+    useWorkbenchStore.getState().mergeExperiments([{id: 'saved', createdAt: 1} as never])
+    expect(useWorkbenchStore.getState().experiments.map(item => item.id)).toEqual(['current', 'saved'])
   })
 })
 
