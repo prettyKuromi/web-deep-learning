@@ -50,4 +50,5 @@ h1, h2, h3, h4, p { margin-top: 0; } h1 { margin-bottom: 3px; color: var(--ink-s
 .dataset-table-wrap table { table-layout: fixed; }
 .dataset-preview-grid ul, .dataset-compatibility { overflow-wrap: anywhere; }
 .primary-button, .single-page-controls .primary-button { background: linear-gradient(135deg, #61e6ff, #78c9ef); }
+.single-page-controls .primary-button:hover:not(:disabled) { color: #03111d; }
 .model-suitability-notice { margin: 0; border: 1px solid var(--line); border-radius: 8px; padding: 10px; color: var(--muted); background: rgba(3, 14, 30, .2); font-size: .75rem; line-height: 1.6; }
