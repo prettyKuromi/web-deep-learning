@@ -19,11 +19,12 @@ export function CurrentResultPanel({ result }: { result: CurrentResult }) {
           <div key={label}><strong>{(value * 100).toFixed(1)}%</strong><span>{label}</span></div>
         ))}
       </div>
+      <p className="detail-explanation">训练集指标，不能代表泛化能力。精确率、召回率与 F1 为各类别宏平均。</p>
       <div className="matrix-wrap">
         <h4>混淆矩阵</h4>
-        <table><tbody>{metrics.confusionMatrix.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table>
+        <p>行是真实类别，列是预测类别。</p><table><thead><tr><th scope="col">真实 / 预测</th>{metrics.labels.map(label => <th scope="col" key={String(label)}>{label}</th>)}</tr></thead><tbody>{metrics.confusionMatrix.map((row, index) => <tr key={index}><th scope="row">{metrics.labels[index]}</th>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}</tbody></table>
       </div>
-      {predict && dataset.dataType !== 'image' && dataset.features.length > 0 && (
+      {dataset.dataType !== 'image' && dataset.features.length > 0 && (
         <div className="chart-frame">
           {dataset.features[0]?.length >= 2 && <DecisionBoundaryChart features={dataset.features.map(([x, y]) => [x, y] as const)} labels={dataset.labels} predictions={predictions} predict={dataset.features[0]?.length === 2 ? predict : undefined} />}
           {dataset.features[0]?.length > 2 && <p className="projection-notice">当前图表仅展示前两个特征的投影，不代表真实的高维决策边界。</p>}

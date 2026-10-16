@@ -39,3 +39,9 @@ describe('workbench store', () => {
     expect(useWorkbenchStore.getState().experiments[0].id).toBe('saved')
   })
 })
+
+it('切换模型时替换参数，不混入旧模型参数', () => {
+  useWorkbenchStore.getState().setModelConfig({kind: 'knn', params: {k: 9}})
+  useWorkbenchStore.getState().setModelConfig({kind: 'linear-regression', params: {iterations: 500}})
+  expect(useWorkbenchStore.getState().modelConfig.params).toEqual({iterations: 500})
+})

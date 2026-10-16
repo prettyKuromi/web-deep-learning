@@ -56,7 +56,7 @@ export const useWorkbenchStore = create<WorkbenchStore>((set, get) => ({
   experiments: readExperiments(),
   setActiveStage: (activeStage) => set({ activeStage }),
   setDataset: (dataset) => set({ dataset, training: defaultTraining() }),
-  setModelConfig: (config) => set((state) => ({ modelConfig: { ...state.modelConfig, ...config, params: { ...state.modelConfig.params, ...(config as Partial<ModelConfig>).params } } })),
+  setModelConfig: (config) => set((state) => ({ modelConfig: { ...state.modelConfig, ...config, params: config.kind && config.kind !== state.modelConfig.kind ? { ...config.params } : { ...state.modelConfig.params, ...config.params } } })),
   setTraining: (training) => set((state) => ({ training: { ...state.training, ...training } })),
   addExperiment: (experiment) => {
     const experiments = [experiment, ...get().experiments].slice(0, 20)

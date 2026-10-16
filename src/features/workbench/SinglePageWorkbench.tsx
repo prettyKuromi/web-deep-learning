@@ -17,6 +17,7 @@ import './SinglePageWorkbench.layout.css'
 const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'visual-cnn': '可视化卷积神经网络', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
 
 export interface SinglePageWorkbenchProps {
+  parametersValid?: boolean; onParamsValidityChange?: (valid: boolean) => void;
   model?: ModelKind; params: Record<string, number>; status: string; snapshots: readonly TrainSnapshot[]
   dataset?: Dataset; visualLayers?: VisualLayer[]; onVisualLayersChange?: (layers: VisualLayer[]) => void
   onDatasetChange: (dataset: Dataset) => void; datasetName?: string; onChangeDataset?: () => void
@@ -24,10 +25,11 @@ export interface SinglePageWorkbenchProps {
   onParamsChange: (params: Record<string, number>) => void; onStartTraining: () => void
   onPauseTraining?: () => void; onStepTraining?: () => void; onResumeTraining?: () => void
   onStopTraining?: () => void; onResetTraining?: () => void; currentResult?: CurrentResult
+  resultPanel?: ReactNode;
   explanation?: ReactNode; error?: string
 }
 
-export function SinglePageWorkbench({ model, params, status, snapshots, dataset, visualLayers, onVisualLayersChange, datasetName, onChangeDataset, onModelChange, onParamsChange, onStartTraining, onPauseTraining, onStepTraining, onResumeTraining, onStopTraining, onResetTraining, currentResult, explanation, error }: SinglePageWorkbenchProps) {
+export function SinglePageWorkbench({ parametersValid = true, onParamsValidityChange, model, params, status, snapshots, dataset, visualLayers, onVisualLayersChange, datasetName, onChangeDataset, onModelChange, onParamsChange, onStartTraining, onPauseTraining, onStepTraining, onResumeTraining, onStopTraining, onResetTraining, currentResult, resultPanel, explanation, error }: SinglePageWorkbenchProps) {
   const activeDataset = dataset ?? { features: [], labels: [], dataType: 'tabular' as const }
   const activeVisualLayers = visualLayers ?? []
   const isVisualCnn = model === 'visual-cnn' && Boolean(activeDataset.imageShape && onVisualLayersChange)
@@ -45,20 +47,20 @@ export function SinglePageWorkbench({ model, params, status, snapshots, dataset,
       <header className="single-page-heading"><p className="eyebrow">模型配置</p><h2>实验配置</h2><p>先选择任务类型，再选择算法并调整参数。</p></header>
       <section className="single-page-card" aria-label="模型选择与参数">
         <h3>模型与参数</h3>
-        <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => chooseTask(kind)}>{taskLabels[kind]}</button>)}</div>
-        <label className="single-page-label">具体模型<select aria-label="具体模型" value={model ?? ''} onChange={(event) => event.target.value && chooseModel(event.target.value as ModelKind)}><option value="">请选择模型</option>{modelGroups[task].map((kind) => { const compatibility = isModelCompatible(kind, activeDataset); return <option key={kind} value={kind} disabled={!compatibility.compatible}>{modelNames[kind]}{compatibility.compatible ? '' : `（${compatibility.reason}）`}</option> })}</select></label>
-        {model ? <ModelParameterPanel model={model} value={params} onChange={onParamsChange} /> : <p className="single-page-hint">请选择模型后配置参数。</p>}
+        <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" disabled={isActive} aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => chooseTask(kind)}>{taskLabels[kind]}</button>)}</div>
+        <label className="single-page-label">具体模型<select disabled={isActive} aria-label="具体模型" value={model ?? ''} onChange={(event) => event.target.value && chooseModel(event.target.value as ModelKind)}><option value="">请选择模型</option>{modelGroups[task].map((kind) => { const compatibility = isModelCompatible(kind, activeDataset); return <option key={kind} value={kind} disabled={!compatibility.compatible}>{modelNames[kind]}{compatibility.compatible ? '' : `（${compatibility.reason}）`}</option> })}</select></label>
+        {model ? <ModelParameterPanel key={model} disabled={isActive} onValidityChange={onParamsValidityChange} model={model} value={params} onChange={onParamsChange} /> : <p className="single-page-hint">请选择模型后配置参数。</p>}
       </section>
     </aside>
     <main className="single-page-column single-page-canvas" aria-label="训练画布">
       <header className="single-page-heading workflow-dataset-header"><div><p className="eyebrow">实时训练</p><h2>训练过程</h2><p>配置模型后开始训练，实时观察损失与结果。</p></div></header>
-      <section className="workflow-context-bar" aria-label="当前数据集" role="region"><div className="workflow-context-icon" aria-hidden="true">◈</div><div className="workflow-context-copy"><span>当前数据集</span><strong>{datasetName ?? '未命名数据集'}</strong></div>{onChangeDataset && <button type="button" className="workflow-context-action" onClick={onChangeDataset}>更换数据集<span aria-hidden="true">→</span></button>}</section>
+      <section className="workflow-context-bar" aria-label="当前数据集" role="region"><div className="workflow-context-icon" aria-hidden="true">◈</div><div className="workflow-context-copy"><span>当前数据集</span><strong>{datasetName ?? '未命名数据集'}</strong></div>{onChangeDataset && <button type="button" className="workflow-context-action" disabled={isActive} onClick={onChangeDataset}>更换数据集<span aria-hidden="true">→</span></button>}</section>
       <section data-testid={isVisualCnn ? 'cnn-training-card' : undefined} className={`single-page-card training-canvas-card${isVisualCnn ? ' training-canvas-card--cnn' : ''}`}>
         <div className="single-page-status" role="status">{status}</div>
-        {model === 'visual-cnn' && activeDataset.imageShape && onVisualLayersChange && <VisualNetworkBuilder layers={activeVisualLayers} imageShape={activeDataset.imageShape} onChange={onVisualLayersChange} />}
+        {model === 'visual-cnn' && activeDataset.imageShape && onVisualLayersChange && <fieldset disabled={isActive} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><VisualNetworkBuilder layers={activeVisualLayers} imageShape={activeDataset.imageShape} onChange={onVisualLayersChange} /></fieldset>}
         <div className={`single-page-chart${isVisualCnn ? ' single-page-chart--cnn' : ''}`}>{model === 'visual-cnn' && activeDataset.imageShape ? <NetworkFlowCanvas layers={activeVisualLayers} imageShape={activeDataset.imageShape} status={status} snapshots={snapshots} /> : <TrainingProgressChart snapshots={snapshots} status={status} />}</div>
         <div className="single-page-controls" aria-label="训练控制">
-          <button type="button" className="primary-button" onClick={onStartTraining} disabled={!model || !visualNetworkValid || isActive}>开始训练</button>
+          <button type="button" className="primary-button" onClick={onStartTraining} disabled={!model || !visualNetworkValid || !parametersValid || isActive}>开始训练</button>
           <button type="button" onClick={onPauseTraining} disabled={!isRunning || !controllable}>暂停</button><button type="button" onClick={onStepTraining} disabled={!isPaused || !controllable}>单步</button>
           <button type="button" onClick={onResumeTraining} disabled={!isPaused || !controllable}>继续</button><button type="button" onClick={onStopTraining} disabled={!isActive}>停止</button>
           <button type="button" onClick={onResetTraining} disabled={!hasTraining}>重置</button>
@@ -68,6 +70,6 @@ export function SinglePageWorkbench({ model, params, status, snapshots, dataset,
       </section>
       {snapshots.length > 0 && <section className="single-page-card"><h3>训练时间线</h3><ol className="single-page-timeline">{snapshots.slice(-8).map((snapshot) => <li key={`${snapshot.iteration}-${snapshot.timestamp}`}>{snapshot.iteration === 0 && snapshot.loss == null ? status === '训练完成' ? '已完成拟合' : '已接收训练快照' : `第 ${snapshot.iteration} 次迭代${snapshot.loss != null ? ` · 损失 ${snapshot.loss.toFixed(4)}` : ''}`}</li>)}</ol></section>}
     </main>
-    <aside className="single-page-column single-page-explanation" aria-label="模型解释与结果"><header className="single-page-heading"><p className="eyebrow">模型解读</p><h2>模型解释与结果</h2><p>理解模型如何做出预测。</p></header><section className="single-page-card model-explanation-card"><h3>{model ? modelNames[model] : '尚未选择模型'}</h3>{explanation ?? <p className="single-page-hint">训练后将展示模型结构、关键参数和决策过程。</p>}</section>{currentResult && <CurrentResultPanel result={currentResult} />}</aside>
+    <aside className="single-page-column single-page-explanation" aria-label="模型解释与结果"><header className="single-page-heading"><p className="eyebrow">模型解读</p><h2>模型解释与结果</h2><p>理解模型如何做出预测。</p></header><section className="single-page-card model-explanation-card"><h3>{model ? modelNames[model] : '尚未选择模型'}</h3>{explanation ?? <p className="single-page-hint">训练后将展示模型结构、关键参数和决策过程。</p>}</section>{resultPanel ?? (currentResult && <CurrentResultPanel result={currentResult} />)}</aside>
   </div>
 }

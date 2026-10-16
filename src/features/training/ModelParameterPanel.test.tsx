@@ -78,3 +78,13 @@ describe('ModelParameterPanel', () => {
     expect(screen.getByRole('note')).toHaveTextContent('MLP 仅适合数值特征')
   })
 })
+
+it('允许清空输入并报告无效草稿，不把空值转换成零', () => {
+  const onChange = vi.fn(); const onValidityChange = vi.fn()
+  render(<ModelParameterPanel model="knn" value={{k: 5}} onChange={onChange} onValidityChange={onValidityChange} />)
+  fireEvent.change(screen.getByLabelText('邻居数（k）'), {target: {value: ''}})
+  expect(screen.getByLabelText('邻居数（k）')).toHaveValue(null)
+  expect(onChange).not.toHaveBeenCalled()
+  expect(onValidityChange).toHaveBeenLastCalledWith(false)
+  expect(screen.getByRole('alert')).toHaveTextContent('不能为空')
+})

@@ -52,3 +52,10 @@ h1, h2, h3, h4, p { margin-top: 0; } h1 { margin-bottom: 3px; color: var(--ink-s
 .primary-button, .single-page-controls .primary-button { background: linear-gradient(135deg, #61e6ff, #78c9ef); }
 .single-page-controls .primary-button:hover:not(:disabled) { color: #03111d; }
 .model-suitability-notice { margin: 0; border: 1px solid var(--line); border-radius: 8px; padding: 10px; color: var(--muted); background: rgba(3, 14, 30, .2); font-size: .75rem; line-height: 1.6; }
+
+.scatter-legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 10px 0; font-size: 12px; }
+.scatter-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.scatter-legend i { width: 10px; height: 10px; border-radius: 50%; }
+.experiment-parameters { display: grid; gap: 8px; font-size: 13px; overflow-wrap: anywhere; }
+.experiment-parameters div { display: flex; gap: 12px; flex-wrap: wrap; }
+.experiment-parameters dd { margin: 0; }

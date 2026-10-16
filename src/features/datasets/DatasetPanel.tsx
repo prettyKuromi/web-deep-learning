@@ -99,6 +99,7 @@ export function DatasetPanel({ onDatasetChange, onError, onValidityChange, actio
           <span className="csv-dropzone-icon" aria-hidden="true">⇪</span><span><strong>拖拽 CSV 文件到此处</strong><small>或点击选择文件</small></span>
         </button>
       </div>
+      <p className="dataset-summary">CSV 第一行为表头，最后一列为标签，其余列必须为数值；至少两个类别。聚类与 PCA 当前也需保留标签列，不支持无标签导入或字段映射。</p>
       <p className="dataset-summary">当前：{currentDataset.name ?? '未命名数据集'}，{preview.sampleCount} 条样本{skippedRows ? `（跳过 ${skippedRows} 行）` : ''}</p>
       {isImporting && <p className="dataset-summary" role="status">正在读取 CSV…</p>}
       {error && <p role="alert" className="dataset-error">{error}</p>}

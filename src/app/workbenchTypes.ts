@@ -60,5 +60,5 @@ export interface ExperimentRecord {
   metrics?: ClassificationMetrics
   snapshots: TrainSnapshot[]
   model?: unknown
-  predictions: Labels
+  predictions: Labels | readonly (readonly number[])[]
 }

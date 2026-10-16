@@ -7,11 +7,12 @@ export interface TopLevelNavigationProps {
   activePage: TopLevelPage
   onPageChange: (page: TopLevelPage) => void
   workflowDisabled?: boolean
+  configurationDisabled?: boolean
 }
 
-export function TopLevelNavigation({ activePage, onPageChange, workflowDisabled = false }: TopLevelNavigationProps) {
+export function TopLevelNavigation({ activePage, onPageChange, workflowDisabled = false, configurationDisabled = false }: TopLevelNavigationProps) {
   return <div className="top-level-navigation-wrap"><nav className="top-level-navigation" aria-label="主导航" role="tablist">
-    <button type="button" role="tab" aria-selected={activePage === 'dataset'} className={activePage === 'dataset' ? 'active' : ''} onClick={() => onPageChange('dataset')}>数据集选择</button>
+    <button type="button" role="tab" disabled={configurationDisabled} aria-selected={activePage === 'dataset'} className={activePage === 'dataset' ? 'active' : ''} onClick={() => onPageChange('dataset')}>数据集选择</button>
     <button type="button" role="tab" aria-selected={activePage === 'workflow'} disabled={workflowDisabled} title={workflowDisabled ? '请先确认数据集' : '配置模型并训练'} aria-describedby={workflowDisabled ? 'workflow-navigation-hint' : undefined} className={activePage === 'workflow' ? 'active' : ''} onClick={() => onPageChange('workflow')}>实验流程</button>
     <button type="button" role="tab" aria-selected={activePage === 'history'} className={activePage === 'history' ? 'active' : ''} onClick={() => onPageChange('history')}>历史记录</button>
   </nav>{workflowDisabled && <p className="navigation-hint" id="workflow-navigation-hint">请先确认数据集，再进入实验流程。</p>}</div>

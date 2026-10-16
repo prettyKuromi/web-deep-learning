@@ -1,3 +1,4 @@
+import { defaultParameters } from './modelParameters'
 import { createKnnTrainer } from './knn'
 import { createLogisticRegressionTrainer } from './logisticRegression'
 import { createLinearSvmTrainer } from './linearSvm'
@@ -120,6 +121,7 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
 export const trainInWorker = createTrainInWorkerClient().trainInWorker
 
 export async function runTrainingInHandler(config: WorkerTrainConfig, emit?: (snapshot: TrainSnapshot) => void, isCancelled: () => boolean = () => false, control?: TrainingControl): Promise<WorkerTrainResult> {
+  config = { ...defaultParameters(config.kind), ...config } as WorkerTrainConfig
   if (isCancelled()) throw createAbortError()
   const snapshotEmit = (snapshot: TrainSnapshot) => {
     if (isCancelled()) throw createAbortError()

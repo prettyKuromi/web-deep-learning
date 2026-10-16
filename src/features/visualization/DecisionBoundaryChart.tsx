@@ -35,19 +35,19 @@ export function DecisionBoundaryChart({
     const scaleY = (value: number) => value * height
     context.clearRect(0, 0, width, height)
 
+    const classes = [...new Set([...labels, ...(predictions ?? [])])]
     if (grid) {
       const cellWidth = width / grid.resolution
       const cellHeight = height / grid.resolution
       grid.cells.forEach((cell, index) => {
         const column = index % grid.resolution
         const row = Math.floor(index / grid.resolution)
-        const classIndex = [...new Set(grid.cells.map((item) => item.label))].indexOf(cell.label)
+        const classIndex = Math.max(0, classes.indexOf(cell.label))
         context.fillStyle = `${palette[classIndex % palette.length]}20`
         context.fillRect(column * cellWidth, row * cellHeight, cellWidth + 1, cellHeight + 1)
       })
     }
 
-    const classes = [...new Set(labels)]
     data.points.forEach((point) => {
       const normalized = normalizePoint([point.x, point.y], data.bounds)
       context.beginPath()
@@ -63,13 +63,13 @@ export function DecisionBoundaryChart({
   }, [features, labels, predictions, predict, width, height, resolution])
 
   return (
-    <canvas
+    <div className="scatter-chart"><canvas
       ref={canvasRef}
       width={width}
       height={height}
       role="img"
       aria-label="二维数据散点图与决策边界"
       style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 12, background: '#f8fafc' }}
-    />
+    /><div className="scatter-legend" aria-label="类别图例">{[...new Set(labels)].map((label, index) => <span key={String(label)}><i aria-hidden="true" style={{ background: palette[index % palette.length] }} />{String(label)}</span>)}</div></div>
   )
 }

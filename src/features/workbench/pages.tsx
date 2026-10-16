@@ -10,6 +10,7 @@ export interface ExperimentRecord {
   id: string
   datasetName: string
   model: string
+  summary?: string
   timestamp: string
   metrics: { accuracy?: number; [key: string]: number | undefined }
 }
@@ -94,7 +95,7 @@ export function ResultsPage({ records, onSelect, selectedId }: ResultsPageProps)
     <div className="workbench-page-card results-panel">
       {records.length === 0 ? <p className="empty-state">暂无训练记录。完成一次训练后，结果会显示在这里。</p> : <div className="results-list">{records.map((record) => <article className={`result-row${selectedId === record.id ? ' is-selected' : ''}`} key={record.id}>
         <div><strong>{record.datasetName}</strong><span>{record.model} · {record.timestamp}</span></div>
-        <div className="result-metric">准确率 {record.metrics.accuracy == null ? '—' : `${(record.metrics.accuracy * 100).toFixed(1)}%`}</div>
+        <div className="result-metric">{record.summary ?? `准确率 ${record.metrics.accuracy == null ? '—' : `${(record.metrics.accuracy * 100).toFixed(1)}%`}`}</div>
         {onSelect && <button className={selectedId === record.id ? 'is-selected' : ''} aria-pressed={selectedId === record.id} type="button" onClick={() => onSelect(record)}>{selectedId === record.id ? '当前查看' : '查看详情'}</button>}
       </article>)}</div>}
     </div>
