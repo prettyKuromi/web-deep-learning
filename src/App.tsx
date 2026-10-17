@@ -72,26 +72,45 @@ export default function App() {
     stopRequestedRef.current = false
     setSelectedStep(undefined)
     setCurrentExperimentId(undefined)
-    setTraining({ status: '训练中…', progress: 0, snapshots: [], error: undefined, metrics: undefined })
+    setTraining({ status: '准备训练', progress: 0, snapshots: [], error: undefined, metrics: undefined })
     try {
       const kind = modelConfig.kind
       const effectiveParams = { ...defaultParameters(kind), ...modelConfig.params }
+      const totalUpdates = effectiveParams.iterations ?? effectiveParams.epochs
       const trainer = trainers[kind] as any
       const snapshots: any[] = []
       const mlpParams = kind === 'mlp' ? { ...modelConfig.params, hiddenLayers: Array.from({ length: modelConfig.params.hiddenLayerCount ?? 2 }, () => modelConfig.params.hiddenUnits ?? 16) } : {}
       const cnnParams = kind === 'visual-cnn' ? { layers: visualLayers, imageShape: dataset.imageShape } : {}
       const config = { kind, samples: dataset.features, labels: dataset.labels, ...effectiveParams, ...mlpParams, ...cnnParams } as WorkerTrainConfig
-      const onSnapshot = (snapshot: any) => { const normalized = normalizeTrainSnapshot(snapshot); snapshots.push(normalized); setTraining({ snapshots: [...snapshots], progress: normalized.iteration }) }
+      let lastUiUpdate = 0
+      let pendingSnapshot: ReturnType<typeof normalizeTrainSnapshot> | undefined
+      const flushSnapshot = () => {
+        if (!pendingSnapshot) return
+        const normalized = pendingSnapshot
+        pendingSnapshot = undefined
+        setTraining({ snapshots: [...snapshots], progress: totalUpdates ? Math.min(100, normalized.iteration / totalUpdates * 100) : 0, metrics: normalized.metrics })
+      }
+      const onSnapshot = (snapshot: any) => {
+        const normalized = normalizeTrainSnapshot(snapshot)
+        snapshots.push(normalized)
+        pendingSnapshot = normalized
+        const now = Date.now()
+        if (now - lastUiUpdate >= 100 || normalized.iteration >= (totalUpdates ?? Infinity)) { lastUiUpdate = now; flushSnapshot() }
+      }
+      setTraining({ status: '初始化模型' })
+      await new Promise<void>(resolve => setTimeout(resolve, 0))
+      setTraining({ status: '训练中…' })
       const result = typeof Worker === 'undefined'
         ? await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted)
         : await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal, paused => setTraining({ status: paused ? '训练已暂停' : '训练中…' }))
       if (controller.signal.aborted || abortRef.current !== controller) return
+      flushSnapshot()
       const predictions = trainer.predict(result.model, dataset.features)
       if (predictions.flat().some((value: unknown) => typeof value === 'number' && !Number.isFinite(value))) throw new Error('训练数值不稳定，请降低学习率或标准化特征。')
       const metrics = modelTask[kind] === 'classification' ? classificationMetrics(dataset.labels, predictions) : undefined
       const record = { id: String(Date.now()), createdAt: Date.now(), dataset, modelKind: kind, config: { ...effectiveParams, ...mlpParams, ...cnnParams }, metrics, snapshots: result.snapshots, model: result.model, predictions }
       addExperiment(record)
-      void saveExperiment(record).then(() => setPersistenceNotice('')).catch(() => setPersistenceNotice('训练已完成，但未保存；刷新页面可能丢失本次记录。'))
+      void saveExperiment(record).then(() => setPersistenceNotice('')).catch(() => { setPersistenceNotice(''); setTraining({ status: '训练完成，保存失败', error: '训练结果已生成，但未能写入本地历史记录；导出实验可保留结果。' }) })
       setTraining({ status: '训练完成', progress: 100, snapshots: result.snapshots, metrics })
       setCurrentExperimentId(record.id)
       setHistorySelectedId(record.id)
@@ -108,7 +127,7 @@ export default function App() {
   const stepTraining = () => {
     if (training.status === '训练已暂停') workerClientRef.current?.sendControl('step')
   }
-  const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); abortRef.current?.abort(); setTraining({ status: '训练已停止', error: undefined }) }
+  const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); abortRef.current?.abort(); setTraining({ status: '训练已停止', error: undefined }); setCurrentExperimentId(undefined) }
   const resetTraining = () => { abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setCurrentExperimentId(undefined); setSelectedStep(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
   const invalidateConfiguration = () => { resetTraining(); setTraining({ status: '配置已修改，请重新训练' }) }
   const handleDatasetChange = (nextDataset: typeof dataset) => {

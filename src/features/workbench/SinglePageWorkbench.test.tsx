@@ -30,6 +30,13 @@ describe('单页训练工作台', () => {
     expect(screen.queryByText('第 0 次迭代')).not.toBeInTheDocument()
     expect(screen.getByRole('listitem')).toHaveTextContent('已完成拟合')
   })
+  it('训练中展示来自快照的当前迭代、进度和损失', () => {
+    render(<SinglePageWorkbench {...baseProps} status="训练中…" snapshots={[{ iteration: 4, loss: 0.25, metrics: { accuracy: .8, precision: .75, recall: .7, f1: .72, labels: [0, 1], confusionMatrix: [[4, 1], [1, 4]] } }]} />)
+    expect(screen.getByText('第 4 / 20 次迭代')).toBeInTheDocument()
+    expect(screen.getByText('当前损失：0.2500')).toBeInTheDocument()
+    expect(screen.getByLabelText('训练进度')).toHaveAttribute('value', '20')
+    expect(screen.getByText(/准确率 80.0%/)).toBeInTheDocument()
+  })
   const baseProps = {
     model: 'logistic-regression' as const,
     params: { learningRate: 0.1, iterations: 20, regularization: 0.001 },

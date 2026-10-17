@@ -47,7 +47,9 @@ export function TrainingProgressChart({ snapshots, status, width = 640, height =
   const xTicks = minIteration === maxIteration ? [minIteration] : [minIteration, maxIteration]
 
   return (
-    <svg
+    <div className="training-chart-wrapper">
+      <p className="training-chart-title">训练损失趋势</p>
+      <svg
       role="img"
       aria-label="训练损失曲线"
       viewBox={`0 0 ${width} ${height}`}
@@ -76,6 +78,8 @@ export function TrainingProgressChart({ snapshots, status, width = 640, height =
           <title>第 {point.iteration} 次迭代，损失 {point.loss.toFixed(4)}</title>
         </circle>
       ))}
-    </svg>
+      </svg>
+      <p className="training-chart-caption">横轴：迭代次数　纵轴：损失值　蓝线：Worker 实际快照</p>
+    </div>
   )
 }
