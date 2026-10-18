@@ -13,6 +13,9 @@ export interface ExperimentRecord {
   summary?: string
   timestamp: string
   metrics: { accuracy?: number; [key: string]: number | undefined }
+  modelKind?: string
+  snapshots?: readonly { loss?: number }[]
+  runMetadata?: { seed?: number; durationMs?: number; datasetFingerprint?: string }
 }
 
 export interface DatasetPageProps {
@@ -88,15 +91,17 @@ export interface ResultsPageProps {
   records: readonly ExperimentRecord[]
   onSelect?: (record: ExperimentRecord) => void
   selectedId?: string
+  comparisonIds?: readonly string[]
+  onToggleComparison?: (id: string) => void
 }
 
-export function ResultsPage({ records, onSelect, selectedId }: ResultsPageProps) {
+export function ResultsPage({ records, onSelect, selectedId, comparisonIds = [], onToggleComparison }: ResultsPageProps) {
   return <PageShell eyebrow="实验结果 / 04" title="结果" description="查看此前实验的指标、参数和训练时间，随时回看结果。">
     <div className="workbench-page-card results-panel">
       {records.length === 0 ? <p className="empty-state">暂无训练记录。完成一次训练后，结果会显示在这里。</p> : <div className="results-list">{records.map((record) => <article className={`result-row${selectedId === record.id ? ' is-selected' : ''}`} key={record.id}>
         <div><strong>{record.datasetName}</strong><span>{record.model} · {record.timestamp}</span></div>
         <div className="result-metric">{record.summary ?? `准确率 ${record.metrics.accuracy == null ? '—' : `${(record.metrics.accuracy * 100).toFixed(1)}%`}`}</div>
-        {onSelect && <button className={selectedId === record.id ? 'is-selected' : ''} aria-pressed={selectedId === record.id} type="button" onClick={() => onSelect(record)}>{selectedId === record.id ? '当前查看' : '查看详情'}</button>}
+        <div className="result-actions">{onToggleComparison && <label><input type="checkbox" checked={comparisonIds.includes(record.id)} onChange={() => onToggleComparison(record.id)} disabled={!comparisonIds.includes(record.id) && comparisonIds.length >= 4} />比较</label>}{onSelect && <button className={selectedId === record.id ? 'is-selected' : ''} aria-pressed={selectedId === record.id} type="button" onClick={() => onSelect(record)}>{selectedId === record.id ? '当前查看' : '查看详情'}</button>}</div>
       </article>)}</div>}
     </div>
   </PageShell>

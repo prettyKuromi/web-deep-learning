@@ -149,7 +149,7 @@ export default function App() {
     setTopPage(page)
   }
 
-  const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), summary: experimentSummary(record), metrics: record.metrics ?? {} }))
+  const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], modelKind: record.modelKind, snapshots: record.snapshots, runMetadata: record.runMetadata, timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), summary: experimentSummary(record), metrics: record.metrics ?? {} }))
   const explanationPanel = modelConfig.kind ? <ModelExplanationPanel kind={modelConfig.kind} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.features[0]?.length} /> : undefined
   return <main className="app-shell">
     <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">浏览器机器学习实验</p><h1>机器学习实验工作台</h1><p className="header-subtitle">先选择数据，再观察训练并理解模型。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>

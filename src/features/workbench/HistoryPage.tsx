@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ResultsPage, type ExperimentRecord } from './pages'
 
 export type TopLevelPage = 'dataset' | 'workflow' | 'history'
@@ -33,7 +33,39 @@ export interface HistoryPageProps {
   selectedId?: string
 }
 
+function metricValue(record: ExperimentRecord, key: string) {
+  const value = record.metrics?.[key]
+  return typeof value === 'number' ? value.toFixed(3) : '—'
+}
+
+function ComparisonPanel({ records, onRemove }: { records: readonly ExperimentRecord[]; onRemove: (id: string) => void }) {
+  if (records.length < 2) return <p className="comparison-selection-hint" role="status">已选择 {records.length} 条，请再选择一条记录开始比较。</p>
+  const curveComparable = records.every((record) => record.snapshots?.length && record.snapshots.every((snapshot) => typeof snapshot.loss === 'number'))
+  const sameDataset = new Set(records.map((record) => record.runMetadata?.datasetFingerprint ?? record.datasetName)).size === 1
+  const sameModel = new Set(records.map((record) => record.modelKind)).size === 1
+  const showCurve = curveComparable && sameDataset && sameModel
+  const losses = records.map((record) => record.snapshots!.map((snapshot) => snapshot.loss!))
+  const allLosses = losses.flat()
+  const minLoss = Math.min(...allLosses)
+  const maxLoss = Math.max(...allLosses)
+  const colors = ['#44d7a8', '#ffb85c', '#6eb8ff', '#ff718a']
+  return <section className="history-comparison" aria-label="实验比较" data-testid="history-comparison">
+    <header><div><p className="eyebrow">横向分析</p><h3>实验比较（{records.length}/4）</h3></div><span>{sameDataset ? '同一数据集' : '数据集不同，指标仅供参考'}</span></header>
+    <div className="comparison-table-wrap"><table><thead><tr><th>字段</th>{records.map((record) => <th key={record.id}>{record.datasetName}<button type="button" aria-label={`移除${record.datasetName}`} onClick={() => onRemove(record.id)}>移除</button></th>)}</tr></thead><tbody>
+      <tr><th>模型</th>{records.map((record) => <td key={record.id}>{record.modelKind}</td>)}</tr>
+      <tr><th>准确率</th>{records.map((record) => <td key={record.id}>{metricValue(record, 'accuracy')}</td>)}</tr>
+      <tr><th>F1</th>{records.map((record) => <td key={record.id}>{metricValue(record, 'f1')}</td>)}</tr>
+      <tr><th>随机种子</th>{records.map((record) => <td key={record.id}>{record.runMetadata?.seed ?? '历史记录未保存'}</td>)}</tr>
+      <tr><th>训练耗时</th>{records.map((record) => <td key={record.id}>{record.runMetadata?.durationMs == null ? '历史记录未保存' : `${(record.runMetadata.durationMs / 1000).toFixed(1)} 秒`}</td>)}</tr>
+    </tbody></table></div>
+    {showCurve ? <div className="comparison-chart"><h4>训练损失趋势</h4><svg viewBox="0 0 600 180" role="img" aria-label="同一模型与数据集下的训练损失趋势比较"><line x1="48" y1="12" x2="48" y2="145" /><line x1="48" y1="145" x2="588" y2="145" /><text x="8" y="18">损失</text><text x="280" y="174">训练快照序号</text>{losses.map((series, index) => { const points = series.map((loss, point) => `${48 + point / Math.max(1, series.length - 1) * 540},${135 - (loss - minLoss) / Math.max(.000001, maxLoss - minLoss) * 112}`).join(' '); return <polyline key={records[index].id} points={points} fill="none" stroke={colors[index]} strokeWidth="2" /> })}</svg><ul>{records.map((record, index) => <li key={record.id} style={{ color: colors[index] }}>{record.datasetName} · {record.modelKind}</li>)}</ul></div> : <p className="comparison-note">训练曲线：{!curveComparable ? '快照或损失值不完整，无法绘制。' : !sameDataset ? '数据集不同，不叠加损失曲线。' : '模型不同，损失定义可能不同，不叠加曲线。'}指标仍可并列查看，但请结合数据集和任务理解。</p>}
+  </section>
+}
+
 export function HistoryPage({ records, onSelect, selectedDetail, selectedId, onImport, onExport, onDelete, importError }: HistoryPageProps) {
+  const [comparisonIds, setComparisonIds] = useState<string[]>([])
+  const comparisonRecords = records.filter((record) => comparisonIds.includes(record.id))
+  const toggleComparison = (id: string) => setComparisonIds((current) => current.includes(id) ? current.filter((item) => item !== id) : current.length >= 4 ? current : [...current, id])
   return <section className="history-page" aria-labelledby="history-page-title">
     <header className="page-heading">
       <p className="eyebrow">实验回顾</p>
@@ -50,12 +82,13 @@ export function HistoryPage({ records, onSelect, selectedDetail, selectedId, onI
           <span className="history-count">{records.length} 条</span><div className="history-actions">{onExport && <button type="button" onClick={onExport} disabled={!records.length}>导出 JSON</button>}{onImport && <label><span className="visually-hidden">导入 JSON</span><input type="file" accept="application/json,.json" onChange={event => { const file = event.target.files?.[0]; if (file) onImport(file); event.currentTarget.value = "" }} />导入 JSON</label>}{onDelete && <button type="button" onClick={onDelete} disabled={!selectedId}>删除当前</button>}</div>
         </div>
         {importError && <p role="alert" className="single-page-error">{importError}</p>}<div className="history-list-scroll">
-          {records.length === 0 ? <p className="empty-state history-empty-list">暂无训练记录。完成一次训练后，记录会保存在这里。</p> : <ResultsPage records={records} onSelect={onSelect} selectedId={selectedId} />}
+          {records.length === 0 ? <p className="empty-state history-empty-list">暂无训练记录。完成一次训练后，记录会保存在这里。</p> : <ResultsPage records={records} onSelect={onSelect} selectedId={selectedId} comparisonIds={comparisonIds} onToggleComparison={toggleComparison} />}
         </div>
       </section>
       <aside className="history-detail-panel" data-testid="history-detail-panel" aria-label="实验详情">
         {selectedDetail ?? <div className="history-detail-empty"><span className="history-detail-icon" aria-hidden="true">↗</span><strong>选择一条记录查看详情</strong><p>训练指标、混淆矩阵和决策边界会显示在这里。</p></div>}
       </aside>
+      {comparisonIds.length > 0 && <ComparisonPanel records={comparisonRecords} onRemove={toggleComparison} />}
     </div>
   </section>
 }

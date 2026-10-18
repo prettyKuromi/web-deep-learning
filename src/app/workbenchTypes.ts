@@ -61,4 +61,12 @@ export interface ExperimentRecord {
   snapshots: TrainSnapshot[]
   model?: unknown
   predictions: Labels | readonly (readonly number[])[]
+  runMetadata?: {
+    seed?: number
+    startedAt?: number
+    completedAt?: number
+    durationMs?: number
+    datasetFingerprint?: string
+    evaluation?: { source?: string; split?: string }
+  }
 }
