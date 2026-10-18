@@ -3,7 +3,8 @@ export type WorkbenchStage = '数据集' | '模型' | '训练' | '结果'
 export const workbenchStages: WorkbenchStage[] = ['数据集', '模型', '训练', '结果']
 
 import type { Dataset } from '../features/datasets/dataset'
-import type { ClassificationMetrics, Labels, TrainSnapshot } from '../features/training/types'
+import type { ClassificationMetrics, Labels, TrainSnapshot, TrainingCapability } from '../features/training/types'
+import type { EvaluationConfig, RegressionMetrics } from '../features/training/evaluation'
 
 export type TaskKind = 'classification' | 'regression' | 'clustering' | 'dimensionality-reduction'
 export type ModelKind =
@@ -49,6 +50,8 @@ export interface TrainingState {
   snapshots: TrainSnapshot[]
   metrics?: ClassificationMetrics
   error?: string
+  runId?: string
+  capability?: TrainingCapability
 }
 
 export interface ExperimentRecord {
@@ -61,6 +64,13 @@ export interface ExperimentRecord {
   snapshots: TrainSnapshot[]
   model?: unknown
   predictions: Labels | readonly (readonly number[])[]
+  evaluation?: {
+    config: EvaluationConfig
+    trainSampleCount: number
+    validationSampleCount: number
+    trainMetrics?: ClassificationMetrics | RegressionMetrics
+    validationMetrics?: ClassificationMetrics | RegressionMetrics
+  }
   runMetadata?: {
     seed?: number
     startedAt?: number

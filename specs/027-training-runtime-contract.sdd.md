@@ -60,7 +60,7 @@ type TrainingEvent =
 
 ## 实现状态
 
-- 状态：已实现兼容版运行时契约。
-- 实现内容：新增 `trainingCapabilities.ts` 集中声明模型训练单位与控制能力；`TrainingEvent` 为 Worker 阶段、快照、控制确认和失败事件提供唯一 `runId`；Worker 在准备、初始化、开始、暂停/继续、单步完成、完成、取消和失败时发送事件；旧 `trainInWorker` 调用和旧消息格式保持兼容。
-- 验证命令：`npm test -- --run src/features/training/workerClient.test.ts src/features/training/trainingControl.test.ts src/features/training/trainingCapabilities.test.ts`；`npm run build`。
-- 已知限制：现有页面仍以旧状态字符串渲染，尚未消费完整 `TrainingEvent` 时间线；停止与取消都以 AbortError 结束当前 Promise，但事件类型分别报告 `stopped` 和 `cancelled`。
+- 状态：已实现运行时契约及工作台事件接入。
+- 实现内容：新增 `trainingCapabilities.ts` 集中声明模型训练单位与控制能力；`TrainingEvent` 为 Worker 阶段、快照、控制确认和失败事件提供唯一 `runId`；Worker 在准备、初始化、开始、暂停/继续、单步完成、完成、停止、取消和失败时发送事件；App 按当前 `runId` 消费事件并按能力展示单位、总量和控制按钮。
+- 验证命令：`npm test -- --run`（28 个测试文件、177 项通过）；`npm run build`；`npm run lint`（退出码 0，只有既有未跟踪验收脚本警告）。
+- 已知限制：浏览器端暂停/单步/停止的长训练流程仍需专门慢速 Playwright 场景验证；一次性拟合模型不支持暂停和单步。

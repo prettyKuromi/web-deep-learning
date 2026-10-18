@@ -1,10 +1,11 @@
-import { supportsTrainingControl } from '../training/trainingControl'
 import { useState, type ReactNode } from 'react'
 import type { Dataset } from '../datasets/dataset'
 import { isModelCompatible } from '../../app/workbenchTypes'
 import { ModelParameterPanel } from '../training/ModelParameterPanel'
 import { TrainingProgressChart } from '../training/TrainingProgressChart'
-import type { TrainSnapshot } from '../training/types'
+import type { TrainSnapshot, TrainingCapability } from '../training/types'
+import { getTrainingCapability, trainingUnitLabel } from '../training/trainingCapabilities'
+import type { EvaluationConfig } from '../training/evaluation'
 import { modelGroups, modelTask, taskLabels, type ModelKind, type TaskKind } from '../../app/workbenchTypes'
 import { CurrentResultPanel, type CurrentResult } from './CurrentResultPanel'
 import { VisualNetworkBuilder } from '../training/VisualNetworkBuilder'
@@ -19,6 +20,9 @@ const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression
 export interface SinglePageWorkbenchProps {
   parametersValid?: boolean; onParamsValidityChange?: (valid: boolean) => void;
   model?: ModelKind; params: Record<string, number>; status: string; snapshots: readonly TrainSnapshot[]
+  capability?: TrainingCapability
+  evaluationConfig?: EvaluationConfig
+  onEvaluationConfigChange?: (config: EvaluationConfig) => void
   dataset?: Dataset; visualLayers?: VisualLayer[]; onVisualLayersChange?: (layers: VisualLayer[]) => void
   onDatasetChange: (dataset: Dataset) => void; datasetName?: string; onChangeDataset?: () => void
   onDatasetError?: (message: string) => void; onModelChange: (model: ModelKind) => void
@@ -29,7 +33,7 @@ export interface SinglePageWorkbenchProps {
   explanation?: ReactNode; error?: string
 }
 
-export function SinglePageWorkbench({ parametersValid = true, onParamsValidityChange, model, params, status, snapshots, dataset, visualLayers, onVisualLayersChange, datasetName, onChangeDataset, onModelChange, onParamsChange, onStartTraining, onPauseTraining, onStepTraining, onResumeTraining, onStopTraining, onResetTraining, currentResult, resultPanel, explanation, error }: SinglePageWorkbenchProps) {
+export function SinglePageWorkbench({ parametersValid = true, onParamsValidityChange, model, params, status, snapshots, dataset, visualLayers, onVisualLayersChange, datasetName, onChangeDataset, onModelChange, onParamsChange, onStartTraining, onPauseTraining, onStepTraining, onResumeTraining, onStopTraining, onResetTraining, currentResult, resultPanel, explanation, error, capability, evaluationConfig = { enabled: false, validationSplit: .2, seed: 42 }, onEvaluationConfigChange }: SinglePageWorkbenchProps) {
   const activeDataset = dataset ?? { features: [], labels: [], dataType: 'tabular' as const }
   const activeVisualLayers = visualLayers ?? []
   const isVisualCnn = model === 'visual-cnn' && Boolean(activeDataset.imageShape && onVisualLayersChange)
@@ -39,11 +43,12 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
   const isPaused = status === '训练已暂停'
   const isPreparing = status === '准备训练' || status === '初始化模型'
   const lastSnapshot = snapshots.at(-1)
-  const totalIterations = params.iterations ?? params.epochs
+  const effectiveCapability = capability ?? (model ? getTrainingCapability(model, params) : undefined)
+  const totalIterations = effectiveCapability?.total
   const currentIteration = lastSnapshot?.iteration ?? 0
   const percent = totalIterations ? Math.min(100, currentIteration / totalIterations * 100) : 0
   const isActive = isPreparing || isRunning || isPaused
-  const controllable = supportsTrainingControl(model)
+  const controllable = Boolean(effectiveCapability?.canPause)
   const hasTraining = snapshots.length > 0 || isActive || ['训练完成', '训练完成，保存失败', '训练已停止', '训练已取消', '训练失败'].includes(status)
   const chooseTask = (nextTask: TaskKind) => { setTask(nextTask); onModelChange(modelGroups[nextTask][0]) }
   const chooseModel = (nextModel: ModelKind) => { setTask(modelTask[nextModel]); onModelChange(nextModel) }
@@ -55,6 +60,11 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
         <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" disabled={isActive} aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => chooseTask(kind)}>{taskLabels[kind]}</button>)}</div>
         <label className="single-page-label">具体模型<select disabled={isActive} aria-label="具体模型" value={model ?? ''} onChange={(event) => event.target.value && chooseModel(event.target.value as ModelKind)}><option value="">请选择模型</option>{modelGroups[task].map((kind) => { const compatibility = isModelCompatible(kind, activeDataset); return <option key={kind} value={kind} disabled={!compatibility.compatible}>{modelNames[kind]}{compatibility.compatible ? '' : `（${compatibility.reason}）`}</option> })}</select></label>
         {model ? <ModelParameterPanel key={model} disabled={isActive} onValidityChange={onParamsValidityChange} model={model} value={params} onChange={onParamsChange} /> : <p className="single-page-hint">请选择模型后配置参数。</p>}
+        {onEvaluationConfigChange && model && (modelTask[model] === 'classification' || modelTask[model] === 'regression') && <fieldset className="evaluation-config" disabled={isActive}>
+          <legend>验证集评估</legend>
+          <label><input type="checkbox" checked={evaluationConfig.enabled} onChange={event => onEvaluationConfigChange({ ...evaluationConfig, enabled: event.target.checked })} /> 启用验证集（默认 20%）</label>
+          {evaluationConfig.enabled && <><label>验证集比例<input type="number" min="0.1" max="0.8" step="0.05" value={evaluationConfig.validationSplit} onChange={event => onEvaluationConfigChange({ ...evaluationConfig, validationSplit: Number(event.target.value) })} /></label><label>划分随机种子<input type="number" step="1" value={evaluationConfig.seed} onChange={event => onEvaluationConfigChange({ ...evaluationConfig, seed: Number(event.target.value) })} /></label><small>训练集和验证集会按此配置确定性划分。</small></>}
+        </fieldset>}
       </section>
     </aside>
     <main className="single-page-column single-page-canvas" aria-label="训练画布">
@@ -64,19 +74,19 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
         <div className="single-page-status" role="status">{status}</div>
         {isPreparing && <p className="training-phase">{status === '准备训练' ? '正在检查数据和训练参数。' : '正在初始化模型，稍后将收到训练快照。'}</p>}
         {isActive && <section className="training-live" aria-label="实时训练反馈">
-          <div className="training-live-values"><strong>第 {currentIteration} / {totalIterations ?? '—'} {params.epochs ? '轮' : '次迭代'}</strong><span>进度 {percent.toFixed(1)}%</span><span>当前损失：{lastSnapshot?.loss == null ? '等待快照' : lastSnapshot.loss.toFixed(4)}</span></div>
-          <progress aria-label="训练进度" max={100} value={percent} />
+          <div className="training-live-values"><strong>第 {currentIteration} / {totalIterations ?? '—'} {effectiveCapability ? trainingUnitLabel(effectiveCapability.unit) : '训练单位'}</strong>{totalIterations ? <span>进度 {percent.toFixed(1)}%</span> : <span>进度：由算法阶段决定</span>}<span>当前损失：{lastSnapshot?.loss == null ? '等待快照' : lastSnapshot.loss.toFixed(4)}</span></div>
+          {totalIterations ? <progress aria-label="训练进度" max={100} value={percent} /> : <p>当前算法按“{effectiveCapability ? trainingUnitLabel(effectiveCapability.unit) : '拟合'}”报告状态，不显示估算百分比。</p>}
           {lastSnapshot?.metrics && <p>准确率 {(lastSnapshot.metrics.accuracy * 100).toFixed(1)}% · 精确率 {(lastSnapshot.metrics.precision * 100).toFixed(1)}% · 召回率 {(lastSnapshot.metrics.recall * 100).toFixed(1)}%</p>}
         </section>}
         {model === 'visual-cnn' && activeDataset.imageShape && onVisualLayersChange && <fieldset disabled={isActive} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><VisualNetworkBuilder layers={activeVisualLayers} imageShape={activeDataset.imageShape} onChange={onVisualLayersChange} /></fieldset>}
         <div className={`single-page-chart${isVisualCnn ? ' single-page-chart--cnn' : ''}`}>{model === 'visual-cnn' && activeDataset.imageShape ? <NetworkFlowCanvas layers={activeVisualLayers} imageShape={activeDataset.imageShape} status={status} snapshots={snapshots} /> : <TrainingProgressChart snapshots={snapshots} status={status} />}</div>
         <div className="single-page-controls" aria-label="训练控制">
           <button type="button" className="primary-button" onClick={onStartTraining} disabled={!model || !visualNetworkValid || !parametersValid || isActive}>开始训练</button>
-          <button type="button" onClick={onPauseTraining} disabled={!isRunning || !controllable}>暂停</button><button type="button" onClick={onStepTraining} disabled={!isPaused || !controllable}>单步</button>
-          <button type="button" onClick={onResumeTraining} disabled={!isPaused || !controllable}>继续</button><button type="button" onClick={onStopTraining} disabled={!isActive}>停止</button>
+          <button type="button" onClick={onPauseTraining} disabled={!isRunning || !effectiveCapability?.canPause}>暂停</button><button type="button" onClick={onStepTraining} disabled={!isPaused || !effectiveCapability?.canStep}>单步</button>
+          <button type="button" onClick={onResumeTraining} disabled={!isPaused || !effectiveCapability?.canPause}>继续</button><button type="button" onClick={onStopTraining} disabled={!isActive || !effectiveCapability?.canStop}>停止</button>
           <button type="button" onClick={onResetTraining} disabled={!hasTraining}>重置</button>
         </div>
-        {model && <p className="single-page-hint">{controllable ? '单步推进一个完整迭代（神经网络为一轮）；暂停会等待本轮计算结束。' : '该模型一次完成拟合，不支持暂停、继续或单步；可停止计算。'}</p>}
+        {model && <p className="single-page-hint">{controllable ? `单步推进一个完整${effectiveCapability ? trainingUnitLabel(effectiveCapability.unit) : '训练单位'}；暂停会等待本轮计算结束。` : `该模型按“${effectiveCapability ? trainingUnitLabel(effectiveCapability.unit) : '拟合'}”完成，不支持暂停、继续或单步；可停止计算。`}</p>}
         {error && <p role="alert" className="single-page-error">{error}</p>}
         {status === '训练失败' && snapshots.length > 0 && <details><summary>查看已收到的训练上下文（{snapshots.length} 个快照）</summary><p>最近迭代：{currentIteration}，损失：{lastSnapshot?.loss?.toFixed(4) ?? '无'}</p></details>}
       </section>

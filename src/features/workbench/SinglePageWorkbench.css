@@ -9,3 +9,7 @@
 .training-chart-wrapper { display: grid; gap: 6px; width: 100%; }
 .training-chart-title { margin: 0; color: #dbeafe; font-weight: 700; }
 .training-chart-caption { margin: 0; color: #89a4c6; font-size: 12px; }
+.evaluation-config { display: grid; gap: 6px; margin-top: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: .78rem; }
+.evaluation-config label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.evaluation-config input[type='number'] { width: 78px; }
+.evaluation-config small { color: var(--muted); }

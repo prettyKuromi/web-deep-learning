@@ -18,6 +18,8 @@ import { createDbscanTrainer } from './features/training/dbscan'
 import { createMlpTrainer } from './features/training/mlp'
 import { createVisualCnnTrainer } from './features/training/visualCnn'
 import { createTrainInWorkerClient, runTrainingInHandler, type WorkerTrainConfig } from './features/training/workerClient'
+import type { TrainingEvent } from './features/training/types'
+import { regressionMetrics, selectLabels, selectRows, splitDataset, type EvaluationConfig } from './features/training/evaluation'
 import { saveExperiment, exportExperiments, importExperiments, deleteExperiment } from './features/persistence/persistence'
 import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/workbench/HistoryPage'
 import { DatasetPage } from './features/workbench/pages'
@@ -48,10 +50,12 @@ export default function App() {
   const [parametersValid, setParametersValid] = useState(true)
   const [selectedStep, setSelectedStep] = useState<number>()
   const [visualLayers, setVisualLayers] = useState(defaultVisualLayers)
+  const [evaluationConfig, setEvaluationConfig] = useState<EvaluationConfig>({ enabled: false, validationSplit: 0.2, seed: 42 })
   useEffect(() => { if (typeof indexedDB !== 'undefined') void useWorkbenchStore.getState().loadExperiments().catch(error => setHistoryError(error instanceof Error ? error.message : '历史记录加载失败')) }, [])
   const abortRef = useRef<AbortController | null>(null)
   const workerClientRef = useRef<ReturnType<typeof createTrainInWorkerClient> | null>(null)
   const stopRequestedRef = useRef(false)
+  const activeRunIdRef = useRef<string | undefined>(undefined)
   const trainers = useMemo(() => Object.fromEntries((Object.keys(defaults) as ModelKind[]).map((kind) => [kind, createTrainer(kind)])) as Record<string, any>, [])
   const currentExperiment = experiments.find((record) => record.id === currentExperimentId)
   const historySelected = experiments.find((record) => record.id === historySelectedId)
@@ -72,16 +76,24 @@ export default function App() {
     stopRequestedRef.current = false
     setSelectedStep(undefined)
     setCurrentExperimentId(undefined)
-    setTraining({ status: '准备训练', progress: 0, snapshots: [], error: undefined, metrics: undefined })
+    setTraining({ status: '准备训练', progress: 0, snapshots: [], error: undefined, metrics: undefined, runId: undefined, capability: undefined })
     try {
       const kind = modelConfig.kind
       const effectiveParams = { ...defaultParameters(kind), ...modelConfig.params }
+      const supervised = modelTask[kind] === 'classification' || modelTask[kind] === 'regression'
+      const split = evaluationConfig.enabled && supervised
+        ? splitDataset(dataset.labels, evaluationConfig, modelTask[kind] as 'classification' | 'regression')
+        : { trainIndices: dataset.labels.map((_, index) => index), validationIndices: [], validationSplit: 0, seed: evaluationConfig.seed }
+      const trainSamples = selectRows(dataset.features, split.trainIndices)
+      const trainLabels = selectLabels(dataset.labels, split.trainIndices)
+      const validationSamples = selectRows(dataset.features, split.validationIndices)
+      const validationLabels = selectLabels(dataset.labels, split.validationIndices)
       const totalUpdates = effectiveParams.iterations ?? effectiveParams.epochs
       const trainer = trainers[kind] as any
       const snapshots: any[] = []
       const mlpParams = kind === 'mlp' ? { ...modelConfig.params, hiddenLayers: Array.from({ length: modelConfig.params.hiddenLayerCount ?? 2 }, () => modelConfig.params.hiddenUnits ?? 16) } : {}
       const cnnParams = kind === 'visual-cnn' ? { layers: visualLayers, imageShape: dataset.imageShape } : {}
-      const config = { kind, samples: dataset.features, labels: dataset.labels, ...effectiveParams, ...mlpParams, ...cnnParams } as WorkerTrainConfig
+      const config = { kind, samples: trainSamples, labels: trainLabels, ...effectiveParams, ...mlpParams, ...cnnParams } as WorkerTrainConfig
       let lastUiUpdate = 0
       let pendingSnapshot: ReturnType<typeof normalizeTrainSnapshot> | undefined
       const flushSnapshot = () => {
@@ -97,18 +109,40 @@ export default function App() {
         const now = Date.now()
         if (now - lastUiUpdate >= 100 || normalized.iteration >= (totalUpdates ?? Infinity)) { lastUiUpdate = now; flushSnapshot() }
       }
-      setTraining({ status: '初始化模型' })
-      await new Promise<void>(resolve => setTimeout(resolve, 0))
-      setTraining({ status: '训练中…' })
+      const onEvent = (event: TrainingEvent) => {
+        if (activeRunIdRef.current && event.runId !== activeRunIdRef.current) return
+        activeRunIdRef.current = event.runId
+        if (event.type === 'preparing') setTraining({ status: '准备训练', runId: event.runId, capability: event.capability })
+        else if (event.type === 'initializing') setTraining({ status: '初始化模型', runId: event.runId, capability: event.capability })
+        else if (event.type === 'started' || event.type === 'resumed') setTraining({ status: '训练中…', runId: event.runId, capability: event.capability })
+        else if (event.type === 'paused') setTraining({ status: '训练已暂停', runId: event.runId, capability: event.capability })
+        else if (event.type === 'stopped') setTraining({ status: '训练已停止', runId: event.runId, capability: event.capability })
+        else if (event.type === 'cancelled') setTraining({ status: '训练已取消', runId: event.runId, capability: event.capability })
+        else if (event.type === 'failed') setTraining({ status: '训练失败', runId: event.runId, error: event.message, capability: event.capability })
+      }
       const result = typeof Worker === 'undefined'
         ? await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted)
-        : await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal, paused => setTraining({ status: paused ? '训练已暂停' : '训练中…' }))
+        : await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal, paused => setTraining({ status: paused ? '训练已暂停' : '训练中…' }), onEvent)
       if (controller.signal.aborted || abortRef.current !== controller) return
       flushSnapshot()
       const predictions = trainer.predict(result.model, dataset.features)
+      const trainPredictions = trainer.predict(result.model, trainSamples)
       if (predictions.flat().some((value: unknown) => typeof value === 'number' && !Number.isFinite(value))) throw new Error('训练数值不稳定，请降低学习率或标准化特征。')
-      const metrics = modelTask[kind] === 'classification' ? classificationMetrics(dataset.labels, predictions) : undefined
-      const record = { id: String(Date.now()), createdAt: Date.now(), dataset, modelKind: kind, config: { ...effectiveParams, ...mlpParams, ...cnnParams }, metrics, snapshots: result.snapshots, model: result.model, predictions }
+      const metrics = modelTask[kind] === 'classification' ? classificationMetrics(trainLabels, trainPredictions) : undefined
+      const trainMetrics = modelTask[kind] === 'classification'
+        ? metrics
+        : modelTask[kind] === 'regression'
+          ? regressionMetrics(trainLabels as readonly number[], trainPredictions as readonly number[])
+          : undefined
+      const validationPredictions = validationSamples.length > 0 ? trainer.predict(result.model, validationSamples) : []
+      const validationMetrics = evaluationConfig.enabled && validationSamples.length > 0
+        ? modelTask[kind] === 'classification'
+          ? classificationMetrics(validationLabels, validationPredictions)
+          : modelTask[kind] === 'regression'
+            ? regressionMetrics(validationLabels as readonly number[], validationPredictions as readonly number[])
+            : undefined
+        : undefined
+      const record = { id: String(Date.now()), createdAt: Date.now(), dataset, modelKind: kind, config: { ...effectiveParams, ...mlpParams, ...cnnParams }, metrics, evaluation: evaluationConfig.enabled && supervised ? { config: evaluationConfig, trainSampleCount: trainSamples.length, validationSampleCount: validationSamples.length, trainMetrics, validationMetrics } : undefined, snapshots: result.snapshots, model: result.model, predictions }
       addExperiment(record)
       void saveExperiment(record).then(() => setPersistenceNotice('')).catch(() => { setPersistenceNotice(''); setTraining({ status: '训练完成，保存失败', error: '训练结果已生成，但未能写入本地历史记录；导出实验可保留结果。' }) })
       setTraining({ status: '训练完成', progress: 100, snapshots: result.snapshots, metrics })
@@ -127,7 +161,7 @@ export default function App() {
   const stepTraining = () => {
     if (training.status === '训练已暂停') workerClientRef.current?.sendControl('step')
   }
-  const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); abortRef.current?.abort(); setTraining({ status: '训练已停止', error: undefined }); setCurrentExperimentId(undefined) }
+  const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); setCurrentExperimentId(undefined) }
   const resetTraining = () => { abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setCurrentExperimentId(undefined); setSelectedStep(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
   const invalidateConfiguration = () => { resetTraining(); setTraining({ status: '配置已修改，请重新训练' }) }
   const handleDatasetChange = (nextDataset: typeof dataset) => {
@@ -155,7 +189,7 @@ export default function App() {
     <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">浏览器机器学习实验</p><h1>机器学习实验工作台</h1><p className="header-subtitle">先选择数据，再观察训练并理解模型。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
     <TopLevelNavigation activePage={topPage} configurationDisabled={['训练中…', '训练已暂停'].includes(training.status)} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
     <section className="app-content">{topPage === 'dataset' ? <DatasetPage initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench
-      dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={layers => { invalidateConfiguration(); setVisualLayers(layers) }} model={modelConfig.kind} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots}
+      dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={layers => { invalidateConfiguration(); setVisualLayers(layers) }} model={modelConfig.kind} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots} capability={training.capability} evaluationConfig={evaluationConfig} onEvaluationConfigChange={config => { invalidateConfiguration(); setEvaluationConfig(config) }}
       onDatasetChange={handleDatasetChange} onChangeDataset={() => setTopPage('dataset')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
       parametersValid={parametersValid} onParamsValidityChange={valid => { setParametersValid(valid); if (!valid) invalidateConfiguration() }}
       onModelChange={(kind) => { resetTraining(); setParametersValid(true); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => { invalidateConfiguration(); setModelConfig({ params }) }}

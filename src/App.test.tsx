@@ -48,6 +48,36 @@ describe('实验工作台', () => {
     expect(screen.getByText('请重新训练')).toBeInTheDocument()
   })
 
+  it('启用验证集后使用确定性留出集并保存两组样本量与指标', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
+    await user.click(screen.getByRole('checkbox', { name: /启用验证集/ }))
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+    await screen.findByRole('region', { name: '当前结果' })
+    const record = useWorkbenchStore.getState().experiments[0]
+    expect(record.evaluation?.config).toEqual({ enabled: true, validationSplit: .2, seed: 42 })
+    expect(record.evaluation?.trainSampleCount).toBe(160)
+    expect(record.evaluation?.validationSampleCount).toBe(40)
+    expect(record.evaluation?.validationMetrics).toBeDefined()
+    expect(screen.getByRole('region', { name: '训练与验证集评估' })).toHaveTextContent('训练集：160 条；验证集：40 条。')
+  })
+
+  it('回归验证集评估分别保存训练和验证 MAE、MSE、R²', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.click(screen.getByRole('tab', { name: '回归' }))
+    await user.click(screen.getByRole('checkbox', { name: /启用验证集/ }))
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+    await screen.findByText('平均绝对误差（MAE）')
+    const evaluation = useWorkbenchStore.getState().experiments[0].evaluation
+    expect(evaluation?.trainMetrics).toEqual(expect.objectContaining({ mae: expect.any(Number), mse: expect.any(Number), r2: expect.any(Number) }))
+    expect(evaluation?.validationMetrics).toEqual(expect.objectContaining({ mae: expect.any(Number), mse: expect.any(Number), r2: expect.any(Number) }))
+    expect(screen.getByRole('region', { name: '训练与验证集评估' })).toHaveTextContent('验证集 MAE')
+  })
+
   it('确认后返回保留导航权限，实际更改数据后需重新确认', async () => {
     const user = userEvent.setup()
     render(<App />)

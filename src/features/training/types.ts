@@ -19,7 +19,7 @@ export interface TrainingCapability {
 export type TrainingEvent =
   | { type: 'preparing' | 'initializing' | 'started' | 'paused' | 'resumed' | 'step-completed' | 'stopped' | 'cancelled' | 'completed'; runId: string; capability?: TrainingCapability }
   | { type: 'snapshot'; runId: string; snapshot: TrainSnapshot; capability: TrainingCapability }
-  | { type: 'failed'; runId: string; errorCode: string; message: string }
+  | { type: 'failed'; runId: string; errorCode: string; message: string; capability?: TrainingCapability }
 
 export interface TrainSnapshot {
   iteration: number
