@@ -51,6 +51,26 @@ describe('trainInWorker client', () => {
     expect(snapshots).toEqual([{ iteration: 0 }])
   })
 
+  it('uses one run id across Worker snapshots and terminal events', async () => {
+    const worker = new FakeWorker()
+    const events: any[] = []
+    const promise = createTrainInWorkerClient(() => worker).trainInWorker(
+      { kind: 'logistic-regression', samples: [[0]], labels: ['a'], iterations: 2 },
+      undefined,
+      undefined,
+      undefined,
+      event => events.push(event),
+    )
+    const start = worker.messages[0] as { type: string; config: unknown }
+    expect(start.type).toBe('start')
+    const preparing = events[0]
+    worker.emit({ type: 'snapshot', runId: preparing.runId, snapshot: { iteration: 1 } })
+    worker.emit({ type: 'complete', runId: preparing.runId, result: { model: { kind: 'logistic-regression' }, snapshots: [] } })
+    await promise
+    expect(events.map(event => event.type)).toEqual(['preparing', 'snapshot', 'completed'])
+    expect(events.every(event => event.runId === preparing.runId)).toBe(true)
+  })
+
   it('posts cancel and rejects when signal is aborted', async () => {
     const worker = new FakeWorker()
     const controller = new AbortController()

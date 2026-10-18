@@ -23,7 +23,9 @@ import type {
   AdaBoostModel, AdaBoostTrainConfig, DbscanModel, DbscanTrainConfig, PerceptronModel, PerceptronTrainConfig, RandomForestModel, RandomForestTrainConfig,
   MlpModel, MlpTrainConfig, VisualCnnModel, VisualCnnTrainConfig,
   TrainSnapshot, TrainingControl,
+  TrainingEvent, TrainingCapability,
 } from './types'
+import { getTrainingCapability } from './trainingCapabilities'
 
 export type WorkerTrainConfig =
   | ({ kind: 'knn' } & KnnTrainConfig)
@@ -66,17 +68,19 @@ export interface WorkerLike {
 }
 
 type WorkerMessage =
-  | { type: 'start' }
-  | { type: 'snapshot'; snapshot: TrainSnapshot }
-  | { type: 'complete'; result: WorkerTrainResult }
-  | { type: 'error'; error: string }
+  | { type: 'start'; runId?: string }
+  | { type: 'snapshot'; runId?: string; snapshot: TrainSnapshot; capability?: TrainingCapability }
+  | { type: 'complete'; runId?: string; result: WorkerTrainResult }
+  | { type: 'error'; runId?: string; error: string; errorCode?: string }
   | { type: 'cancel' }
-  | { type: 'paused' | 'resumed' }
+  | { type: 'cancelled'; runId: string }
+  | { type: 'paused' | 'resumed' | 'step-completed'; runId: string }
+  | { type: 'event'; event: TrainingEvent }
 
 export type WorkerControl = 'pause' | 'resume' | 'step' | 'stop'
 
 export function createTrainInWorkerClient(createWorker: () => WorkerLike = defaultWorker): {
-  trainInWorker(config: WorkerTrainConfig, onSnapshot?: (snapshot: TrainSnapshot) => void, signal?: AbortSignal, onControl?: (paused: boolean) => void): Promise<WorkerTrainResult>
+  trainInWorker(config: WorkerTrainConfig, onSnapshot?: (snapshot: TrainSnapshot) => void, signal?: AbortSignal, onControl?: (paused: boolean) => void, onEvent?: (event: TrainingEvent) => void): Promise<WorkerTrainResult>
   sendControl(control: WorkerControl): void
 } {
   let activeWorker: WorkerLike | undefined
@@ -84,9 +88,11 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
     sendControl(control) {
       if (activeWorker) activeWorker.postMessage({ type: control })
     },
-    trainInWorker(config, onSnapshot, signal, onControl) {
+    trainInWorker(config, onSnapshot, signal, onControl, onEvent) {
       const worker = createWorker()
       activeWorker = worker
+      const localRunId = createRunId()
+      const capability = getTrainingCapability(config.kind, config as unknown as Record<string, unknown>)
       return new Promise<WorkerTrainResult>((resolve, reject) => {
         let settled = false
         const cleanup = () => signal?.removeEventListener('abort', abort)
@@ -103,19 +109,30 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
           finish(() => reject(createAbortError()))
         }
         worker.onmessage = ({ data }: MessageEvent<WorkerMessage>) => {
-          if (data.type === 'snapshot') onSnapshot?.(data.snapshot)
-          else if (data.type === 'complete') finish(() => resolve(data.result))
-          else if (data.type === 'error') finish(() => reject(new Error(data.error)))
-          else if (data.type === 'paused' || data.type === 'resumed') onControl?.(data.type === 'paused')
-          else if (data.type === 'cancel') finish(() => reject(createAbortError()))
+          if (data.type === 'event') { onEvent?.(data.event); if (data.event.type === 'paused' || data.event.type === 'resumed') onControl?.(data.event.type === 'paused'); return }
+          if (data.type === 'snapshot') {
+            const event: TrainingEvent = { type: 'snapshot', runId: data.runId ?? localRunId, snapshot: data.snapshot, capability: data.capability ?? capability }
+            onSnapshot?.(data.snapshot); onEvent?.(event)
+          } else if (data.type === 'complete') { onEvent?.({ type: 'completed', runId: data.runId ?? localRunId, capability }); finish(() => resolve(data.result))
+          } else if (data.type === 'error') { onEvent?.({ type: 'failed', runId: data.runId ?? localRunId, errorCode: data.errorCode ?? 'TRAINING_ERROR', message: data.error }); finish(() => reject(new Error(data.error)))
+          } else if (data.type === 'paused' || data.type === 'resumed' || data.type === 'step-completed') { onControl?.(data.type === 'paused'); onEvent?.({ type: data.type, runId: data.runId, capability })
+          } else if (data.type === 'cancelled' || data.type === 'cancel') { onEvent?.({ type: 'cancelled', runId: data.type === 'cancelled' ? data.runId : localRunId, capability }); finish(() => reject(createAbortError()))
+          }
         }
         worker.onerror = event => finish(() => reject(new Error(event.message || 'Worker 训练失败')))
         if (signal?.aborted) return abort()
         signal?.addEventListener('abort', abort, { once: true })
+        onEvent?.({ type: 'preparing', runId: localRunId, capability })
+        // 保持旧 Worker 调用协议兼容；新版 Worker 会在 start 时生成唯一 runId。
         worker.postMessage({ type: 'start', config })
       })
     },
   }
+}
+
+function createRunId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return `run-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 export const trainInWorker = createTrainInWorkerClient().trainInWorker

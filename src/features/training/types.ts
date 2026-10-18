@@ -5,10 +5,28 @@ export type Labels = readonly Label[]
 export type TaskKind = 'classification' | 'regression' | 'clustering' | 'dimensionality-reduction'
 export type ModelKind = 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes' | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca' | 'mlp'
 
+/** Worker 快照中训练单位的真实语义。fit 表示一次性拟合，不应伪造百分比。 */
+export type TrainingUnit = 'iteration' | 'epoch' | 'tree' | 'round' | 'fit'
+
+export interface TrainingCapability {
+  unit: TrainingUnit
+  total?: number
+  canPause: boolean
+  canStep: boolean
+  canStop: boolean
+}
+
+export type TrainingEvent =
+  | { type: 'preparing' | 'initializing' | 'started' | 'paused' | 'resumed' | 'step-completed' | 'stopped' | 'cancelled' | 'completed'; runId: string; capability?: TrainingCapability }
+  | { type: 'snapshot'; runId: string; snapshot: TrainSnapshot; capability: TrainingCapability }
+  | { type: 'failed'; runId: string; errorCode: string; message: string }
+
 export interface TrainSnapshot {
   iteration: number
   /** 通用时间线步号；缺省时与 iteration 相同。 */
   step?: number
+  /** 当前快照对应的训练单位。旧实验缺省时按 iteration 兼容。 */
+  unit?: TrainingUnit
   epoch?: number
   loss?: number
   metrics?: ClassificationMetrics

@@ -2,7 +2,7 @@ import type { TrainingControl } from './types'
 import type { WorkerControl } from './workerClient'
 import type { ModelKind } from '../../app/workbenchTypes'
 export const supportsTrainingControl = (kind?: ModelKind) => Boolean(kind && ['logistic-regression', 'linear-svm', 'mlp', 'visual-cnn', 'linear-regression', 'ridge-regression'].includes(kind))
-export function createTrainingControl(onState: (paused: boolean) => void = () => {}): TrainingControl & { send(command: WorkerControl | 'cancel'): void } {
+export function createTrainingControl(onState: (paused: boolean) => void = () => {}, onStep: () => void = () => {}): TrainingControl & { send(command: WorkerControl | 'cancel'): void } {
   let paused = false
   let cancelled = false
   let steps = 0
@@ -26,7 +26,7 @@ export function createTrainingControl(onState: (paused: boolean) => void = () =>
       }
       wake = undefined
       if (cancelled) throw new DOMException('训练已取消', 'AbortError')
-      if (paused) steps--
+      if (paused) { steps--; onStep() }
     },
   }
 }
