@@ -1,6 +1,7 @@
 import type { Dataset } from '../datasets/dataset'
 import { DecisionBoundaryChart } from '../visualization/DecisionBoundaryChart'
 import type { ClassificationMetrics, Label } from '../training/types'
+import { PredictionPlayground } from './PredictionPlayground'
 
 export interface CurrentResult {
   dataset: Dataset
@@ -32,6 +33,7 @@ export function CurrentResultPanel({ result }: { result: CurrentResult }) {
           {dataset.features[0]?.length > 2 && <p className="projection-notice">当前图表仅展示前两个特征的投影，不代表真实的高维决策边界。</p>}
         </div>
       )}
+      {predict && dataset.features.length > 0 && <PredictionPlayground dataset={dataset} predict={predict} task="classification" />}
     </section>
   )
 }
