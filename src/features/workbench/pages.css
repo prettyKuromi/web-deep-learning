@@ -55,6 +55,27 @@
 .history-detail-empty strong { margin-top: 10px; color: var(--ink-strong); }
 .history-detail-empty p { margin: 7px 0 0; max-width: 280px; font-size: .82rem; line-height: 1.6; }
 .history-detail-icon { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--line-bright); border-radius: 12px; color: var(--cyan); background: rgba(29, 92, 134, .14); font-size: 1.15rem; }
+.result-actions { display: flex; align-items: center; gap: 8px; }
+.result-actions label { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: .72rem; white-space: nowrap; }
+.result-actions input { accent-color: var(--cyan); }
+.history-comparison, .comparison-selection-hint { grid-column: 1 / -1; min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: linear-gradient(145deg, rgba(18, 35, 62, .94), rgba(10, 23, 44, .92)); }
+.history-comparison header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.history-comparison header h3 { margin: 0; font-size: .95rem; }
+.history-comparison header > span { color: var(--muted); font-size: .72rem; }
+.comparison-table-wrap { overflow-x: auto; margin-top: 12px; }
+.history-comparison table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: .74rem; }
+.history-comparison th, .history-comparison td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; white-space: nowrap; }
+.history-comparison th { color: var(--muted); font-weight: 500; }
+.history-comparison td { color: var(--ink-strong); }
+.history-comparison thead th:not(:first-child) { color: var(--cyan-soft); }
+.history-comparison th button { margin-left: 8px; border: 0; color: var(--muted); background: transparent; cursor: pointer; font-size: .68rem; }
+.comparison-note, .comparison-selection-hint { margin: 10px 0 0; color: var(--muted); font-size: .74rem; line-height: 1.5; }
+.comparison-chart { margin-top: 14px; }
+.comparison-chart h4 { margin: 0 0 8px; font-size: .82rem; }
+.comparison-chart svg { width: 100%; min-width: 520px; height: 180px; overflow: visible; color: var(--muted); }
+.comparison-chart svg line { stroke: currentColor; stroke-width: 1; opacity: .45; }
+.comparison-chart svg text { fill: currentColor; font-size: 10px; }
+.comparison-chart ul { display: flex; flex-wrap: wrap; gap: 12px; margin: 5px 0 0; padding: 0; list-style: none; font-size: .72rem; }
 
 .workbench-stage-view { display: grid; gap: 18px; }
 .workbench-navigation { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
