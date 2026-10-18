@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react'
 import { BUILTIN_DATASET_METADATA, BUILTIN_DATASETS, createDatasetPreview, generateBuiltinDataset, parseCsvDataset, type Dataset, type BuiltinDatasetId } from './dataset'
 import { isModelCompatible, modelGroups, type ModelKind } from '../../app/workbenchTypes'
+import { profileDataset } from './profiling'
 
 export interface DatasetImportState { pending: boolean; error: string }
 
@@ -24,6 +25,7 @@ export function DatasetPanel({ onDatasetChange, onError, onValidityChange, actio
   const { pending: isImporting, error } = importState ?? localImportState
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const preview = useMemo(() => createDatasetPreview(currentDataset), [currentDataset])
+  const profile = useMemo(() => profileDataset(currentDataset), [currentDataset])
   const selectedId = BUILTIN_DATASETS.find(({ name }) => name === currentDataset.name)?.id
   const valid = !error && !isImporting
   useEffect(() => () => {
@@ -41,6 +43,7 @@ export function DatasetPanel({ onDatasetChange, onError, onValidityChange, actio
     preview.labelDistribution.length > 1 && Math.max(...preview.labelDistribution.map((item) => item.count)) / preview.sampleCount >= 0.8 && '类别分布可能不平衡，请同时关注各类别指标。',
     preview.featureRanges.some((range) => (range.max ?? 0) - (range.min ?? 0) > 100) && '特征尺度差异较大，建议使用标准化或归一化。',
   ].filter((warning): warning is string => Boolean(warning))
+  const profileWarnings = profile.warnings.filter((warning) => !warnings.some((existing) => warning.startsWith(existing.split('。')[0] ?? '')))
 
   const applyDataset = (dataset: Dataset, skipped = 0) => {
     setCurrentDataset(dataset)
@@ -114,21 +117,22 @@ export function DatasetPanel({ onDatasetChange, onError, onValidityChange, actio
       <p className="dataset-description">{selectedId ? BUILTIN_DATASET_METADATA[selectedId].description : '用户上传的 CSV 数据集。'}</p>
       <p className="dataset-characteristics">{selectedId ? BUILTIN_DATASET_METADATA[selectedId].characteristics : '根据导入数据计算规模、标签分布和特征范围。'}</p>
       {currentDataset.dataType === 'image' && <div className="dataset-image-samples" aria-label="数字图像样本">{currentDataset.features.slice(0, 10).map((pixels, index) => <figure key={index}><div className="dataset-pixel-grid">{pixels.map((value, pixel) => <i key={pixel} style={{ opacity: value }} />)}</div><figcaption>数字 {currentDataset.labels[index]}</figcaption></figure>)}</div>}
-      {warnings.length > 0 && <aside className="dataset-advisory" role="note"><strong>数据适用性提醒</strong><ul>{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></aside>}
+      {(warnings.length > 0 || profileWarnings.length > 0) && <aside className="dataset-advisory" role="note"><strong>数据适用性提醒</strong><ul>{[...warnings, ...profileWarnings].map((warning) => <li key={warning}>{warning}</li>)}</ul></aside>}
       <details className="dataset-compatibility"><summary>模型适用范围</summary><p>{currentDataset.dataType === 'image' ? '灰度图像数据，适合卷积、池化和全连接层组合。' : '数值表格数据，适合 KNN、线性模型、树模型和 MLP。'}</p><ul>
         <li>适用：{modelKinds.filter((kind) => isModelCompatible(kind, currentDataset).compatible).map((kind) => modelNames[kind]).join('、')}</li>
         <li>不适用：{modelKinds.filter((kind) => !isModelCompatible(kind, currentDataset).compatible).map((kind) => modelNames[kind]).join('、')}</li>
       </ul></details>
       <div className="dataset-preview-grid">
-        <div><h4>标签分布</h4><ul>{preview.labelDistribution.map(({ label, count }) => <li key={String(label)}>{String(label)}：{count}</li>)}</ul></div>
-        <div><h4>特征范围</h4><ul>{preview.featureRanges.map((range, index) => <li key={index}>特征 {index + 1}：<span title={String(range.min ?? '')}>{formatValue(range.min)}</span> ~ <span title={String(range.max ?? '')}>{formatValue(range.max)}</span></li>)}</ul></div>
+        <div><h4>标签分布</h4><ul>{profile.classDistribution.map(({ label, count, ratio }) => <li key={String(label)}><span>{String(label)}：{count}</span>（{formatPercent(ratio)}）</li>)}</ul></div>
+        <div><h4>特征统计</h4><ul>{profile.features.map((feature) => <li key={feature.index}>{feature.name}：均值 {formatValue(feature.mean)}，标准差 {formatValue(feature.standardDeviation)}，范围 <span title={String(feature.min ?? '')}>{formatValue(feature.min)}</span> ~ <span title={String(feature.max ?? '')}>{formatValue(feature.max)}</span>{feature.nonFiniteCount ? `，非有限值 ${feature.nonFiniteCount}` : ''}</li>)}</ul></div>
       </div>
       <h4>前 {preview.sampleRows.length} 条有效样本</h4>
-      <div className="dataset-table-wrap"><table><thead><tr><th>#</th><th>特征 1</th><th>特征 2</th><th>标签</th></tr></thead><tbody>{preview.sampleRows.map((row) => <tr key={row.index}><td>{row.index + 1}</td><td title={String(row.features[0] ?? '')}>{formatValue(row.features[0])}</td><td title={String(row.features[1] ?? '')}>{formatValue(row.features[1])}</td><td>{row.label ?? '—'}</td></tr>)}</tbody></table></div>
+      <div className="dataset-table-wrap"><table><thead><tr><th>#</th>{profile.features.map((feature) => <th key={feature.index}>{feature.name}</th>)}<th>标签</th></tr></thead><tbody>{preview.sampleRows.map((row) => <tr key={row.index}><td>{row.index + 1}</td>{profile.features.map((feature) => <td key={feature.index} title={String(row.features[feature.index] ?? '')}>{formatValue(row.features[feature.index])}</td>)}<td>{row.label ?? '—'}</td></tr>)}</tbody></table></div>
     </div>
   </section>
 }
 
 const formatValue = (value: number | null | undefined) => value == null ? '—' : String(Number(value.toFixed(4)))
+const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`
 const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'visual-cnn': '可视化卷积神经网络', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
 const modelKinds = Object.values(modelGroups).flat() as ModelKind[]
