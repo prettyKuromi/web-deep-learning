@@ -63,7 +63,8 @@ describe('trainInWorker client', () => {
     )
     const start = worker.messages[0] as { type: string; config: unknown }
     expect(start.type).toBe('start')
-    const preparing = events[0]
+    const preparing = { type: 'preparing', runId: 'run-1', capability: { unit: 'iteration', total: 2, canPause: true, canStep: true, canStop: true } }
+    worker.emit({ type: 'event', event: preparing })
     worker.emit({ type: 'snapshot', runId: preparing.runId, snapshot: { iteration: 1 } })
     worker.emit({ type: 'complete', runId: preparing.runId, result: { model: { kind: 'logistic-regression' }, snapshots: [] } })
     await promise

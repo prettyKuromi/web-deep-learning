@@ -73,6 +73,7 @@ type WorkerMessage =
   | { type: 'complete'; runId?: string; result: WorkerTrainResult }
   | { type: 'error'; runId?: string; error: string; errorCode?: string }
   | { type: 'cancel' }
+  | { type: 'stopped'; runId: string }
   | { type: 'cancelled'; runId: string }
   | { type: 'paused' | 'resumed' | 'step-completed'; runId: string }
   | { type: 'event'; event: TrainingEvent }
@@ -116,14 +117,13 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
           } else if (data.type === 'complete') { onEvent?.({ type: 'completed', runId: data.runId ?? localRunId, capability }); finish(() => resolve(data.result))
           } else if (data.type === 'error') { onEvent?.({ type: 'failed', runId: data.runId ?? localRunId, errorCode: data.errorCode ?? 'TRAINING_ERROR', message: data.error }); finish(() => reject(new Error(data.error)))
           } else if (data.type === 'paused' || data.type === 'resumed' || data.type === 'step-completed') { onControl?.(data.type === 'paused'); onEvent?.({ type: data.type, runId: data.runId, capability })
-          } else if (data.type === 'cancelled' || data.type === 'cancel') { onEvent?.({ type: 'cancelled', runId: data.type === 'cancelled' ? data.runId : localRunId, capability }); finish(() => reject(createAbortError()))
+          } else if (data.type === 'stopped' || data.type === 'cancelled' || data.type === 'cancel') { onEvent?.({ type: data.type === 'stopped' ? 'stopped' : 'cancelled', runId: data.type === 'cancelled' || data.type === 'stopped' ? data.runId : localRunId, capability }); finish(() => reject(createAbortError()))
           }
         }
         worker.onerror = event => finish(() => reject(new Error(event.message || 'Worker 训练失败')))
         if (signal?.aborted) return abort()
         signal?.addEventListener('abort', abort, { once: true })
-        onEvent?.({ type: 'preparing', runId: localRunId, capability })
-        // 保持旧 Worker 调用协议兼容；新版 Worker 会在 start 时生成唯一 runId。
+        // 保持旧 Worker 调用协议兼容；阶段事件由 Worker 自身确认后发送。
         worker.postMessage({ type: 'start', config })
       })
     },

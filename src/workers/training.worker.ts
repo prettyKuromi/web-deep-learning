@@ -7,10 +7,20 @@ const scope = globalThis as unknown as WorkerScope
 let control = createTrainingControl()
 let cancelled = false
 let activeRunId = ''
+let cancellationKind: 'stopped' | 'cancelled' = 'cancelled'
 scope.onmessage = async ({ data }) => {
-  if (data.type !== 'start') { control.send(data.type as WorkerControl | 'cancel'); if (data.type === 'cancel' || data.type === 'stop') cancelled = true; return }
+  if (data.type !== 'start') {
+    if (data.type === 'stop' || data.type === 'cancel') {
+      cancellationKind = data.type === 'stop' ? 'stopped' : 'cancelled'
+      cancelled = true
+      emit({ type: cancellationKind, runId: activeRunId })
+    }
+    control.send(data.type as WorkerControl | 'cancel')
+    return
+  }
   if (!data.config) return
   cancelled = false
+  cancellationKind = 'cancelled'
   activeRunId = data.runId ?? createRunId()
   const capability = getTrainingCapability(data.config.kind, data.config as unknown as Record<string, unknown>)
   emit({ type: 'preparing', runId: activeRunId, capability })
@@ -22,7 +32,10 @@ scope.onmessage = async ({ data }) => {
     const result = await runTrainingInHandler(data.config, snapshot => scope.postMessage({ type: 'snapshot', runId: activeRunId, snapshot, capability }), () => cancelled, control)
     if (!cancelled) { emit({ type: 'completed', runId: activeRunId, capability }); scope.postMessage({ type: 'complete', runId: activeRunId, result }) }
   } catch (error) {
-    if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) { emit({ type: 'cancelled', runId: activeRunId, capability }); scope.postMessage({ type: 'cancelled', runId: activeRunId }) }
+    if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) {
+      if (cancellationKind === 'cancelled') emit({ type: 'cancelled', runId: activeRunId, capability })
+      scope.postMessage({ type: cancellationKind, runId: activeRunId })
+    }
     else { const message = error instanceof Error ? error.message : '训练失败'; emit({ type: 'failed', runId: activeRunId, errorCode: 'TRAINING_ERROR', message }); scope.postMessage({ type: 'error', runId: activeRunId, errorCode: 'TRAINING_ERROR', error: message }) }
   }
 }

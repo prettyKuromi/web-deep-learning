@@ -63,4 +63,4 @@ type TrainingEvent =
 - 状态：已实现兼容版运行时契约。
 - 实现内容：新增 `trainingCapabilities.ts` 集中声明模型训练单位与控制能力；`TrainingEvent` 为 Worker 阶段、快照、控制确认和失败事件提供唯一 `runId`；Worker 在准备、初始化、开始、暂停/继续、单步完成、完成、取消和失败时发送事件；旧 `trainInWorker` 调用和旧消息格式保持兼容。
 - 验证命令：`npm test -- --run src/features/training/workerClient.test.ts src/features/training/trainingControl.test.ts src/features/training/trainingCapabilities.test.ts`；`npm run build`。
-- 已知限制：现有页面仍以旧状态字符串渲染，尚未消费完整 `TrainingEvent` 时间线；停止事件在现有控制 API 中与取消共享终止路径，调用方可通过发送的控制命令区分。
+- 已知限制：现有页面仍以旧状态字符串渲染，尚未消费完整 `TrainingEvent` 时间线；停止与取消都以 AbortError 结束当前 Promise，但事件类型分别报告 `stopped` 和 `cancelled`。
