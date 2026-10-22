@@ -1,1 +1,34 @@
-.network-flow-canvas { display: grid; gap: 10px; min-width: max-content; min-height: 220px; padding: 12px; }.network-flow-canvas header { display: flex; align-items: center; justify-content: space-between; }.network-flow-canvas h3, .network-flow-canvas p { margin: 0; }.network-flow-canvas header span { color: var(--muted); font-size: .67rem; }.network-flow-track { display: flex; align-items: stretch; gap: 0; padding: 8px 2px; }.network-flow-node { display: grid; align-content: center; gap: 5px; min-width: 122px; border: 1px solid rgba(112,238,255,.32); border-radius: 10px; padding: 10px; background: linear-gradient(145deg, rgba(24,72,104,.5), rgba(28,36,91,.4)); }.network-flow-node strong { color: var(--cyan-soft); font-size: .74rem; }.network-flow-node small { color: var(--muted); font-size: .63rem; line-height: 1.4; }.network-flow-link { display: flex; align-items: center; }.network-flow-link > i { position: relative; display: block; width: 32px; height: 2px; background: rgba(112,238,255,.32); overflow: hidden; }.network-flow-link > i::after { content: ''; position: absolute; top: -3px; left: -8px; width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 9px var(--cyan); }.is-flowing .network-flow-link > i::after { animation: network-flow 1.2s linear infinite; animation-delay: var(--flow-delay); }.is-flowing .network-flow-link .network-flow-node { animation: network-highlight 1.2s ease-in-out infinite; animation-delay: var(--flow-delay); }@keyframes network-flow { to { transform: translateX(44px); } }@keyframes network-highlight { 40% { border-color: rgba(112,238,255,.9); box-shadow: 0 0 18px rgba(88,221,255,.28); } }@media (prefers-reduced-motion: reduce) { .is-flowing .network-flow-link > i::after, .is-flowing .network-flow-link .network-flow-node { animation: none; } }
+.network-flow-canvas { display: grid; gap: 12px; min-width: 0; min-height: 220px; padding: 14px; overflow: hidden; border: 1px solid rgba(112,238,255,.18); border-radius: 16px; background: radial-gradient(ellipse at 35% 10%, rgba(28,83,119,.2), transparent 55%), rgba(4,14,35,.32); }
+.network-flow-canvas header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.network-flow-canvas h3, .network-flow-canvas p { margin: 0; }
+.network-flow-canvas header span { color: var(--muted); font-size: .72rem; }
+.network-flow-viewport { min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-color: rgba(112,238,255,.32) transparent; }
+.network-flow-track { display: flex; align-items: center; width: max-content; min-height: 164px; gap: 0; padding: 12px 6px 22px; }
+.network-flow-step { display: flex; align-items: center; gap: 8px; }
+.network-flow-node { position: relative; display: grid; align-content: center; gap: 7px; width: 184px; min-height: 132px; border: 1px solid rgba(112,238,255,.4); border-radius: 14px; padding: 13px; background: linear-gradient(145deg, rgba(24,72,104,.78), rgba(28,36,91,.72)); box-shadow: 0 9px 24px rgba(0,0,0,.18), inset 0 1px rgba(255,255,255,.06); transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.network-flow-node strong { color: var(--cyan-soft); font-size: .8rem; line-height: 1.35; }
+.network-flow-node small { color: var(--muted); font-size: .68rem; line-height: 1.45; }
+.network-flow-node[draggable="true"] { cursor: grab; }
+.network-flow-node[draggable="true"]:active { cursor: grabbing; }
+.network-flow-input, .network-flow-output { width: 146px; min-height: 100px; border-color: rgba(144,163,255,.46); background: linear-gradient(145deg, rgba(55,59,117,.64), rgba(28,36,91,.68)); }
+.network-flow-output { border-color: rgba(118,244,197,.56); }
+.network-flow-link { display: flex; align-items: center; gap: 0; }
+.network-flow-link > i { position: relative; flex: none; display: block; width: 28px; height: 2px; background: rgba(112,238,255,.45); overflow: hidden; }
+.network-flow-link > i::after { content: ''; position: absolute; top: -3px; left: -8px; width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 9px var(--cyan); }
+.network-flow-controls { display: grid; gap: 5px; margin-top: 2px; }
+.network-flow-controls label { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 7px; color: var(--muted); font-size: .64rem; }
+.network-flow-controls input, .network-flow-controls select { width: 100%; min-width: 0; border: 1px solid rgba(112,238,255,.28); border-radius: 6px; padding: 4px 6px; color: var(--text, #eff7ff); background: rgba(4,14,35,.72); font: inherit; }
+.network-flow-insertions { display: flex; align-items: center; gap: 5px; }
+.network-flow-insert { display: inline-flex; align-items: center; gap: 3px; min-height: 25px; border: 1px dashed rgba(112,238,255,.38); border-radius: 7px; padding: 3px 6px; color: var(--cyan-soft); background: rgba(9,27,58,.78); font-size: .66rem; cursor: pointer; opacity: .55; transition: opacity .16s ease, border-color .16s ease; }
+.network-flow-insert span { display: none; }
+.network-flow-step:hover .network-flow-insert, .network-flow-step:focus-within .network-flow-insert, .network-flow-insert:focus-visible { opacity: 1; border-color: var(--cyan); }
+.network-flow-step:hover .network-flow-insert span, .network-flow-step:focus-within .network-flow-insert span { display: inline; }
+.network-flow-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; border-top: 1px solid rgba(112,238,255,.18); padding-top: 10px; color: var(--muted); font-size: .72rem; }
+.network-flow-menu button { border: 1px solid rgba(112,238,255,.28); border-radius: 7px; padding: 5px 9px; color: var(--cyan-soft); background: rgba(9,27,58,.8); cursor: pointer; }
+.network-flow-errors { margin: 0; padding: 8px 12px 8px 30px; border: 1px solid rgba(255,120,137,.4); border-radius: 9px; color: #ffd3d8; background: rgba(100,28,48,.2); font-size: .72rem; }
+.is-flowing .network-flow-link > i::after { animation: network-flow 1.2s linear infinite; animation-delay: var(--flow-delay); }
+.is-flowing .network-flow-link .network-flow-node { animation: network-highlight 1.2s ease-in-out infinite; animation-delay: var(--flow-delay); }
+@keyframes network-flow { to { transform: translateX(44px); } }
+@keyframes network-highlight { 40% { border-color: rgba(112,238,255,.9); box-shadow: 0 0 18px rgba(88,221,255,.28); } }
+@media (max-width: 600px) { .network-flow-canvas { padding: 11px; } .network-flow-node { width: 160px; } .network-flow-input, .network-flow-output { width: 130px; } .network-flow-link > i { width: 18px; } }
+@media (prefers-reduced-motion: reduce) { .network-flow-canvas *, .network-flow-canvas *::before, .network-flow-canvas *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
