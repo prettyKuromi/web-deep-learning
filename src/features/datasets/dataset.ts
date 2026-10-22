@@ -216,9 +216,18 @@ function generateShapesDataset(samples: number, seed: number): Dataset {
   return { features, labels, name: '8×8 图形图像（5 类）', dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }
 }
 
+export function asRegressionDataset(dataset: Dataset): Dataset {
+  const labels = dataset.labels.map((label) => typeof label === 'number' ? label : label.trim() === '' ? Number.NaN : Number(label))
+  if (labels.some((label) => !Number.isFinite(label))) {
+    throw new Error(`CSV 回归目标列“${dataset.labelName ?? '标签'}”必须全部为有限数值`)
+  }
+  return { ...dataset, labels }
+}
+
 export interface CsvParseOptions {
   featureColumns?: string[]
   labelColumn?: string
+  labelType?: 'category' | 'numeric'
 }
 
 export interface CsvParseResult {
@@ -234,13 +243,19 @@ export function parseCsvDataset(csv: string, options: CsvParseOptions = {}): Csv
   const labelColumn = options.labelColumn ?? columns[columns.length - 1] ?? ''
   const featureColumns = options.featureColumns ?? columns.filter((column) => column !== labelColumn)
   const features: FeatureVector[] = []
-  const labels: string[] = []
+  const labels: Array<string | number> = []
   let skippedRows = 0
   for (const row of parsed.data) {
     const rawFeatures = featureColumns.map((column) => row[column]?.trim())
     const values = rawFeatures.map((raw) => Number(raw))
-    const label = row[labelColumn]?.trim()
-    if (rawFeatures.some((raw) => !raw) || values.some((value) => !Number.isFinite(value)) || !label) {
+    const rawLabel = row[labelColumn]?.trim() ?? ''
+    let label: string | number = rawLabel
+    if (options.labelType === 'numeric') {
+      const numericLabel = rawLabel === '' ? Number.NaN : Number(rawLabel)
+      if (!Number.isFinite(numericLabel)) throw new Error(`CSV 回归目标列“${labelColumn}”必须全部为有限数值`)
+      label = numericLabel
+    }
+    if (rawFeatures.some((raw) => !raw) || values.some((value) => !Number.isFinite(value)) || !rawLabel) {
       skippedRows += 1
       continue
     }

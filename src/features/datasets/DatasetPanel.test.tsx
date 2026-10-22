@@ -92,6 +92,30 @@ describe('DatasetPanel', () => {
     expect(screen.getByText('前 2 条有效样本')).toBeInTheDocument()
   })
 
+  it('选择回归模型时将 CSV 数值目标导入为 number', async () => {
+    const user = userEvent.setup()
+    const onDatasetChange = vi.fn()
+    render(<DatasetPanel model="linear-regression" onDatasetChange={onDatasetChange} />)
+    const file = new File(['x1,x2,target\n1,2,3\n2,1,5\n3,4,7\n4,2,8\n5,6,11\n6,3,12\n7,8,15\n8,4,17'], 'regression.csv', { type: 'text/csv' })
+
+    await user.upload(screen.getByLabelText('上传 CSV'), file)
+
+    await waitFor(() => expect(onDatasetChange).toHaveBeenCalled())
+    expect(onDatasetChange.mock.calls.at(-1)?.[0].labels).toEqual([3, 5, 7, 8, 11, 12, 15, 17])
+  })
+
+  it('回归 CSV 含混合或非法目标时拒绝导入并显示原因', async () => {
+    const user = userEvent.setup()
+    const onDatasetChange = vi.fn()
+    render(<DatasetPanel model="linear-regression" onDatasetChange={onDatasetChange} />)
+    const file = new File(['x1,x2,target\n1,2,3\n2,1,unknown'], 'invalid-target.csv', { type: 'text/csv' })
+
+    await user.upload(screen.getByLabelText('上传 CSV'), file)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('CSV 回归目标列“target”必须全部为有限数值')
+    expect(onDatasetChange).not.toHaveBeenCalled()
+  })
+
   it('支持将 CSV 拖入上传区导入', async () => {
     const onDatasetChange = vi.fn()
     render(<DatasetPanel onDatasetChange={onDatasetChange} />)

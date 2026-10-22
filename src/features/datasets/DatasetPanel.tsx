@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react'
 import { BUILTIN_DATASET_METADATA, BUILTIN_DATASETS, createDatasetPreview, generateBuiltinDataset, parseCsvDataset, type Dataset, type BuiltinDatasetId } from './dataset'
-import { isModelCompatible, modelGroups, type ModelKind } from '../../app/workbenchTypes'
+import { isModelCompatible, modelGroups, modelTask, type ModelKind } from '../../app/workbenchTypes'
 import { profileDataset } from './profiling'
 
 export interface DatasetImportState { pending: boolean; error: string }
@@ -80,11 +80,14 @@ export function DatasetPanel({ controlsBefore, onDatasetChange, onError, onValid
         reader.readAsText(file)
       })
       if (request !== importRequestRef.current) return
-      const result = parseCsvDataset(text)
+      const labelType = model && modelTask[model] === 'regression' ? 'numeric' : 'category'
+      const result = parseCsvDataset(text, { labelType })
       applyDataset({ ...result.dataset, name: 'CSV 数据集' }, result.skippedRows)
-    } catch {
+    } catch (error) {
       if (request !== importRequestRef.current) return
-      const message = 'CSV 无有效数据，至少需要一行有效数据（数值特征和非空标签，并包含至少两个类别）'
+      const message = error instanceof Error && error.message.startsWith('CSV 回归目标列')
+        ? error.message
+        : 'CSV 无有效数据，至少需要一行有效数据（数值特征和非空标签，并包含至少两个类别）'
       updateImportState({ pending: false, error: message })
       onError?.(message)
     }
@@ -114,7 +117,7 @@ export function DatasetPanel({ controlsBefore, onDatasetChange, onError, onValid
           <span className="csv-dropzone-icon" aria-hidden="true">⇪</span><span><strong>拖拽 CSV 文件到此处</strong><small>或点击选择文件</small></span>
         </button>
       </div>}
-      {canImportCsv ? <p className="dataset-summary">CSV 第一行为表头，最后一列为标签，其余列必须为数值；至少两个类别。聚类与 PCA 当前也需保留标签列，不支持无标签导入或字段映射。</p> : <p className="dataset-summary">当前模型需要带有图像尺寸的图像数据集，请从上方选择。</p>}
+      {canImportCsv ? <p className="dataset-summary">{model && modelTask[model] === 'regression' ? 'CSV 第一行为表头，最后一列为有限数值目标，其余列必须为数值；至少两个不同目标值。' : 'CSV 第一行为表头，最后一列为类别标签，其余列必须为数值；至少两个类别。聚类与 PCA 当前也需保留标签列，不支持无标签导入或字段映射。'}</p> : <p className="dataset-summary">当前模型需要带有图像尺寸的图像数据集，请从上方选择。</p>}
       <p className="dataset-summary">当前：{currentDataset.name ?? '未命名数据集'}，{preview.sampleCount} 条样本{skippedRows ? `（跳过 ${skippedRows} 行）` : ''}</p>
       {isImporting && <p className="dataset-summary" role="status">正在读取 CSV…</p>}
       {error && <p role="alert" className="dataset-error">{error}</p>}

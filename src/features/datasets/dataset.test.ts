@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BUILTIN_DATASET_METADATA, BUILTIN_DATASETS, createDatasetPreview, generateBuiltinDataset, parseCsvDataset, validateDataset } from './dataset'
+import { BUILTIN_DATASET_METADATA, BUILTIN_DATASETS, asRegressionDataset, createDatasetPreview, generateBuiltinDataset, parseCsvDataset, validateDataset } from './dataset'
 
 describe('内置数据集', () => {
   it('生成月牙形数据集并保持确定性', () => {
@@ -40,12 +40,43 @@ describe('多维数据集扩展', () => {
   })
 })
 
+describe('回归训练数据集', () => {
+  it('将晚于 CSV 导入选择的数值目标安全转换，并保留原分类数据集', () => {
+    const dataset = parseCsvDataset('x,target\n1,0.3\n2,1.2').dataset
+    const regressionDataset = asRegressionDataset(dataset)
+
+    expect(dataset.labels).toEqual(['0.3', '1.2'])
+    expect(regressionDataset.labels).toEqual([0.3, 1.2])
+    expect(regressionDataset).not.toBe(dataset)
+  })
+
+  it.each([['1', 'unknown'], ['1', 'Infinity'], ['1', '']])('拒绝混合或非有限数值目标 %s', (first, second) => {
+    const dataset = { features: [[1], [2]], labels: [first, second], labelName: 'target' }
+    expect(() => asRegressionDataset(dataset)).toThrow('CSV 回归目标列“target”必须全部为有限数值')
+  })
+
+  it('兼容已有数值标签的内置回归数据集', () => {
+    const dataset = { features: [[1], [2]], labels: [2, 4] }
+    expect(asRegressionDataset(dataset)).toEqual(dataset)
+  })
+})
+
 describe('CSV 数据集', () => {
   it('解析并清洗二维特征与标签', () => {
     const result = parseCsvDataset('x,y,label\n1,2,A\n3,4,B\n,5,A\nfoo,6,B')
     expect(result.dataset.features).toEqual([[1, 2], [3, 4]])
     expect(result.dataset.labels).toEqual(['A', 'B'])
     expect(result.skippedRows).toBe(2)
+  })
+
+  it('回归模式将有限数值目标转为 number，默认分类标签仍为字符串', () => {
+    const csv = 'x1,x2,target\n1,2,3\n2,1,5\n3,4,7\n4,2,8\n5,6,11\n6,3,12\n7,8,15\n8,4,17'
+    expect(parseCsvDataset(csv).dataset.labels).toEqual(['3', '5', '7', '8', '11', '12', '15', '17'])
+    expect(parseCsvDataset(csv, { labelType: 'numeric' }).dataset.labels).toEqual([3, 5, 7, 8, 11, 12, 15, 17])
+  })
+
+  it.each(['1,2,3\n2,4,not-a-number', '1,2,3\n2,4,Infinity', '1,2,3\n2,4,'])('回归模式拒绝混合或非法目标 %s', (rows) => {
+    expect(() => parseCsvDataset('x1,x2,target\n' + rows, { labelType: 'numeric' })).toThrow('回归目标列')
   })
 
   it('缺少有效数据时抛出可读错误', () => {

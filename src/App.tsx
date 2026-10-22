@@ -27,7 +27,7 @@ import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/w
 import { formatParameterLabel, formatParameterValue } from './features/workbench/experimentParameterFormat'
 import { ExperimentSetupPage } from './features/workbench/pages'
 import type { DatasetImportState } from './features/datasets/DatasetPanel'
-import { generateBuiltinDataset } from './features/datasets/dataset'
+import { asRegressionDataset, generateBuiltinDataset } from './features/datasets/dataset'
 import { SinglePageWorkbench } from './features/workbench/SinglePageWorkbench'
 import { ModelExplanationPanel } from './features/visualization/ModelExplanationPanel'
 import { normalizeTrainSnapshot } from './features/training/snapshots'
@@ -71,9 +71,14 @@ export default function App() {
 
   const runTraining = async () => {
     if (!modelConfig.kind) { setTraining({ status: '等待训练', error: '请先选择模型' }); return }
-    if (!parametersValid || validateParameters(modelConfig.kind, modelConfig.params)) { setTraining({ error: '请先修正模型参数' }); return }
-    if (modelTask[modelConfig.kind] === 'regression' && dataset.labels.some(label => typeof label !== 'number' || !Number.isFinite(label))) { setTraining({ error: '回归任务要求最后一列标签为有限数值，请更换数据集。' }); return }
-    if (!isModelCompatible(modelConfig.kind, dataset).compatible) { setTraining({ status: '训练失败', error: isModelCompatible(modelConfig.kind, dataset).reason }); return }
+    const kind = modelConfig.kind
+    let trainingDataset = dataset
+    if (modelTask[kind] === 'regression') {
+      try { trainingDataset = asRegressionDataset(dataset) }
+      catch (error) { setTraining({ status: '数据集错误', error: error instanceof Error ? error.message : '回归目标列必须为有限数值' }); return }
+    }
+    if (!parametersValid || validateParameters(kind, modelConfig.params)) { setTraining({ error: '请先修正模型参数' }); return }
+    if (!isModelCompatible(kind, trainingDataset).compatible) { setTraining({ status: '训练失败', error: isModelCompatible(kind, trainingDataset).reason }); return }
     abortRef.current?.abort()
     const controller = new AbortController()
     const startedAt = Date.now()
@@ -82,7 +87,6 @@ export default function App() {
     setSelectedStep(undefined)
     setCurrentExperimentId(undefined)
     setTraining({ status: '准备训练', progress: 0, snapshots: [], error: undefined, metrics: undefined, runId: undefined, capability: undefined })
-    const kind = modelConfig.kind
     const effectiveParams = { ...defaultParameters(kind), ...modelConfig.params }
     let recordConfig: Record<string, unknown> = { ...effectiveParams }
     let snapshots: ReturnType<typeof normalizeTrainSnapshot>[] = []
@@ -94,12 +98,12 @@ export default function App() {
     try {
       const supervised = modelTask[kind] === 'classification' || modelTask[kind] === 'regression'
       const split = evaluationConfig.enabled && supervised
-        ? splitDataset(dataset.labels, evaluationConfig, modelTask[kind] as 'classification' | 'regression')
-        : { trainIndices: dataset.labels.map((_, index) => index), validationIndices: [], validationSplit: 0, seed: evaluationConfig.seed }
-      const trainSamples = selectRows(dataset.features, split.trainIndices)
-      const trainLabels = selectLabels(dataset.labels, split.trainIndices)
-      const validationSamples = selectRows(dataset.features, split.validationIndices)
-      const validationLabels = selectLabels(dataset.labels, split.validationIndices)
+        ? splitDataset(trainingDataset.labels, evaluationConfig, modelTask[kind] as 'classification' | 'regression')
+        : { trainIndices: trainingDataset.labels.map((_, index) => index), validationIndices: [], validationSplit: 0, seed: evaluationConfig.seed }
+      const trainSamples = selectRows(trainingDataset.features, split.trainIndices)
+      const trainLabels = selectLabels(trainingDataset.labels, split.trainIndices)
+      const validationSamples = selectRows(trainingDataset.features, split.validationIndices)
+      const validationLabels = selectLabels(trainingDataset.labels, split.validationIndices)
       partialEvaluation = evaluationConfig.enabled && supervised ? { config: evaluationConfig, trainSampleCount: trainSamples.length, validationSampleCount: validationSamples.length } : undefined
       totalUpdates = effectiveParams.iterations ?? effectiveParams.epochs ?? effectiveParams.trees ?? effectiveParams.rounds
       const trainer = trainers[kind] as any
@@ -141,7 +145,7 @@ export default function App() {
         : await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal, paused => setTraining({ status: paused ? '训练已暂停' : '训练中…' }), onEvent)
       if (controller.signal.aborted || abortRef.current !== controller) return
       flushSnapshot()
-      const predictions = trainer.predict(result.model, dataset.features)
+      const predictions = trainer.predict(result.model, trainingDataset.features)
       const trainPredictions = trainer.predict(result.model, trainSamples)
       if (predictions.flat().some((value: unknown) => typeof value === 'number' && !Number.isFinite(value))) throw new Error('训练数值不稳定，请降低学习率或标准化特征。')
       const metrics = modelTask[kind] === 'classification' ? classificationMetrics(trainLabels, trainPredictions) : undefined
@@ -159,7 +163,7 @@ export default function App() {
             : undefined
         : undefined
       const completedAt = Date.now()
-      const record: ExperimentRecord = { id: String(completedAt), createdAt: completedAt, dataset, modelKind: kind, config: recordConfig, metrics, evaluation: evaluationConfig.enabled && supervised ? { config: evaluationConfig, trainSampleCount: trainSamples.length, validationSampleCount: validationSamples.length, trainMetrics, validationMetrics } : undefined, snapshots: result.snapshots, model: result.model, predictions, runMetadata: { ...createRunMetadata(startedAt, completedAt, seed, trainingUnit, 'completed'), datasetFingerprint: await datasetFingerprint(dataset), evaluation: evaluationConfig.enabled && supervised ? { source: '训练集/验证集划分', split: `${Math.round(evaluationConfig.validationSplit * 100)}%` } : { source: '全量数据' } } }
+      const record: ExperimentRecord = { id: String(completedAt), createdAt: completedAt, dataset: trainingDataset, modelKind: kind, config: recordConfig, metrics, evaluation: evaluationConfig.enabled && supervised ? { config: evaluationConfig, trainSampleCount: trainSamples.length, validationSampleCount: validationSamples.length, trainMetrics, validationMetrics } : undefined, snapshots: result.snapshots, model: result.model, predictions, runMetadata: { ...createRunMetadata(startedAt, completedAt, seed, trainingUnit, 'completed'), datasetFingerprint: await datasetFingerprint(trainingDataset), evaluation: evaluationConfig.enabled && supervised ? { source: '训练集/验证集划分', split: `${Math.round(evaluationConfig.validationSplit * 100)}%` } : { source: '全量数据' } } }
       addExperiment(record)
       void saveExperiment(record).then(() => setPersistenceNotice('')).catch(() => { setPersistenceNotice(''); setTraining({ status: '训练完成，保存失败', error: '训练结果已生成，但未能写入本地历史记录；导出实验可保留结果。' }) })
       setTraining({ status: '训练完成', progress: 100, snapshots: result.snapshots, metrics })
@@ -169,9 +173,9 @@ export default function App() {
       if (abortRef.current !== controller) return
       if (stopRequestedRef.current && stopConfirmed) {
         const completedAt = Date.now()
-        const fingerprint = await datasetFingerprint(dataset)
+        const fingerprint = await datasetFingerprint(trainingDataset)
         const record: ExperimentRecord = {
-          id: String(completedAt), createdAt: completedAt, dataset, modelKind: kind, config: recordConfig,
+          id: String(completedAt), createdAt: completedAt, dataset: trainingDataset, modelKind: kind, config: recordConfig,
           evaluation: partialEvaluation, snapshots, predictions: [],
           runMetadata: { ...createRunMetadata(startedAt, completedAt, seed, trainingUnit, 'stopped'), datasetFingerprint: fingerprint, evaluation: partialEvaluation ? { source: '训练集/验证集划分', split: `${Math.round(evaluationConfig.validationSplit * 100)}%` } : { source: '全量数据' } },
         }

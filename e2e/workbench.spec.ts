@@ -105,6 +105,79 @@ test.describe('工作台关键流程', () => {
     await expect(page.locator('.result-row')).toContainText('KNN')
   })
 
+  test('回归任务导入数值 CSV 后可启用验证集训练', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('tab', { name: '回归' }).click()
+    await page.getByLabel('上传 CSV').setInputFiles({
+      name: 'linear-regression.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('x1,x2,target\n0.1,0.2,0.3\n0.2,0.1,0.5\n0.3,0.4,0.7\n0.4,0.2,0.8\n0.5,0.6,1.1\n0.6,0.3,1.2\n0.7,0.8,1.5\n0.8,0.4,1.7'),
+    })
+    await expect(page.getByText('当前：CSV 数据集，8 条样本', { exact: false })).toBeVisible()
+    await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
+    const model = page.getByRole('combobox', { name: '具体模型' })
+    await model.selectOption('linear-regression')
+    await page.getByRole('spinbutton', { name: '迭代次数' }).fill('30')
+    await page.getByRole('checkbox', { name: /启用验证集/ }).check()
+    await page.getByRole('button', { name: '开始训练', exact: true }).click()
+
+    await expect(page.locator('.single-page-status')).toHaveText('训练完成')
+    await expect(page.getByRole('region', { name: '训练与验证集评估' })).toContainText('训练集：7 条；验证集：1 条。')
+    await expect(page.getByRole('region', { name: '当前结果' })).toContainText('平均绝对误差（MAE）')
+
+    await page.reload()
+    await page.getByRole('tab', { name: '历史记录' }).click()
+    await expect(page.locator('.result-row')).toHaveCount(1)
+    await expect(page.locator('.result-row')).toContainText('线性回归')
+  })
+
+  test('默认模型导入并确认后切换回归仍可训练数值目标', async ({ page }) => {
+    await page.goto('/')
+    await page.getByLabel('上传 CSV').setInputFiles({
+      name: 'late-regression.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('x1,x2,target\n0.1,0.2,0.3\n0.2,0.1,0.5\n0.3,0.4,0.7\n0.4,0.2,0.8\n0.5,0.6,1.1\n0.6,0.3,1.2\n0.7,0.8,1.5\n0.8,0.4,1.7'),
+    })
+    await expect(page.getByText('当前：CSV 数据集，8 条样本', { exact: false })).toBeVisible()
+    await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
+    await page.getByRole('tab', { name: '回归' }).click()
+    await page.getByRole('combobox', { name: '具体模型' }).selectOption('linear-regression')
+    await page.getByRole('spinbutton', { name: '迭代次数' }).fill('30')
+    await page.getByRole('checkbox', { name: /启用验证集/ }).check()
+    await page.getByRole('button', { name: '开始训练', exact: true }).click()
+
+    await expect(page.locator('.single-page-status')).toHaveText('训练完成')
+    await expect(page.getByRole('region', { name: '训练与验证集评估' })).toContainText('训练集：7 条；验证集：1 条。')
+    await expect(page.getByRole('region', { name: '当前结果' })).toContainText('平均绝对误差（MAE）')
+
+    const readStoredLabels = () => page.evaluate(async () => {
+      const request = indexedDB.open('web-deep-learning-experiments')
+      const database = await new Promise<IDBDatabase>((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })
+      const records = await new Promise<Array<{ dataset: { labels: Array<string | number> } }>>((resolve, reject) => { const get = database.transaction('experiments').objectStore('experiments').getAll(); get.onsuccess = () => resolve(get.result); get.onerror = () => reject(get.error) })
+      database.close()
+      return records[0]?.dataset.labels
+    })
+    await expect.poll(readStoredLabels).toEqual([0.3, 0.5, 0.7, 0.8, 1.1, 1.2, 1.5, 1.7])
+  })
+
+  test('晚切回归任务时拒绝混合目标并提示目标列', async ({ page }) => {
+    await page.goto('/')
+    await page.getByLabel('上传 CSV').setInputFiles({
+      name: 'invalid-late-regression.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('x1,x2,target\n0.1,0.2,0.3\n0.2,0.1,not-a-number'),
+    })
+    await expect(page.getByText('当前：CSV 数据集，2 条样本', { exact: false })).toBeVisible()
+    await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
+    await page.getByRole('tab', { name: '回归' }).click()
+    await page.getByRole('combobox', { name: '具体模型' }).selectOption('linear-regression')
+    await page.getByRole('button', { name: '开始训练', exact: true }).click()
+
+    await expect(page.locator('.single-page-status')).toHaveText('数据集错误')
+    await expect(page.getByRole('alert')).toContainText('CSV 回归目标列“target”必须全部为有限数值')
+    await expect(page.getByRole('region', { name: '当前结果' })).toHaveCount(0)
+  })
+
   test('可切换到历史记录页', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('tab', { name: '历史记录' }).click()
