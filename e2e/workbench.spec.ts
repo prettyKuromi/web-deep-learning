@@ -80,6 +80,31 @@ test.describe('工作台关键流程', () => {
     expect(dimensions.lastColumnRight).toBeLessThanOrEqual(dimensions.wrapperRight + 1)
   })
 
+  test('KNN 使用验证集训练后将训练集指标成功持久化', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
+    await page.getByRole('combobox', { name: '具体模型' }).selectOption('knn')
+    await page.getByRole('checkbox', { name: /启用验证集/ }).check()
+    await page.getByRole('button', { name: '开始训练', exact: true }).click()
+    await expect(page.locator('.single-page-status')).toHaveText('训练完成')
+
+    const readStoredRecords = () => page.evaluate(async () => {
+      const request = indexedDB.open('web-deep-learning-experiments')
+      const database = await new Promise<IDBDatabase>((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })
+      const records = await new Promise<Array<{ evaluation?: { trainSampleCount?: number }; metrics?: { confusionMatrix?: number[][] } }>>((resolve, reject) => { const get = database.transaction('experiments').objectStore('experiments').getAll(); get.onsuccess = () => resolve(get.result); get.onerror = () => reject(get.error) })
+      database.close()
+      return records.map(record => ({ trainSampleCount: record.evaluation?.trainSampleCount, confusionTotal: record.metrics?.confusionMatrix?.flat().reduce((sum, count) => sum + count, 0) }))
+    })
+    await expect.poll(async () => (await readStoredRecords()).length).toBe(1)
+    const storedRecords = await readStoredRecords()
+    expect(storedRecords).toEqual([{ trainSampleCount: 160, confusionTotal: 160 }])
+
+    await page.reload()
+    await page.getByRole('tab', { name: '历史记录' }).click()
+    await expect(page.locator('.result-row')).toHaveCount(1)
+    await expect(page.locator('.result-row')).toContainText('KNN')
+  })
+
   test('可切换到历史记录页', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('tab', { name: '历史记录' }).click()

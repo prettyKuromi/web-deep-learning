@@ -38,6 +38,25 @@ describe('实验持久化', () => {
     expect((await listExperiments()).map((item) => item.id)).toEqual(['old'])
   })
 
+  it('验证集拆分记录按训练集样本数校验混淆矩阵', async () => {
+    const metrics = { accuracy: 1, precision: 1, recall: 1, f1: 1, labels: [0, 1], confusionMatrix: [[1, 0], [0, 0]] }
+    const evaluated = {
+      ...record('evaluated'), modelKind: 'logistic-regression' as const, config: { iterations: 2 }, metrics,
+      evaluation: { config: { enabled: true, validationSplit: .5, seed: 42 }, trainSampleCount: 1, validationSampleCount: 1, trainMetrics: metrics },
+    }
+
+    await expect(saveExperiment(evaluated)).resolves.toBeUndefined()
+  })
+
+  it('没有验证集划分时混淆矩阵仍须覆盖全量样本', async () => {
+    const validMetrics = { accuracy: 1, precision: 1, recall: 1, f1: 1, labels: [0, 1], confusionMatrix: [[1, 0], [0, 1]] }
+    const legacy = { ...record('legacy'), metrics: validMetrics }
+    await expect(saveExperiment(legacy)).resolves.toBeUndefined()
+
+    const partialMetrics = { ...validMetrics, confusionMatrix: [[1, 0], [0, 0]] }
+    await expect(saveExperiment({ ...record('invalid-legacy'), metrics: partialMetrics })).rejects.toThrow('混淆矩阵')
+  })
+
   it('保存停止记录时保留部分快照且不要求最终预测或模型', async () => {
     const stopped = {
       ...record('stopped', 2),

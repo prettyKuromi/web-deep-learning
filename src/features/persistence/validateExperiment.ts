@@ -54,7 +54,8 @@ export function validateExperiment(value: unknown): asserts value is ExperimentR
     const metrics = value.metrics
     ensure(task === 'classification' && isObject(metrics) && ['accuracy', 'precision', 'recall', 'f1'].every(key => finite(metrics[key]) && metrics[key] >= 0 && metrics[key] <= 1), '分类指标')
     ensure(Array.isArray(metrics.labels) && metrics.labels.length === new Set(data.labels).size && new Set(metrics.labels).size === metrics.labels.length && metrics.labels.every((item: unknown) => data.labels.includes(item)), '指标类别')
-    ensure(matrix(metrics.confusionMatrix, metrics.labels.length, metrics.labels.length) && metrics.confusionMatrix.flat().every((item: unknown) => integer(item)) && metrics.confusionMatrix.flat().reduce((sum: number, item: number) => sum + item, 0) === size, '混淆矩阵')
+    const metricSampleCount = value.evaluation?.trainSampleCount ?? size
+    ensure(matrix(metrics.confusionMatrix, metrics.labels.length, metrics.labels.length) && metrics.confusionMatrix.flat().every((item: unknown) => integer(item)) && metrics.confusionMatrix.flat().reduce((sum: number, item: number) => sum + item, 0) === metricSampleCount, '混淆矩阵')
   }
   if (value.model !== undefined) validateModel(value.model, kind, dimensions, data.labels)
 }
