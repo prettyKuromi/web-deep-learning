@@ -193,7 +193,7 @@ export default function App() {
     if (training.status === '训练已暂停') workerClientRef.current?.sendControl('step')
   }
   const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); setCurrentExperimentId(undefined) }
-  const resetTraining = () => { abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setCurrentExperimentId(undefined); setSelectedStep(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined }) }
+  const resetTraining = () => { stopRequestedRef.current = false; activeRunIdRef.current = undefined; abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setCurrentExperimentId(undefined); setSelectedStep(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined, runId: undefined, capability: undefined }) }
   const invalidateConfiguration = () => { resetTraining(); setTraining({ status: '配置已修改，请重新训练' }) }
   const handleDatasetChange = (nextDataset: typeof dataset) => {
     abortRef.current?.abort()
@@ -225,9 +225,11 @@ export default function App() {
     setTraining({ status: '请重新训练', progress: 0, snapshots: [], error: undefined, metrics: undefined })
   }
 
+  const enterWorkflow = () => { resetTraining(); setTopPage('workflow') }
   const handleTopPageChange = (page: TopLevelPage) => {
     if (page === 'workflow' && !datasetConfirmed) return
     if (page !== 'history' && ['训练中…', '训练已暂停'].includes(training.status)) return
+    if (page === 'workflow' && topPage !== 'workflow') { enterWorkflow(); return }
     setTopPage(page)
   }
 
@@ -237,7 +239,7 @@ export default function App() {
   return <main className="app-shell">
     <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">web-deep-learning</p><h1>机器学习实验工作台</h1><p className="header-subtitle">选择模型与数据后，观察训练过程和结果。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
     <TopLevelNavigation activePage={topPage} configurationDisabled={['训练中…', '训练已暂停'].includes(training.status)} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
-    <section className="app-content">{topPage === 'setup' ? <ExperimentSetupPage model={activeModel} onModelChange={handleModelSelection} initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; if (!modelConfig.kind) handleModelSelection(activeModel); setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench
+    <section className="app-content">{topPage === 'setup' ? <ExperimentSetupPage model={activeModel} onModelChange={handleModelSelection} initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; if (!modelConfig.kind) handleModelSelection(activeModel); setDatasetConfirmed(true); enterWorkflow() }} /> : topPage === 'workflow' ? <SinglePageWorkbench
       dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={layers => { invalidateConfiguration(); setVisualLayers(layers) }} model={activeModel} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots} capability={training.capability} evaluationConfig={evaluationConfig} onEvaluationConfigChange={config => { invalidateConfiguration(); setEvaluationConfig(config) }}
       onDatasetChange={handleDatasetChange} onChangeDataset={() => setTopPage('setup')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
       parametersValid={parametersValid} onParamsValidityChange={valid => { setParametersValid(valid); if (!valid) invalidateConfiguration() }}

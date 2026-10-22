@@ -74,14 +74,14 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
           <label><input type="checkbox" checked={evaluationConfig.enabled} onChange={event => onEvaluationConfigChange({ ...evaluationConfig, enabled: event.target.checked })} /> 启用验证集（默认 20%）</label>
           {evaluationConfig.enabled && <><label>验证集比例<input type="number" min="0.1" max="0.8" step="0.05" value={evaluationConfig.validationSplit} onChange={event => onEvaluationConfigChange({ ...evaluationConfig, validationSplit: Number(event.target.value) })} /></label><label>划分随机种子<input type="number" step="1" value={evaluationConfig.seed} onChange={event => onEvaluationConfigChange({ ...evaluationConfig, seed: Number(event.target.value) })} /></label><small>训练集和验证集会按此配置确定性划分。</small></>}
         </fieldset>}
+        {model && <p className="single-page-hint">{controllable ? `单步推进一个完整${effectiveCapability ? trainingUnitLabel(effectiveCapability.unit) : '训练单位'}；暂停会等待本轮计算结束。` : `该模型按“${effectiveCapability ? trainingUnitLabel(effectiveCapability.unit) : '拟合'}”完成，不支持暂停、继续或单步；可停止计算。`}</p>}
+        {error && <p role="alert" className="single-page-error">{error}</p>}
         <div className="single-page-controls" aria-label="训练控制">
           <button type="button" className="primary-button" onClick={onStartTraining} disabled={!model || !visualNetworkValid || !parametersValid || isActive}>开始训练</button>
           <button type="button" onClick={onPauseTraining} disabled={!isRunning || !effectiveCapability?.canPause}>暂停</button><button type="button" onClick={onStepTraining} disabled={!isPaused || !effectiveCapability?.canStep}>单步</button>
           <button type="button" onClick={onResumeTraining} disabled={!isPaused || !effectiveCapability?.canPause}>继续</button><button type="button" onClick={onStopTraining} disabled={!isActive || !effectiveCapability?.canStop}>停止</button>
           <button type="button" onClick={onResetTraining} disabled={!hasTraining}>重置</button>
         </div>
-        {model && <p className="single-page-hint">{controllable ? `单步推进一个完整${effectiveCapability ? trainingUnitLabel(effectiveCapability.unit) : '训练单位'}；暂停会等待本轮计算结束。` : `该模型按“${effectiveCapability ? trainingUnitLabel(effectiveCapability.unit) : '拟合'}”完成，不支持暂停、继续或单步；可停止计算。`}</p>}
-        {error && <p role="alert" className="single-page-error">{error}</p>}
       </section>
     </aside>
     <main className="single-page-column single-page-canvas" aria-label="训练画布">
