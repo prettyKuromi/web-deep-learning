@@ -16,6 +16,7 @@ export const BUILTIN_DATASET_METADATA: Record<BuiltinDatasetId, DatasetMetadata>
   circles: { description: '默认约 200 条二维二分类样本。', characteristics: '同心圆结构，非线性可分，适合观察环形决策边界。' },
   blobs: { description: '默认约 200 条二维二分类样本。', characteristics: '两个带高斯噪声的随机簇，类别通常近似线性可分。' },
   digits: { description: '默认约 500 条 8×8 灰度数字图像，包含 0–9 十类。', characteristics: '单通道图像分类数据，适合卷积、池化和全连接网络；不适用于二维决策边界模型。' },
+  shapes: { description: '默认约 500 条 8×8 灰度图像，包含五种几何图形。', characteristics: '包含横线、竖线、斜线、十字和方框，适合观察卷积网络提取局部形状特征。' },
 }
 
 export interface Dataset {
@@ -58,7 +59,7 @@ export function createDatasetPreview(dataset: Dataset, maxRows = 8): DatasetPrev
   }
 }
 
-export type BuiltinDatasetId = 'linear' | 'xor' | 'moons' | 'circles' | 'blobs' | 'digits'
+export type BuiltinDatasetId = 'linear' | 'xor' | 'moons' | 'circles' | 'blobs' | 'digits' | 'shapes'
 
 export const BUILTIN_DATASETS: Array<{ id: BuiltinDatasetId; name: string }> = [
   { id: 'linear', name: '线性可分' },
@@ -67,6 +68,7 @@ export const BUILTIN_DATASETS: Array<{ id: BuiltinDatasetId; name: string }> = [
   { id: 'circles', name: '环形' },
   { id: 'blobs', name: '随机簇' },
   { id: 'digits', name: '8×8 数字图像（0–9）' },
+  { id: 'shapes', name: '8×8 图形图像（5 类）' },
 ]
 
 export interface BuiltinDatasetOptions {
@@ -93,8 +95,9 @@ function gaussian(random: () => number) {
 }
 
 export function generateBuiltinDataset(id: BuiltinDatasetId, options: BuiltinDatasetOptions = {}): Dataset {
-  const samples = Math.max(2, Math.floor(options.samples ?? (id === 'digits' ? 500 : 200)))
+  const samples = Math.max(2, Math.floor(options.samples ?? (id === 'digits' || id === 'shapes' ? 500 : 200)))
   if (id === 'digits') return generateDigitsDataset(samples, options.seed ?? 42)
+  if (id === 'shapes') return generateShapesDataset(samples, options.seed ?? 42)
   const noise = options.noise ?? 0.1
   const random = rng(options.seed ?? 42)
   const features: FeatureVector[] = []
@@ -179,6 +182,38 @@ function generateDigitsDataset(samples: number, seed: number): Dataset {
     labels.push(label)
   }
   return { features, labels, name: '8×8 数字图像（0–9）', dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }
+}
+
+function generateShapesDataset(samples: number, seed: number): Dataset {
+  const random = rng(seed)
+  const features: FeatureVector[] = []
+  const labels: number[] = []
+  for (let index = 0; index < samples; index += 1) {
+    const label = index % 5
+    const shiftX = Math.floor(random() * 3) - 1
+    const shiftY = Math.floor(random() * 3) - 1
+    const pixels = Array(64).fill(0)
+    for (let y = 0; y < 8; y += 1) {
+      for (let x = 0; x < 8; x += 1) {
+        const active = label === 0 ? y === 3 || y === 4
+          : label === 1 ? x === 3 || x === 4
+            : label === 2 ? x === y || x + y === 7
+              : label === 3 ? x === 3 || x === 4 || y === 3 || y === 4
+                : (x === 1 || x === 6) && y >= 1 && y <= 6 || (y === 1 || y === 6) && x >= 1 && x <= 6
+        if (active) {
+          const shiftedX = x + shiftX
+          const shiftedY = y + shiftY
+          if (shiftedX >= 0 && shiftedX < 8 && shiftedY >= 0 && shiftedY < 8) pixels[shiftedY * 8 + shiftedX] = 0.78 + random() * 0.22
+        }
+      }
+    }
+    for (let pixel = 0; pixel < pixels.length; pixel += 1) {
+      if (pixels[pixel] === 0 && random() < 0.035) pixels[pixel] = random() * 0.13
+    }
+    features.push(pixels)
+    labels.push(label)
+  }
+  return { features, labels, name: '8×8 图形图像（5 类）', dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }
 }
 
 export interface CsvParseOptions {

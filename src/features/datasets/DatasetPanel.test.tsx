@@ -15,6 +15,25 @@ describe('DatasetPanel', () => {
     expect(screen.getByRole('option', { name: '随机簇' })).toBeInTheDocument()
   })
 
+  it('按已选模型只显示兼容数据集，CNN 不提供表格 CSV 上传', () => {
+    render(<DatasetPanel model="visual-cnn" onDatasetChange={vi.fn()} />)
+
+    expect(screen.getByRole('option', { name: '8×8 数字图像（0–9）' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '8×8 图形图像（5 类）' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '线性可分' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('上传 CSV')).not.toBeInTheDocument()
+  })
+
+  it('64 维图像预览只展示前八维并注明截取范围', () => {
+    const imageDataset = { name: '8×8 数字图像（0–9）', features: [Array(64).fill(0), Array(64).fill(1)], labels: [0, 1], dataType: 'image' as const, imageShape: { width: 8, height: 8, channels: 1 } }
+    render(<DatasetPanel model="visual-cnn" initialDataset={imageDataset} onDatasetChange={vi.fn()} />)
+
+    expect(screen.getByText('仅展示前 8 维，共 64 维')).toBeInTheDocument()
+    expect(document.querySelectorAll('.dataset-preview-grid > div:nth-child(2) li')).toHaveLength(8)
+    expect(screen.getAllByRole('table')[0]).toHaveAccessibleName('前 2 条有效样本')
+    expect(screen.getAllByRole('table')[0].querySelectorAll('th')).toHaveLength(10)
+  })
+
   it('默认展示内置数据集的预览、规模和特点说明', () => {
     render(<DatasetPanel onDatasetChange={vi.fn()} />)
 

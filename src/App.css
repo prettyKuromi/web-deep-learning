@@ -75,3 +75,37 @@ h1, h2, h3, h4, p { margin-top: 0; } h1 { margin-bottom: 3px; color: var(--ink-s
 .history-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .history-actions input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .history-actions label, .history-actions button { cursor: pointer; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 9px; background: #fff; color: #334155; font-size: 12px; }
+
+/* The app chrome stays in place while each workspace owns its scroll area. */
+#root { height: 100dvh; min-height: 0; overflow: hidden; }
+.app-shell { display: grid; height: 100dvh; min-height: 0; grid-template-rows: auto auto minmax(0, 1fr); align-content: stretch; padding: 12px 0; overflow: hidden; }
+.app-header { padding-bottom: 10px; }
+.app-header .eyebrow { font-family: Inter, "Segoe UI", Arial, sans-serif; font-size: .72rem; letter-spacing: .12em; font-weight: 700; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+.app-content { display: flex; min-height: 0; flex: 1; overflow: hidden; }
+.app-content > * { width: 100%; min-height: 0; }
+.top-level-navigation-wrap { margin: 8px 0 10px; }
+.top-level-navigation { flex-wrap: nowrap; }
+.top-level-navigation button { min-height: 34px; }
+.training-chart-empty { display: grid; justify-items: center; gap: 9px; width: 100%; padding: 18px; color: var(--muted); text-align: center; }
+.training-chart-empty strong { color: var(--ink-strong); font-size: .9rem; }
+.training-chart-empty > span { color: var(--muted); font-size: .75rem; }
+.training-chart-empty--with-fallback { align-content: start; min-height: 100%; }
+.training-chart-empty--with-fallback .scatter-chart { width: min(100%, 680px); }
+.metric-grid > div[title] { cursor: help; }
+.experiment-parameters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 16px; }
+.experiment-parameters > div { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; background: rgba(4, 15, 30, .28); }
+.experiment-parameters dt { color: var(--muted); font-size: .7rem; }
+.experiment-parameters dd { color: var(--ink-strong); font-size: .78rem; line-height: 1.5; }
+.history-detail-meta { margin: -8px 0 14px; color: var(--muted); font-size: .74rem; }
+.history-actions { justify-content: flex-end; }
+.history-actions label, .history-actions button { display: inline-flex; align-items: center; min-height: 34px; border-color: var(--line-bright); border-radius: 8px; padding: 7px 10px; color: var(--cyan-soft); background: rgba(13, 31, 54, .82); font-size: .72rem; transition: border-color .18s, background .18s; }
+.history-actions label:hover, .history-actions button:hover:not(:disabled) { border-color: var(--cyan); background: rgba(39, 112, 160, .24); }
+.history-actions input { width: 1px; }
+@media (max-width: 700px) {
+  .app-shell { width: calc(100% - 20px); padding: 8px 0; }
+  .app-header { gap: 10px; }
+  .header-meta { gap: 6px; font-size: .62rem; }
+  .status-badge { display: none; }
+  .top-level-navigation button { padding-inline: 6px; font-size: .68rem; }
+  .experiment-parameters { grid-template-columns: minmax(0, 1fr); }
+}

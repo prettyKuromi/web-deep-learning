@@ -62,4 +62,11 @@ describe('createModelExplanation', () => {
     expect(explanation).toMatchObject({ kind: 'knn', level: 'basic', visualization: { type: 'timeline' } })
     expect(explanation.description).toContain('训练时间线')
   })
+
+  it('为可视化 CNN 指向中央可编辑网络画布', () => {
+    const explanation = createModelExplanation('visual-cnn')
+
+    expect(explanation.description).toContain('中央网络画布')
+    expect(explanation.items).toContainEqual({ label: '可视化内容', value: '可编辑网络结构与分类结果' })
+  })
 })

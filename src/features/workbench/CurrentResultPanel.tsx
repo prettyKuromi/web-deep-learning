@@ -11,6 +11,13 @@ export interface CurrentResult {
   evaluation?: { trainSampleCount: number; validationSampleCount: number; validationMetrics?: ClassificationMetrics }
 }
 
+const metricTooltip: Record<string, string> = {
+  准确率: '所有样本中预测正确的比例。',
+  精确率: '被预测为某类别的样本中，实际属于该类别的比例；这里按类别计算后取宏平均。',
+  召回率: '某类别的真实样本中，被模型找出的比例；这里按类别计算后取宏平均。',
+  F1: '精确率与召回率的调和平均；这里按类别计算后取宏平均。',
+}
+
 export function CurrentResultPanel({ result }: { result: CurrentResult }) {
   const { metrics, dataset, predictions, predict, evaluation } = result
   return (
@@ -18,7 +25,7 @@ export function CurrentResultPanel({ result }: { result: CurrentResult }) {
       <h3 id="current-result-title">当前结果</h3>
       <div className="metric-grid">
         {([['准确率', metrics.accuracy], ['精确率', metrics.precision], ['召回率', metrics.recall], ['F1', metrics.f1]] as const).map(([label, value]) => (
-          <div key={label}><strong>{(value * 100).toFixed(1)}%</strong><span>{label}</span></div>
+          <div key={label} title={metricTooltip[label]}><strong>{(value * 100).toFixed(1)}%</strong><span>{label}</span></div>
         ))}
       </div>
       <p className="detail-explanation">训练集指标，不能代表泛化能力。精确率、召回率与 F1 为各类别宏平均。</p>

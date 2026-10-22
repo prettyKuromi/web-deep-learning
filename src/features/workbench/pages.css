@@ -102,3 +102,63 @@
   .result-row { grid-template-columns: minmax(0, 1fr) auto; }
   .result-metric { grid-column: 1; }
 }
+
+.dataset-page { height: 100%; min-height: 0; overflow: hidden; }
+.dataset-workspace { width: 100%; height: 100%; min-height: 0; grid-template-columns: minmax(220px, .55fr) minmax(0, 1.45fr); grid-template-rows: auto minmax(0, 1fr); align-items: stretch; gap: 10px 14px; }
+.dataset-page .page-heading { grid-column: 1; grid-row: 1; align-self: end; }
+.dataset-page .dataset-controls { grid-column: 1; grid-row: 2; min-height: 0; height: 100%; align-content: start; overflow: hidden; padding: 14px; }
+.dataset-page .dataset-preview { grid-column: 2; grid-row: 1 / span 2; min-height: 0; height: 100%; overflow: auto; padding: 16px; scrollbar-gutter: stable; }
+.dataset-preview .dataset-image-samples { max-width: 100%; }
+.dataset-preview .dataset-image-samples figure { flex-basis: 46px; }
+.dataset-preview .dataset-pixel-grid { width: 42px; }
+.dataset-page .dataset-preview h4 { margin-top: 10px; }
+.dataset-page .dataset-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dataset-page .dataset-continue { min-height: 42px; padding-inline: 10px; }
+.model-selection-actions { display: flex; justify-content: flex-end; }
+.model-selection-actions .primary-button { min-width: 210px; }
+.workbench-page:not(.dataset-page) { height: 100%; min-height: 0; overflow: hidden; }
+.workbench-page:not(.dataset-page) > .page-heading { flex: 0 0 auto; }
+.workbench-page:not(.dataset-page) > .workbench-page-card { min-height: 0; overflow-y: auto; }
+.workbench-page:has(.model-options) { display: flex; flex-direction: column; }
+.workbench-page:has(.model-options) .model-options { min-height: 0; flex: 1; overflow-y: auto; }
+.history-page { height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; gap: 10px; }
+.history-page > .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.history-page .page-heading-copy { min-width: 0; }
+.history-page .page-heading h2 { margin-bottom: 3px; }
+.history-workspace { min-height: 0; height: 100%; grid-template-columns: minmax(260px, .7fr) minmax(0, 1.3fr); align-items: stretch; gap: 12px; }
+.history-list-panel { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+.history-list-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.history-detail-panel { min-height: 0; align-content: start; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.history-detail-panel .result-detail { min-width: 0; }
+.history-detail-panel .current-result { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.result-row { position: relative; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 7px; }
+.result-row .result-row-select { display: grid; grid-column: 1; grid-row: 1 / span 2; justify-items: start; width: 100%; min-width: 0; border: 1px solid transparent; border-radius: 8px; padding: 8px; color: inherit; background: transparent; text-align: left; white-space: normal; }
+.result-row .result-row-select:hover, .result-row.is-selected .result-row-select { border-color: rgba(88, 221, 255, .35); color: var(--ink-strong); background: rgba(39, 112, 160, .15); }
+.result-row-title { display: grid; gap: 3px; min-width: 0; }
+.result-row .result-row-title > span { margin: 0; }
+.result-row .result-metric { grid-column: 1; margin: 0; padding: 0 8px 7px; }
+.result-row .result-actions { z-index: 1; grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.result-row .delete-record-button { display: grid; place-items: center; width: 28px; height: 28px; min-height: 28px; border-color: transparent; border-radius: 50%; padding: 0; color: #ffb7c1; background: rgba(132, 42, 66, .4); font-size: 1.1rem; opacity: 0; transition: opacity .16s ease, background .16s ease; }
+.result-row:hover .delete-record-button, .result-row:focus-within .delete-record-button { opacity: 1; }
+.result-row .delete-record-button:hover { border-color: rgba(255, 120, 137, .55); color: #fff; background: #a83250; }
+.history-comparison { margin-top: 12px; }
+.history-list-scroll .result-row { grid-template-columns: minmax(0, 1fr) auto; }
+@media (hover: none) { .result-row .delete-record-button { opacity: 1; } }
+@media (max-width: 900px) {
+  .dataset-workspace { grid-template-columns: minmax(190px, .55fr) minmax(0, 1.45fr); grid-template-rows: auto minmax(0, 1fr); }
+  .dataset-page .page-heading { grid-column: 1; grid-row: 1; }
+  .dataset-page .dataset-controls { grid-column: 1; grid-row: 2; }
+  .dataset-page .dataset-preview { grid-column: 2; grid-row: 1 / span 2; }
+  .history-workspace { grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); }
+}
+@media (max-width: 680px) {
+  .dataset-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, .8fr) minmax(0, 1.2fr); }
+  .dataset-page .page-heading { grid-column: 1; grid-row: 1; }
+  .dataset-page .dataset-controls { grid-column: 1; grid-row: 2; }
+  .dataset-page .dataset-preview { grid-column: 1; grid-row: 3; }
+  .dataset-page .dataset-controls { overflow-y: auto; }
+  .history-page > .page-heading { align-items: flex-start; flex-direction: column; }
+  .history-actions { justify-content: flex-start; }
+  .history-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, .7fr) minmax(0, 1.3fr); }
+  .history-detail-panel { padding: 12px; }
+}

@@ -36,11 +36,17 @@ describe('ModelExplanationPanel', () => {
     render(<ModelExplanationPanel kind="knn" snapshots={snapshots} selectedStep={2} onStepChange={onStepChange} dimensions={3} />)
     expect(screen.getByRole('combobox', { name: /训练步骤/i })).toHaveValue('2')
     expect(screen.getByText(/前两个特征/)).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: /训练损失曲线/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('当前快照')).toHaveTextContent('第 2 步')
   })
   it('模型尚未训练时仍能显示解释面板而不抛出异常', () => {
     expect(() => render(<ModelExplanationPanel kind="logistic-regression" />)).not.toThrow()
     expect(screen.getByRole('heading', { name: /逻辑回归/ })).toBeInTheDocument()
     expect(screen.getByText(/特征维度/)).toBeInTheDocument()
+  })
+
+  it('说明 CNN 结构可在中央画布调整', () => {
+    render(<ModelExplanationPanel kind="visual-cnn" />)
+    expect(screen.getAllByText(/可在中央网络画布中编辑/)).toHaveLength(2)
+    expect(screen.queryByText(/内部结构暂不展开/)).not.toBeInTheDocument()
   })
 })

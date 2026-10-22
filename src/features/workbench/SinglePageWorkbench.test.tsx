@@ -79,19 +79,43 @@ describe('单页训练工作台', () => {
     expect(screen.getByRole('button', { name: '开始训练' })).toBeDisabled()
   })
 
-  it('在训练主面板展示 CNN 构建器，并让左侧保留训练参数', () => {
+  it('在训练画布直接展示可编辑 CNN 网络，并把开始按钮放在配置栏', () => {
     render(<SinglePageWorkbench model="visual-cnn" params={{ learningRate: 0.03, epochs: 40, batchSize: 20, seed: 42 }} status="等待训练" snapshots={[]} dataset={{ features: [Array(64).fill(0), Array(64).fill(1)], labels: [0, 1], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} onDatasetChange={vi.fn()} onModelChange={vi.fn()} onParamsChange={vi.fn()} onStartTraining={vi.fn()} />)
 
     const canvas = screen.getByRole('main', { name: '训练画布' })
     const config = screen.getByRole('complementary', { name: '实验配置' })
-    expect(within(canvas).getByRole('region', { name: '网络结构搭建器' })).toBeInTheDocument()
+    expect(within(canvas).getByLabelText('神经网络数据流')).toBeInTheDocument()
+    expect(within(canvas).getByRole('button', { name: /在激活层.*第 2 层.*前插入/ })).toBeInTheDocument()
     expect(within(config).queryByRole('region', { name: '网络结构搭建器' })).not.toBeInTheDocument()
+    expect(within(config).getByRole('button', { name: '开始训练' })).toBeInTheDocument()
+    expect(within(canvas).queryByRole('button', { name: '开始训练' })).not.toBeInTheDocument()
     expect(within(config).getByRole('spinbutton', { name: '学习率' })).toHaveValue(0.03)
     expect(within(config).getByRole('spinbutton', { name: '训练轮数' })).toHaveValue(40)
     expect(within(config).getByRole('spinbutton', { name: '批大小' })).toHaveValue(20)
     expect(within(config).getByRole('spinbutton', { name: '随机种子' })).toHaveValue(42)
     expect(screen.getByTestId('cnn-training-card')).toHaveClass('training-canvas-card--cnn')
     expect(within(canvas).getByLabelText('神经网络数据流').parentElement).toHaveClass('single-page-chart--cnn')
+  })
+
+  it('图像模型只显示当前数据兼容的分类任务与模型', () => {
+    render(<SinglePageWorkbench model="visual-cnn" params={{ epochs: 40 }} status="等待训练" snapshots={[]} dataset={{ features: [Array(64).fill(0), Array(64).fill(1)], labels: [0, 1], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} onDatasetChange={vi.fn()} onModelChange={vi.fn()} onParamsChange={vi.fn()} onStartTraining={vi.fn()} />)
+
+    expect(screen.queryByRole('tab', { name: '回归' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'KNN' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '可视化卷积神经网络' })).toBeInTheDocument()
+  })
+
+  it('没有迭代损失时在训练主画布呈现最终结果', () => {
+    render(<SinglePageWorkbench {...baseProps} model="knn" status="训练完成" snapshots={[{ iteration: 1 }]} resultPanel={<div>最终分类结果图</div>} />)
+
+    expect(screen.getByRole('main', { name: '训练画布' })).toHaveTextContent('最终分类结果图')
+  })
+
+  it('CNN 完成后在主画布展示结果而非隐藏结果面板', () => {
+    render(<SinglePageWorkbench {...baseProps} model="visual-cnn" status="训练完成" snapshots={[{ iteration: 1 }]} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} resultPanel={<div>图像分类结果</div>} />)
+
+    expect(screen.getByRole('main', { name: '训练画布' })).toHaveTextContent('图像分类结果')
+    expect(screen.queryByLabelText('神经网络数据流')).not.toBeInTheDocument()
   })
 
   it('移除实验步骤卡片并保留配置与数据集上下文', () => {

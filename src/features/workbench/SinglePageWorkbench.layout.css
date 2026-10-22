@@ -27,3 +27,39 @@
 @media (max-width: 767px) {
   .single-page-canvas .single-page-chart { min-height: 220px; }
 }
+
+.single-page-workbench--immersive { height: 100%; min-height: 0; grid-template-columns: minmax(250px, .7fr) minmax(480px, 2fr) minmax(260px, .9fr); grid-template-rows: minmax(0, 1fr); gap: 12px; align-items: stretch; overflow: hidden; }
+.single-page-workbench--immersive .single-page-column { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; align-content: start; scrollbar-gutter: stable; }
+.single-page-workbench--immersive .single-page-canvas { grid-template-rows: auto auto minmax(0, 1fr); }
+.single-page-workbench--immersive .single-page-config .single-page-card { overflow: visible; }
+.single-page-workbench--immersive .single-page-canvas .training-canvas-card { height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto auto; overflow: hidden; }
+.single-page-workbench--immersive .single-page-canvas .training-canvas-card:has(.training-live) { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.single-page-workbench--immersive .single-page-canvas .training-canvas-card--cnn { grid-template-rows: auto minmax(0, 1fr) auto auto; }
+.single-page-workbench--immersive .single-page-canvas .training-canvas-card--cnn:has(.training-live) { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.single-page-workbench--immersive .single-page-canvas .single-page-chart { min-height: 0; height: 100%; display: block; overflow: auto; }
+.single-page-workbench--immersive .single-page-canvas .single-page-chart--cnn { min-height: 0; overflow: auto; }
+.single-page-workbench--immersive .single-page-canvas .network-flow-canvas { min-height: 100%; }
+.single-page-workbench--immersive .single-page-canvas .single-page-final-result { min-width: 0; }
+.single-page-workbench--immersive .single-page-canvas .single-page-timeline { max-height: 92px; overflow-y: auto; }
+.single-page-workbench--immersive .single-page-explanation { grid-template-columns: minmax(0, 1fr); grid-column: auto; }
+.single-page-workbench--immersive .single-page-explanation .single-page-heading { grid-column: auto; }
+.single-page-workbench--immersive .model-explanation-panel { min-width: 0; }
+.single-page-workbench--immersive .single-page-controls { position: sticky; bottom: -1px; z-index: 2; border-top: 1px solid var(--line); margin: 8px -14px -14px; padding: 10px 14px; background: rgba(8, 20, 38, .96); backdrop-filter: blur(10px); }
+.single-page-workbench--immersive .single-page-controls .primary-button { flex: 1 0 100%; min-height: 42px; }
+.single-page-workbench--immersive .single-page-controls button:not(.primary-button) { flex: 1; }
+.single-page-workbench--immersive .single-page-chart .current-result { max-width: none; }
+
+@media (max-width: 1100px) {
+  .single-page-workbench--immersive { grid-template-columns: minmax(180px, .65fr) minmax(350px, 1.5fr) minmax(220px, .8fr); gap: 8px; }
+  .single-page-workbench--immersive .single-page-card { padding: 10px; }
+  .single-page-workbench--immersive .single-page-controls { margin: 8px -10px -10px; padding: 8px 10px; }
+}
+@media (max-width: 760px) {
+  .single-page-workbench--immersive { grid-template-columns: minmax(0, .9fr) minmax(0, 1.6fr) minmax(0, .9fr); grid-template-rows: minmax(0, 1fr); gap: 6px; }
+  .single-page-workbench--immersive .single-page-column { grid-row: 1; min-width: 0; }
+  .single-page-workbench--immersive .single-page-config { grid-column: 1; }
+  .single-page-workbench--immersive .single-page-canvas { grid-column: 2; }
+  .single-page-workbench--immersive .single-page-explanation { grid-column: 3; }
+  .single-page-workbench--immersive .single-page-card { padding: 8px; }
+  .single-page-workbench--immersive .single-page-controls { margin: 8px -8px -8px; padding: 8px; }
+}

@@ -88,7 +88,7 @@ export function NetworkFlowCanvas({ layers, imageShape, status, snapshots, onCha
                 </div>}
               </article>
             </div>
-            {editable && <div className="network-flow-insertions"><InsertionControl label={`${description.name}前`} onClick={() => setInsertPosition({ index, label: `${description.name}前` })} /><InsertionControl label={`${description.name}后`} onClick={() => setInsertPosition({ index: index + 1, label: `${description.name}后` })} /></div>}
+            {editable && <div className="network-flow-insertions"><InsertionControl label={`${description.name}（第 ${index + 1} 层）前`} onClick={() => setInsertPosition({ index, label: `${description.name}前` })} /><InsertionControl label={`${description.name}（第 ${index + 1} 层）后`} onClick={() => setInsertPosition({ index: index + 1, label: `${description.name}后` })} /></div>}
           </div>
         })}
         <div className="network-flow-link network-flow-output-link"><i /><article className="network-flow-node network-flow-output"><strong>{network.layers.at(-1)?.name}</strong><small>{network.layers.at(-1)?.shape} · {network.layers.at(-1)?.parameters.toLocaleString()} 参数</small></article></div>

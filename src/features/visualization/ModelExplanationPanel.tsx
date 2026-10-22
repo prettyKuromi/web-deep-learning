@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ModelKind } from '../../app/workbenchTypes'
 import type { TrainSnapshot } from '../training/types'
-import { TrainingProgressChart } from '../training/TrainingProgressChart'
 import { createModelExplanation } from './modelExplanations'
 import './ModelExplanationPanel.css'
 
@@ -43,11 +42,10 @@ export function ModelExplanationPanel({ kind, model, snapshots = [], selectedSte
         {explanation.items.map((item) => <div key={item.label}><span>{item.label}</span><strong>{item.value}</strong></div>)}
       </div>
 
-      {explanation.level === 'detailed' ? <DetailedVisualization visualization={visualization} /> : <p className="model-explanation-basic">训练过程以时间线和损失曲线呈现，模型内部结构暂不展开。</p>}
+      {explanation.level === 'detailed' ? <DetailedVisualization visualization={visualization} /> : <p className="model-explanation-basic">{kind === 'visual-cnn' ? '卷积网络结构和层参数可在中央网络画布中编辑；此处汇总训练状态与分类表现。' : '训练过程以时间线和损失曲线呈现，模型内部结构暂不展开。'}</p>}
 
       {currentSnapshot && <p className="model-explanation-basic" aria-label="当前快照">{currentStep === 0 ? '拟合快照' : `第 ${currentStep} 步`}{Number.isFinite(currentSnapshot.loss) ? ` · 损失 ${currentSnapshot.loss!.toFixed(4)}` : ''}</p>}
       {currentSnapshot?.explanation && <pre className="snapshot-explanation">{JSON.stringify(currentSnapshot.explanation, null, 2)}</pre>}
-      {snapshots.length > 0 && <TrainingProgressChart snapshots={snapshots} status={status} />}
       {(dimensions ?? inferDimensions(model)) > 2 && <p className="projection-notice">当前图表仅展示前两个特征的投影，不代表真实的高维决策边界。</p>}
     </section>
   )

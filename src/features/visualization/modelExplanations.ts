@@ -101,8 +101,8 @@ function explainAdaBoost(model: Partial<AdaBoostModel>): ModelExplanation {
 function basicExplanation(kind: ModelKind): ModelExplanation {
   return {
     kind, level: 'basic', title: titles[kind],
-    description: '该模型提供统一训练时间线、结果画布和基础指标；内部结构暂不展开。',
-    items: [{ label: '可视化内容', value: '训练时间线与结果画布' }],
+    description: kind === 'visual-cnn' ? '卷积网络结构和层参数可在中央网络画布中编辑；此处汇总训练状态与分类表现。' : '该模型提供统一训练时间线、结果画布和基础指标；内部结构暂不展开。',
+    items: [{ label: '可视化内容', value: kind === 'visual-cnn' ? '可编辑网络结构与分类结果' : '训练时间线与结果画布' }],
     visualization: { type: 'timeline' },
   }
 }

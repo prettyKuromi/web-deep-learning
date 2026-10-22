@@ -22,8 +22,9 @@ import type { TrainingEvent } from './features/training/types'
 import { regressionMetrics, selectLabels, selectRows, splitDataset, type EvaluationConfig } from './features/training/evaluation'
 import { saveExperiment, exportExperiments, importExperiments, deleteExperiment } from './features/persistence/persistence'
 import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/workbench/HistoryPage'
-import { DatasetPage } from './features/workbench/pages'
+import { DatasetPage, ModelPage } from './features/workbench/pages'
 import type { DatasetImportState } from './features/datasets/DatasetPanel'
+import { generateBuiltinDataset } from './features/datasets/dataset'
 import { SinglePageWorkbench } from './features/workbench/SinglePageWorkbench'
 import { ModelExplanationPanel } from './features/visualization/ModelExplanationPanel'
 import { normalizeTrainSnapshot } from './features/training/snapshots'
@@ -42,7 +43,7 @@ export default function App() {
   const { dataset, setDataset, modelConfig, setModelConfig, training, setTraining, experiments, addExperiment } = useWorkbenchStore()
   const [currentExperimentId, setCurrentExperimentId] = useState<string>()
   const [historySelectedId, setHistorySelectedId] = useState<string>()
-  const [topPage, setTopPage] = useState<TopLevelPage>('dataset')
+  const [topPage, setTopPage] = useState<TopLevelPage>('model')
   const [persistenceNotice, setPersistenceNotice] = useState('')
   const [historyError, setHistoryError] = useState('')
   const [datasetConfirmed, setDatasetConfirmed] = useState(false)
@@ -177,28 +178,69 @@ export default function App() {
     setTraining({ status: '请重新训练', progress: 0, snapshots: [], error: undefined, metrics: undefined })
   }
 
+  const handleModelSelection = (kind: ModelKind) => {
+    if (modelConfig.kind === kind) return
+    abortRef.current?.abort()
+    abortRef.current = null
+    workerClientRef.current = null
+    setParametersValid(true)
+    setDatasetConfirmed(false)
+    setDatasetImportState({ pending: false, error: '' })
+    setSelectedStep(undefined)
+    setCurrentExperimentId(undefined)
+    setModelConfig({ kind, params: defaults[kind] })
+    if (!isModelCompatible(kind, dataset).compatible) {
+      setDataset(kind === 'visual-cnn' ? generateBuiltinDataset('digits') : generateBuiltinDataset('linear'))
+    }
+    setTraining({ status: '请重新训练', progress: 0, snapshots: [], error: undefined, metrics: undefined })
+  }
+
   const handleTopPageChange = (page: TopLevelPage) => {
     if (page === 'workflow' && !datasetConfirmed) return
-    if (page === 'dataset' && ['训练中…', '训练已暂停'].includes(training.status)) return
+    if (page !== 'history' && ['训练中…', '训练已暂停'].includes(training.status)) return
     setTopPage(page)
   }
 
   const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], modelKind: record.modelKind, snapshots: record.snapshots, runMetadata: record.runMetadata, timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), summary: experimentSummary(record), metrics: record.metrics ?? {} }))
-  const explanationPanel = modelConfig.kind ? <ModelExplanationPanel kind={modelConfig.kind} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.features[0]?.length} /> : undefined
+  const activeModel = modelConfig.kind ?? recommendedModel(dataset)
+  const explanationPanel = <ModelExplanationPanel kind={activeModel} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.features[0]?.length} />
   return <main className="app-shell">
-    <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">浏览器机器学习实验</p><h1>机器学习实验工作台</h1><p className="header-subtitle">先选择数据，再观察训练并理解模型。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
-    <TopLevelNavigation activePage={topPage} configurationDisabled={['训练中…', '训练已暂停'].includes(training.status)} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
-    <section className="app-content">{topPage === 'dataset' ? <DatasetPage initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench
-      dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={layers => { invalidateConfiguration(); setVisualLayers(layers) }} model={modelConfig.kind} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots} capability={training.capability} evaluationConfig={evaluationConfig} onEvaluationConfigChange={config => { invalidateConfiguration(); setEvaluationConfig(config) }}
+    <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">web-deep-learning</p><h1>机器学习实验工作台</h1><p className="header-subtitle">先选模型，再筛选数据集并观察训练结果。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
+    <TopLevelNavigation activePage={topPage} configurationDisabled={['训练中…', '训练已暂停'].includes(training.status)} datasetDisabled={!modelConfig.kind} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
+    <section className="app-content">{topPage === 'model' ? <ModelPage value={activeModel} onChange={handleModelSelection} onContinue={() => { if (!modelConfig.kind) handleModelSelection(activeModel); setTopPage('dataset') }} /> : topPage === 'dataset' ? <DatasetPage model={activeModel} initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench
+      dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={layers => { invalidateConfiguration(); setVisualLayers(layers) }} model={activeModel} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots} capability={training.capability} evaluationConfig={evaluationConfig} onEvaluationConfigChange={config => { invalidateConfiguration(); setEvaluationConfig(config) }}
       onDatasetChange={handleDatasetChange} onChangeDataset={() => setTopPage('dataset')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
       parametersValid={parametersValid} onParamsValidityChange={valid => { setParametersValid(valid); if (!valid) invalidateConfiguration() }}
       onModelChange={(kind) => { resetTraining(); setParametersValid(true); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => { invalidateConfiguration(); setModelConfig({ params }) }}
       onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining}
       explanation={explanationPanel} resultPanel={currentExperiment ? <ExperimentResultPanel record={currentExperiment} predict={(point) => predictionLabel(currentExperiment.modelKind, currentExperiment.model, point)} /> : undefined} error={training.error}
-    /> : <HistoryPage records={records} selectedId={historySelectedId} onSelect={(item) => setHistorySelectedId(item.id)} selectedDetail={historySelected ? <ExperimentDetail record={historySelected} /> : undefined} importError={historyError || persistenceNotice} onExport={async () => { const json = await exportExperiments(useWorkbenchStore.getState().experiments); const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'web-deep-learning-experiments.json'; anchor.click(); URL.revokeObjectURL(url) }} onImport={async (file: File) => { try { const records = await importExperiments(await file.text()); useWorkbenchStore.getState().mergeExperiments(records); setHistoryError('') } catch (error) { setHistoryError(error instanceof Error ? error.message : '导入失败') } }} onDelete={() => { if (!historySelectedId) return; const id = historySelectedId; void Promise.resolve(deleteExperiment(id)).then(() => { useWorkbenchStore.getState().removeExperiment(id); setHistorySelectedId(undefined) }).catch(() => setHistoryError('删除失败：本地存储不可用')) }} />}</section>
+    /> : <HistoryPage records={records} selectedId={historySelectedId} onSelect={(item) => setHistorySelectedId(item.id)} selectedDetail={historySelected ? <ExperimentDetail record={historySelected} /> : undefined} importError={historyError || persistenceNotice} onExport={async () => { const json = await exportExperiments(useWorkbenchStore.getState().experiments); const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'web-deep-learning-experiments.json'; anchor.click(); URL.revokeObjectURL(url) }} onImport={async (file: File) => { try { const records = await importExperiments(await file.text()); useWorkbenchStore.getState().mergeExperiments(records); setHistoryError('') } catch (error) { setHistoryError(error instanceof Error ? error.message : '导入失败') } }} onDelete={(id) => { void Promise.resolve(deleteExperiment(id)).then(() => { useWorkbenchStore.getState().removeExperiment(id); if (historySelectedId === id) setHistorySelectedId(undefined) }).catch(() => setHistoryError('删除失败：本地存储不可用')) }} />}</section>
   </main>
 }
 
+const parameterLabels: Record<string, string> = { learningRate: '学习率', iterations: '迭代次数', regularization: '正则化强度', epochs: '训练轮数', batchSize: '批大小', seed: '随机种子', k: '邻居数（k）', margin: '间隔', trees: '树数量', maxDepth: '最大深度', minSamplesSplit: '最小分裂样本数', rounds: '训练轮数', varianceSmoothing: '方差平滑', epsilon: '邻域半径', minPoints: '最小样本数', components: '主成分数量', hiddenLayerCount: '隐藏层数量', hiddenUnits: '每层神经元数', layers: '网络层配置', imageShape: '图像尺寸' }
+
+export function formatParameterLabel(key: string, modelKind?: ModelKind) {
+  return key === 'k' && modelKind === 'k-means' ? '簇数量（k）' : parameterLabels[key] ?? key
+}
+
+export function formatParameterValue(key: string, value: unknown) {
+  if (key === 'imageShape' && value && typeof value === 'object') {
+    const shape = value as Record<string, unknown>
+    if (typeof shape.width === 'number' && typeof shape.height === 'number' && typeof shape.channels === 'number') return `${shape.height} × ${shape.width} 像素 · ${shape.channels} 通道`
+  }
+  if (key === 'layers' && Array.isArray(value)) return value.map((layer, index) => {
+    if (!layer || typeof layer !== 'object') return `第 ${index + 1} 层`
+    const item = layer as Record<string, unknown>
+    const names: Record<string, string> = { conv2d: '卷积层', 'max-pool': '最大池化', dense: '全连接层', activation: '激活层', dropout: 'Dropout' }
+    const activations: Record<string, string> = { relu: 'ReLU', tanh: '双曲正切（Tanh）', sigmoid: 'Sigmoid', softmax: 'Softmax', linear: '线性' }
+    const detail = item.type === 'conv2d' ? `，${String(item.filters)} 个滤波器` : item.type === 'dense' ? `，${String(item.units)} 个神经元` : item.type === 'activation' ? `，${activations[String(item.activation)] ?? String(item.activation)}` : item.type === 'dropout' ? `，丢弃率 ${Math.round(Number(item.rate) * 100)}%` : ''
+    return `第 ${index + 1} 层：${names[String(item.type)] ?? '网络层'}${detail}`
+  }).join('；')
+  if (typeof value === 'object' && value !== null) return JSON.stringify(value)
+  return String(value)
+}
+
 function ExperimentDetail({ record }: { record: ReturnType<typeof useWorkbenchStore.getState>['experiments'][number] }) {
-  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2><h3>训练参数</h3><dl className="experiment-parameters">{Object.entries(record.config).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</dd></div>)}</dl><ExperimentResultPanel record={record} predict={(point) => predictionLabel(record.modelKind, record.model, point)} /></section>
+  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2><p className="history-detail-meta">{record.dataset.features.length} 条样本 · {record.dataset.features[0]?.length ?? 0} 个特征 · {new Date(record.createdAt).toLocaleString('zh-CN')}</p><h3>训练参数</h3><dl className="experiment-parameters">{Object.entries(record.config).map(([key, value]) => <div key={key}><dt>{formatParameterLabel(key, record.modelKind)}</dt><dd>{formatParameterValue(key, value)}</dd></div>)}</dl><ExperimentResultPanel record={record} predict={(point) => predictionLabel(record.modelKind, record.model, point)} /></section>
 }

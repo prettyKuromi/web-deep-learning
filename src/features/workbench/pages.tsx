@@ -23,19 +23,21 @@ export interface DatasetPageProps {
   onError?: (message: string) => void
   onContinue?: () => void
   initialDataset?: Dataset
+  model?: ModelKind
   onValidityChange?: (valid: boolean) => void
   importState?: DatasetImportState
   onImportStateChange?: (state: DatasetImportState) => void
 }
 
-export function DatasetPage({ onDatasetChange, onError, onContinue, initialDataset, onValidityChange, importState, onImportStateChange }: DatasetPageProps) {
-  return <section className="workbench-page dataset-page" aria-labelledby="page-数据集"><div className="dataset-workspace"><header className="page-heading"><p className="eyebrow">数据准备 / 01</p><h2 id="page-数据集">数据集</h2><p>选择内置数据集，或上传自己的多维数值特征 CSV 文件。</p></header><DatasetPanel initialDataset={initialDataset} importState={importState} onImportStateChange={onImportStateChange} onValidityChange={onValidityChange} onDatasetChange={onDatasetChange} onError={onError} action={(valid) => <button className="primary-button dataset-continue" type="button" disabled={!valid} onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></section>
+export function DatasetPage({ onDatasetChange, onError, onContinue, initialDataset, onValidityChange, importState, onImportStateChange, model }: DatasetPageProps) {
+  return <section className="workbench-page dataset-page" aria-labelledby="page-数据集"><div className="dataset-workspace"><header className="page-heading"><p className="eyebrow">数据准备 / 02</p><h2 id="page-数据集">数据集</h2><p>根据已选模型筛选兼容数据集；表格模型也可上传 CSV。</p></header><DatasetPanel model={model} initialDataset={initialDataset} importState={importState} onImportStateChange={onImportStateChange} onValidityChange={onValidityChange} onDatasetChange={onDatasetChange} onError={onError} action={(valid) => <button className="primary-button dataset-continue" type="button" disabled={!valid} onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></section>
 }
 
 export interface ModelPageProps {
   value: ModelId
   onChange: (model: ModelId) => void
   dataset?: Dataset
+  onContinue?: () => void
 }
 
 const modelInfo: Record<ModelKind, { name: string; description: string }> = {
@@ -53,20 +55,28 @@ const modelInfo: Record<ModelKind, { name: string; description: string }> = {
   dbscan: { name: 'DBSCAN', description: '基于密度发现簇与噪声。' },
   pca: { name: 'PCA', description: '提取主成分降维。' },
   mlp: { name: '多层感知机（MLP）', description: '通过多层神经网络学习非线性关系。' },
-  'visual-cnn': { name: '可视化卷积神经网络', description: '面向 8×8 灰度图像的可搭建卷积网络。' },
+  'visual-cnn': { name: '可视化卷积神经网络', description: '通过卷积、池化和全连接层识别 8×8 图像。' },
 }
 
-export function ModelPage({ value, onChange, dataset }: ModelPageProps) {
+export function ModelPage({ value, onChange, dataset, onContinue }: ModelPageProps) {
   const [task, setTask] = useState<TaskKind>(modelTask[value])
-  return <PageShell eyebrow="选择模型 / 02" title="模型" description="选择要训练的算法，并查看其适用范围。">
-    <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => setTask(kind)}>{taskLabels[kind]}</button>)}</div>
+  const availableTasks = (Object.keys(taskLabels) as TaskKind[]).filter((kind) => modelGroups[kind].some((id) => !dataset || isModelCompatible(id, dataset).compatible))
+  const availableModels = modelGroups[task].filter((id) => !dataset || isModelCompatible(id, dataset).compatible)
+  const chooseTask = (kind: TaskKind) => {
+    setTask(kind)
+    const firstModel = modelGroups[kind].find((id) => !dataset || isModelCompatible(id, dataset).compatible)
+    if (firstModel) onChange(firstModel)
+  }
+  return <PageShell eyebrow="模型选择 / 01" title="模型" description="先确定要训练的算法，下一步只会显示它支持的数据集。">
+    <div className="task-tabs" role="tablist" aria-label="任务类型">{availableTasks.map((kind) => <button key={kind} type="button" role="tab" aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => chooseTask(kind)}>{taskLabels[kind]}</button>)}</div>
     {value === 'mlp' && <p className="model-suitability-notice">适用提醒：MLP 适合数值特征和较复杂的非线性关系；样本过少、类别极不平衡或特征尺度差异很大时，结果可能不稳定。请先进行标准化，并结合验证集指标判断模型是否过拟合。</p>}
     <div className="workbench-page-card model-options" role="radiogroup" aria-label="模型类型">
-      {modelGroups[task].map((id) => { const compatibility = dataset ? isModelCompatible(id, dataset) : { compatible: true }; return <label className={`model-option ${value === id ? 'selected' : ''}`} key={id}>
-        <input aria-label={modelInfo[id].name} type="radio" name="model" value={id} checked={value === id} disabled={!compatibility.compatible} onChange={() => onChange(id)} />
-        <span><strong>{modelInfo[id].name}</strong><small>{modelInfo[id].description}{compatibility.compatible ? '' : `（${compatibility.reason}）`}</small></span>
-      </label> })}
+      {availableModels.map((id) => <label className={`model-option ${value === id ? 'selected' : ''}`} key={id}>
+        <input aria-label={modelInfo[id].name} type="radio" name="model" value={id} checked={value === id} onChange={() => onChange(id)} />
+        <span><strong>{modelInfo[id].name}</strong><small>{modelInfo[id].description}</small></span>
+      </label>)}
     </div>
+    {onContinue && <div className="model-selection-actions"><button className="primary-button" type="button" disabled={!value} onClick={onContinue}>选择此模型并继续 <span aria-hidden="true">→</span></button></div>}
   </PageShell>
 }
 
@@ -93,15 +103,15 @@ export interface ResultsPageProps {
   selectedId?: string
   comparisonIds?: readonly string[]
   onToggleComparison?: (id: string) => void
+  onDelete?: (id: string) => void
 }
 
-export function ResultsPage({ records, onSelect, selectedId, comparisonIds = [], onToggleComparison }: ResultsPageProps) {
+export function ResultsPage({ records, onSelect, selectedId, comparisonIds = [], onToggleComparison, onDelete }: ResultsPageProps) {
   return <PageShell eyebrow="实验结果 / 04" title="结果" description="查看此前实验的指标、参数和训练时间，随时回看结果。">
     <div className="workbench-page-card results-panel">
       {records.length === 0 ? <p className="empty-state">暂无训练记录。完成一次训练后，结果会显示在这里。</p> : <div className="results-list">{records.map((record) => <article className={`result-row${selectedId === record.id ? ' is-selected' : ''}`} key={record.id}>
-        <div><strong>{record.datasetName}</strong><span>{record.model} · {record.timestamp}</span></div>
-        <div className="result-metric">{record.summary ?? `准确率 ${record.metrics.accuracy == null ? '—' : `${(record.metrics.accuracy * 100).toFixed(1)}%`}`}</div>
-        <div className="result-actions">{onToggleComparison && <label><input type="checkbox" checked={comparisonIds.includes(record.id)} onChange={() => onToggleComparison(record.id)} disabled={!comparisonIds.includes(record.id) && comparisonIds.length >= 4} />比较</label>}{onSelect && <button className={selectedId === record.id ? 'is-selected' : ''} aria-pressed={selectedId === record.id} type="button" onClick={() => onSelect(record)}>{selectedId === record.id ? '当前查看' : '查看详情'}</button>}</div>
+        <button className="result-row-select" type="button" aria-label={`选择实验记录：${record.datasetName} · ${record.model}`} aria-pressed={selectedId === record.id} disabled={!onSelect} onClick={() => onSelect?.(record)}><span className="result-row-title"><strong>{record.datasetName}</strong><span>{record.model} · {record.timestamp}</span></span><span className="result-metric">{record.summary ?? `准确率 ${record.metrics.accuracy == null ? '—' : `${(record.metrics.accuracy * 100).toFixed(1)}%`}`}</span></button>
+        <div className="result-actions">{onToggleComparison && <label><input type="checkbox" checked={comparisonIds.includes(record.id)} onChange={() => onToggleComparison(record.id)} disabled={!comparisonIds.includes(record.id) && comparisonIds.length >= 4} />比较</label>}{onDelete && <button className="delete-record-button" type="button" aria-label={`删除${record.datasetName}记录`} title="删除记录" onClick={() => onDelete(record.id)}>×</button>}</div>
       </article>)}</div>}
     </div>
   </PageShell>

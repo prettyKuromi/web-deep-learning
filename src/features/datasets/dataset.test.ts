@@ -84,6 +84,17 @@ describe('数据集预览', () => {
     expect(new Set(first.labels)).toEqual(new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
     expect(generateBuiltinDataset('digits').features).toHaveLength(500)
   })
+
+  it('生成可复现的五类 8×8 几何图形数据集', () => {
+    const first = generateBuiltinDataset('shapes', { samples: 50, seed: 19 })
+    const second = generateBuiltinDataset('shapes', { samples: 50, seed: 19 })
+
+    expect(first).toEqual(second)
+    expect(first).toMatchObject({ dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } })
+    expect(first.features).toHaveLength(50)
+    expect(first.features.every((row) => row.length === 64 && row.every((value) => value >= 0 && value <= 1))).toBe(true)
+    expect(new Set(first.labels)).toEqual(new Set([0, 1, 2, 3, 4]))
+  })
 })
 
 describe('数据集校验', () => {

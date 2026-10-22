@@ -1,7 +1,7 @@
 ﻿import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import App from './App'
+import App, { formatParameterLabel, formatParameterValue } from './App'
 import { useWorkbenchStore } from './app/workbenchStore'
 
 describe('实验工作台', () => {
@@ -11,19 +11,41 @@ describe('实验工作台', () => {
     useWorkbenchStore.getState().reset()
   })
 
-  it('默认显示数据集选择页，并可进入实验流程', async () => {
+  it('将 CNN 历史参数格式化为中文层说明和图像尺寸', () => {
+    expect(formatParameterLabel('layers', 'visual-cnn')).toBe('网络层配置')
+    expect(formatParameterLabel('imageShape', 'visual-cnn')).toBe('图像尺寸')
+    expect(formatParameterValue('imageShape', { width: 8, height: 8, channels: 1 })).toBe('8 × 8 像素 · 1 通道')
+    expect(formatParameterValue('layers', [{ type: 'activation', activation: 'tanh' }])).toContain('双曲正切（Tanh）')
+  })
+
+  it('默认先选模型，再显示兼容数据集并进入实验流程', async () => {
+    const user = userEvent.setup()
     render(<App />)
+    expect(screen.getByRole('heading', { name: '模型' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('tab', { name: '实验流程' }))
-    expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '开始训练' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '开始训练' })).toBeEnabled()
+  })
+
+  it('选择 CNN 后只呈现图像数据并隐藏不兼容算法', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('radio', { name: '可视化卷积神经网络' }))
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
+    expect(screen.getByRole('option', { name: '8×8 数字图像（0–9）' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '8×8 图形图像（5 类）' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('上传 CSV')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('visual-cnn')
+    expect(screen.queryByRole('tab', { name: '回归' })).not.toBeInTheDocument()
   })
 
   it('支持调整 KNN 参数并显示训练损失曲线', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     const k = screen.getByRole('spinbutton', { name: '邻居数（k）' })
@@ -38,6 +60,7 @@ describe('实验工作台', () => {
   it('更换数据集后清空当前训练结果并保留模型配置', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     await user.click(screen.getByRole('button', { name: '更换数据集' }))
@@ -51,6 +74,7 @@ describe('实验工作台', () => {
   it('启用验证集后使用确定性留出集并保存两组样本量与指标', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     await user.click(screen.getByRole('checkbox', { name: /启用验证集/ }))
@@ -67,6 +91,7 @@ describe('实验工作台', () => {
   it('回归验证集评估分别保存训练和验证 MAE、MSE、R²', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.click(screen.getByRole('tab', { name: '回归' }))
     await user.click(screen.getByRole('checkbox', { name: /启用验证集/ }))
@@ -81,6 +106,8 @@ describe('实验工作台', () => {
   it('确认后返回保留导航权限，实际更改数据后需重新确认', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
+    expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
     const workflow = screen.getByRole('tab', { name: '实验流程' })
     expect(workflow).toBeDisabled()
     expect(workflow).toHaveAttribute('title', '请先确认数据集')
@@ -98,6 +125,7 @@ describe('实验工作台', () => {
   it('CSV 错误禁用确认，重新选择或导入合法数据可恢复', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     const confirm = screen.getByRole('button', { name: '确认数据集并进入实验流程' })
     await user.upload(screen.getByLabelText('上传 CSV'), new File(['x,y,label\nnope,,'], 'bad.csv', { type: 'text/csv' }))
     await screen.findByRole('alert')
@@ -117,6 +145,7 @@ describe('实验工作台', () => {
   it('CSV 错误跨页保留，选择合法数据后清除错误状态', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.upload(screen.getByLabelText('上传 CSV'), new File(['x,y,label\nnope,,'], 'bad.csv', { type: 'text/csv' }))
     await screen.findByRole('alert')
     await user.click(screen.getByRole('tab', { name: '历史记录' }))
@@ -132,6 +161,7 @@ describe('实验工作台', () => {
   it('读取 CSV 时离开页面会中断，返回后仍需恢复有效数据', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     let resolveText!: (value: string) => void
     const file = new File([''], 'pending.csv', { type: 'text/csv' })
     Object.defineProperty(file, 'text', { value: () => new Promise<string>((resolve) => { resolveText = resolve }) })
@@ -151,6 +181,7 @@ describe('实验工作台', () => {
   it('模型解释可查看较早快照，重置和重新训练恢复跟随最新步骤', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'logistic-regression')
     const snapshots = [{ iteration: 1, loss: 1, explanation: { note: '第一步说明' } }, { iteration: 2, loss: .5, explanation: { note: '第二步说明' } }]
@@ -172,6 +203,7 @@ describe('实验工作台', () => {
   it('单步在没有活动 Worker 时不会伪造快照', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     act(() => useWorkbenchStore.getState().setTraining({ status: '训练已暂停', snapshots: [{ iteration: 1, loss: 1 }] }))
@@ -183,6 +215,7 @@ describe('实验工作台', () => {
   it('查看旧历史记录不会替换当前实验的指标和模型解释', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     await user.clear(screen.getByRole('spinbutton', { name: '邻居数（k）' }))
@@ -200,8 +233,10 @@ describe('实验工作台', () => {
     expect(records).toHaveLength(2)
     expect(records[0].metrics?.accuracy).not.toBe(records[1].metrics?.accuracy)
     await user.click(screen.getByRole('tab', { name: '历史记录' }))
-    await user.click(screen.getByRole('button', { name: '查看详情' }))
-    expect(within(screen.getByLabelText('实验详情')).getByRole('heading', { name: 'KNN · 月牙形' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /选择实验记录：月牙形 · KNN/ }))
+    const oldDetail = within(screen.getByLabelText('实验详情'))
+    expect(oldDetail.getByRole('heading', { name: 'KNN · 月牙形' })).toBeInTheDocument()
+    expect(oldDetail.getByText('邻居数（k）')).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: '实验流程' }))
     expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('logistic-regression')
     expect(screen.getByRole('region', { name: '当前结果' }).textContent).toBe(currentMetrics)
@@ -213,6 +248,7 @@ describe('实验工作台', () => {
   it('回归任务展示真实误差、预测与历史摘要，改参数使结果失效', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.click(screen.getByRole('tab', { name: '回归' }))
     expect(screen.getByLabelText('迭代次数')).toHaveValue(500)

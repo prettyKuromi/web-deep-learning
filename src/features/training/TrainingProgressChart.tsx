@@ -1,15 +1,17 @@
 import type { TrainSnapshot } from './types'
+import type { ReactNode } from 'react'
 
 export interface TrainingProgressChartProps {
   snapshots: readonly TrainSnapshot[]
   status?: string
+  fallback?: ReactNode
   width?: number
   height?: number
 }
 
 const margin = { top: 20, right: 20, bottom: 42, left: 52 }
 
-export function TrainingProgressChart({ snapshots, status, width = 640, height = 280 }: TrainingProgressChartProps) {
+export function TrainingProgressChart({ snapshots, status, fallback, width = 640, height = 280 }: TrainingProgressChartProps) {
   const points = snapshots
     .filter((snapshot) => Number.isFinite(snapshot.loss) && Number.isFinite(snapshot.iteration))
     .map((snapshot) => ({ iteration: snapshot.iteration, loss: snapshot.loss as number }))
@@ -25,9 +27,8 @@ export function TrainingProgressChart({ snapshots, status, width = 640, height =
       : status === '训练已停止' || status === '训练已取消' || status === '训练失败' ? '可调整参数后重新开始训练。'
       : '开始训练后，这里会显示损失变化。'
     return (
-      <div role="img" aria-label="训练损失曲线" style={{ display: 'grid', gap: 8, padding: 32, textAlign: 'center', color: '#64748b' }}>
-        <strong style={{ color: '#dbeafe', fontSize: 14 }}>{message}</strong>
-        <span style={{ color: '#9fb4d2' }}>{description}</span>
+      <div role="img" aria-label="训练损失曲线" className={fallback ? 'training-chart-empty training-chart-empty--with-fallback' : 'training-chart-empty'}>
+        {fallback ? <><strong>当前数据投影</strong>{fallback}<span>{description}</span></> : <><strong>{message}</strong><span>{description}</span></>}
       </div>
     )
   }

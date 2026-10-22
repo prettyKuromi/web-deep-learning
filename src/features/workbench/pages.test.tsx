@@ -11,8 +11,17 @@ describe('工作台子页面', () => {
     render(<DatasetPage onDatasetChange={vi.fn()} onContinue={vi.fn()} />)
     expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
     expect(screen.getByLabelText('内置数据集')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '8×8 数字图像（0–9）' })).toBeInTheDocument()
     expect(screen.getByLabelText('上传 CSV')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '确认数据集并进入实验流程' })).toBeInTheDocument()
+  })
+
+  it('CNN 数据集页只列出图像数据', () => {
+    render(<DatasetPage model="visual-cnn" onDatasetChange={vi.fn()} />)
+    expect(screen.getByRole('option', { name: '8×8 数字图像（0–9）' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '8×8 图形图像（5 类）' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '月牙形' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('上传 CSV')).not.toBeInTheDocument()
   })
 
   it('为数据集页提供受限宽度的布局入口', () => {
@@ -43,14 +52,14 @@ describe('工作台子页面', () => {
     expect(onTrain).toHaveBeenCalledTimes(1)
   })
 
-  it('结果页面显示历史实验并可查看详情', async () => {
+  it('点击整张实验记录卡即可切换详情', async () => {
     const record: ExperimentRecord = { id: '1', datasetName: '月牙形', model: 'KNN', timestamp: '2026-08-08 10:00', metrics: { accuracy: 0.9 } }
     const onSelect = vi.fn()
     const user = userEvent.setup()
     render(<ResultsPage records={[record]} onSelect={onSelect} />)
     expect(screen.getByRole('heading', { name: '结果' })).toBeInTheDocument()
     expect(screen.getByText('月牙形')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '查看详情' }))
+    await user.click(screen.getByRole('button', { name: /选择实验记录：月牙形 · KNN/ }))
     expect(onSelect).toHaveBeenCalledWith(record)
   })
 
@@ -86,9 +95,9 @@ describe('工作台子页面', () => {
     expect(onChange).toHaveBeenCalledWith('linear-regression')
   })
 
-  it('模型页为不兼容的数据集禁用模型', () => {
+  it('模型页不展示与当前数据集不兼容的模型', () => {
     render(<ModelPage value="knn" onChange={vi.fn()} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} />)
-    expect(screen.getByRole('radio', { name: 'KNN' })).toBeDisabled()
-    expect(screen.getByRole('radio', { name: '可视化卷积神经网络' })).not.toBeDisabled()
+    expect(screen.queryByRole('radio', { name: 'KNN' })).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '可视化卷积神经网络' })).toBeInTheDocument()
   })
 })
