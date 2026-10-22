@@ -2,11 +2,42 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { workbenchStages, type WorkbenchStage } from '../../app/workbenchTypes'
-import { DatasetPage, ModelPage, ResultsPage, TrainingPage, WorkbenchNavigation, WorkbenchStageView, type ExperimentRecord } from './pages'
+import { DatasetPage, ExperimentSetupPage, ModelPage, ResultsPage, TrainingPage, WorkbenchNavigation, WorkbenchStageView, type ExperimentRecord } from './pages'
 
 afterEach(() => cleanup())
 
 describe('工作台子页面', () => {
+  it('在合并准备页同时显示紧凑模型选择和数据预览', () => {
+    render(<ExperimentSetupPage model="knn" onModelChange={vi.fn()} onDatasetChange={vi.fn()} onContinue={vi.fn()} />)
+
+    expect(screen.getByRole('heading', { name: '模型与数据' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('knn')
+    expect(screen.getByRole('combobox', { name: '内置数据集' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '数据集预览' })).toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: 'KNN' })).not.toBeInTheDocument()
+    expect(screen.getByText('根据邻居投票进行分类。')).toBeInTheDocument()
+  })
+
+  it('合并准备页按模型限制数据类型，CNN 隐藏 CSV 上传', () => {
+    render(<ExperimentSetupPage model="visual-cnn" onModelChange={vi.fn()} onDatasetChange={vi.fn()} />)
+
+    expect(screen.getByRole('option', { name: '8×8 数字图像（0–9）' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '月牙形' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('上传 CSV')).not.toBeInTheDocument()
+  })
+
+  it('在合并准备页切换任务后请求该任务的首个模型', async () => {
+    const user = userEvent.setup()
+    const onModelChange = vi.fn()
+    const { rerender } = render(<ExperimentSetupPage model="knn" onModelChange={onModelChange} onDatasetChange={vi.fn()} />)
+
+    await user.click(screen.getByRole('tab', { name: '回归' }))
+    expect(onModelChange).toHaveBeenCalledWith('linear-regression')
+
+    rerender(<ExperimentSetupPage model="linear-regression" onModelChange={onModelChange} onDatasetChange={vi.fn()} />)
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('linear-regression')
+  })
+
   it('数据集页面显示选择和 CSV 上传入口', () => {
     render(<DatasetPage onDatasetChange={vi.fn()} onContinue={vi.fn()} />)
     expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()

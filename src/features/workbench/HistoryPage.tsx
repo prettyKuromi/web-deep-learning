@@ -1,24 +1,22 @@
 import { useState, type ReactNode } from 'react'
 import { ResultsPage, type ExperimentRecord } from './pages'
 
-export type TopLevelPage = 'model' | 'dataset' | 'workflow' | 'history'
+export type TopLevelPage = 'setup' | 'workflow' | 'history'
 
 export interface TopLevelNavigationProps {
   activePage: TopLevelPage
   onPageChange: (page: TopLevelPage) => void
   workflowDisabled?: boolean
   configurationDisabled?: boolean
-  datasetDisabled?: boolean
   onImport?: (file: File) => void
   onExport?: () => void
   onDelete?: () => void
   importError?: string
 }
 
-export function TopLevelNavigation({ activePage, onPageChange, workflowDisabled = false, configurationDisabled = false, datasetDisabled = false }: TopLevelNavigationProps) {
+export function TopLevelNavigation({ activePage, onPageChange, workflowDisabled = false, configurationDisabled = false }: TopLevelNavigationProps) {
   return <div className="top-level-navigation-wrap"><nav className="top-level-navigation" aria-label="主导航" role="tablist">
-    <button type="button" role="tab" disabled={configurationDisabled} aria-selected={activePage === 'model'} className={activePage === 'model' ? 'active' : ''} onClick={() => onPageChange('model')}>模型选择</button>
-    <button type="button" role="tab" disabled={configurationDisabled || datasetDisabled} aria-selected={activePage === 'dataset'} className={activePage === 'dataset' ? 'active' : ''} onClick={() => onPageChange('dataset')}>数据集选择</button>
+    <button type="button" role="tab" disabled={configurationDisabled} aria-selected={activePage === 'setup'} className={activePage === 'setup' ? 'active' : ''} onClick={() => onPageChange('setup')}>模型与数据</button>
     <button type="button" role="tab" aria-selected={activePage === 'workflow'} disabled={workflowDisabled} title={workflowDisabled ? '请先确认数据集' : '配置模型并训练'} aria-describedby={workflowDisabled ? 'workflow-navigation-hint' : undefined} className={activePage === 'workflow' ? 'active' : ''} onClick={() => onPageChange('workflow')}>实验流程</button>
     <button type="button" role="tab" aria-selected={activePage === 'history'} className={activePage === 'history' ? 'active' : ''} onClick={() => onPageChange('history')}>历史记录</button>
   </nav>{workflowDisabled && <p className="navigation-hint" id="workflow-navigation-hint">请先确认数据集，再进入实验流程。</p>}</div>

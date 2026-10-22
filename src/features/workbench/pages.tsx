@@ -29,6 +29,31 @@ export interface DatasetPageProps {
   onImportStateChange?: (state: DatasetImportState) => void
 }
 
+export interface ExperimentSetupPageProps extends Omit<DatasetPageProps, 'model'> {
+  model: ModelKind
+  onModelChange: (model: ModelKind) => void
+}
+
+export function ExperimentSetupPage({ model, onModelChange, onDatasetChange, onError, onContinue, initialDataset, onValidityChange, importState, onImportStateChange }: ExperimentSetupPageProps) {
+  return <section className="workbench-page dataset-page setup-page" aria-labelledby="page-模型与数据">
+    <div className="dataset-workspace">
+      <header className="page-heading"><p className="eyebrow">实验准备 / 01</p><h2 id="page-模型与数据">模型与数据</h2><p>选择算法和兼容数据集，确认后进入实验流程。</p></header>
+      <DatasetPanel model={model} initialDataset={initialDataset} importState={importState} onImportStateChange={onImportStateChange} onValidityChange={onValidityChange} onDatasetChange={onDatasetChange} onError={onError} controlsBefore={<ModelSelector value={model} onChange={onModelChange} />} action={(valid) => <button className="primary-button dataset-continue" type="button" disabled={!valid} onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} />
+    </div>
+  </section>
+}
+
+function ModelSelector({ value, onChange }: { value: ModelKind; onChange: (model: ModelKind) => void }) {
+  const task = modelTask[value]
+  return <section className="setup-model-selector" aria-label="模型选择">
+    <p className="eyebrow">选择模型</p>
+    <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => onChange(modelGroups[kind][0])}>{taskLabels[kind]}</button>)}</div>
+    <label className="single-page-label">具体模型<select aria-label="具体模型" value={value} onChange={(event) => onChange(event.target.value as ModelKind)}>{modelGroups[task].map((kind) => <option key={kind} value={kind}>{modelInfo[kind].name}</option>)}</select></label>
+    <p className="model-selection-description">{modelInfo[value].description}</p>
+    {value === 'mlp' && <p className="model-suitability-notice">MLP 适合数值特征和较复杂的非线性关系；样本较少、类别不平衡或特征尺度差异较大时，结果可能不稳定。</p>}
+  </section>
+}
+
 export function DatasetPage({ onDatasetChange, onError, onContinue, initialDataset, onValidityChange, importState, onImportStateChange, model }: DatasetPageProps) {
   return <section className="workbench-page dataset-page" aria-labelledby="page-数据集"><div className="dataset-workspace"><header className="page-heading"><p className="eyebrow">数据准备 / 02</p><h2 id="page-数据集">数据集</h2><p>根据已选模型筛选兼容数据集；表格模型也可上传 CSV。</p></header><DatasetPanel model={model} initialDataset={initialDataset} importState={importState} onImportStateChange={onImportStateChange} onValidityChange={onValidityChange} onDatasetChange={onDatasetChange} onError={onError} action={(valid) => <button className="primary-button dataset-continue" type="button" disabled={!valid} onClick={onContinue}>确认数据集并进入实验流程 <span aria-hidden="true">→</span></button>} /></div></section>
 }

@@ -4,6 +4,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DatasetPanel } from './DatasetPanel'
 
 describe('DatasetPanel', () => {
+  it('外部模型切换同步当前数据集和预览', async () => {
+    const tableDataset = { name: 'CSV 数据集', features: [[1, 2], [3, 4]], labels: ['A', 'B'] }
+    const imageDataset = { name: '外部图像数据', features: [Array(64).fill(0)], labels: [0], dataType: 'image' as const, imageShape: { width: 8, height: 8, channels: 1 } }
+    const { rerender } = render(<DatasetPanel model="knn" initialDataset={tableDataset} onDatasetChange={vi.fn()} />)
+
+    rerender(<DatasetPanel model="visual-cnn" initialDataset={imageDataset} onDatasetChange={vi.fn()} />)
+
+    await waitFor(() => expect(document.querySelectorAll('.dataset-controls .dataset-summary')[1]).toHaveTextContent('外部图像数据，1 条样本'))
+    expect(screen.getByLabelText('图像样本')).toBeInTheDocument()
+  })
+
   afterEach(() => cleanup())
   it('显示全部内置数据集', () => {
     render(<DatasetPanel onDatasetChange={vi.fn()} />)

@@ -6,6 +6,7 @@ import { profileDataset } from './profiling'
 export interface DatasetImportState { pending: boolean; error: string }
 
 export interface DatasetPanelProps {
+  controlsBefore?: ReactNode
   onDatasetChange: (dataset: Dataset) => void
   onError?: (message: string) => void
   onValidityChange?: (valid: boolean) => void
@@ -16,7 +17,7 @@ export interface DatasetPanelProps {
   onImportStateChange?: (state: DatasetImportState) => void
 }
 
-export function DatasetPanel({ onDatasetChange, onError, onValidityChange, action, initialDataset, importState, onImportStateChange, model }: DatasetPanelProps) {
+export function DatasetPanel({ controlsBefore, onDatasetChange, onError, onValidityChange, action, initialDataset, importState, onImportStateChange, model }: DatasetPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const importRequestRef = useRef(0)
   const importPendingRef = useRef(false)
@@ -25,6 +26,12 @@ export function DatasetPanel({ onDatasetChange, onError, onValidityChange, actio
   const [localImportState, setLocalImportState] = useState<DatasetImportState>({ pending: false, error: '' })
   const { pending: isImporting, error } = importState ?? localImportState
   const [isDraggingFile, setIsDraggingFile] = useState(false)
+  useEffect(() => {
+    if (!initialDataset) return
+    setCurrentDataset(!model || isModelCompatible(model, initialDataset).compatible
+      ? initialDataset
+      : generateBuiltinDataset(model === 'visual-cnn' ? 'digits' : 'linear'))
+  }, [initialDataset, model])
   const preview = useMemo(() => createDatasetPreview(currentDataset), [currentDataset])
   const profile = useMemo(() => profileDataset(currentDataset), [currentDataset])
   const selectedId = BUILTIN_DATASETS.find(({ name }) => name === currentDataset.name)?.id
@@ -96,6 +103,7 @@ export function DatasetPanel({ onDatasetChange, onError, onValidityChange, actio
 
   return <section className="dataset-panel" aria-labelledby="dataset-panel-title">
     <div className="dataset-controls">
+      {controlsBefore}
       <div><p className="eyebrow">数据来源</p><h2 id="dataset-panel-title">选择数据集</h2></div>
       <label>内置数据集<select aria-label="内置数据集" value={error ? '' : selectedId ?? 'csv'} onChange={(event) => selectBuiltin(event.target.value as BuiltinDatasetId)}>
         {error && <option value="" disabled>请重新选择有效数据集</option>}

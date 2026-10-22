@@ -23,7 +23,7 @@ import { regressionMetrics, selectLabels, selectRows, splitDataset, type Evaluat
 import { saveExperiment, exportExperiments, importExperiments, deleteExperiment } from './features/persistence/persistence'
 import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/workbench/HistoryPage'
 import { formatParameterLabel, formatParameterValue } from './features/workbench/experimentParameterFormat'
-import { DatasetPage, ModelPage } from './features/workbench/pages'
+import { ExperimentSetupPage } from './features/workbench/pages'
 import type { DatasetImportState } from './features/datasets/DatasetPanel'
 import { generateBuiltinDataset } from './features/datasets/dataset'
 import { SinglePageWorkbench } from './features/workbench/SinglePageWorkbench'
@@ -44,7 +44,7 @@ export default function App() {
   const { dataset, setDataset, modelConfig, setModelConfig, training, setTraining, experiments, addExperiment } = useWorkbenchStore()
   const [currentExperimentId, setCurrentExperimentId] = useState<string>()
   const [historySelectedId, setHistorySelectedId] = useState<string>()
-  const [topPage, setTopPage] = useState<TopLevelPage>('model')
+  const [topPage, setTopPage] = useState<TopLevelPage>('setup')
   const [persistenceNotice, setPersistenceNotice] = useState('')
   const [historyError, setHistoryError] = useState('')
   const [datasetConfirmed, setDatasetConfirmed] = useState(false)
@@ -206,11 +206,11 @@ export default function App() {
   const activeModel = modelConfig.kind ?? recommendedModel(dataset)
   const explanationPanel = <ModelExplanationPanel kind={activeModel} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.features[0]?.length} />
   return <main className="app-shell">
-    <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">web-deep-learning</p><h1>机器学习实验工作台</h1><p className="header-subtitle">先选模型，再筛选数据集并观察训练结果。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
-    <TopLevelNavigation activePage={topPage} configurationDisabled={['训练中…', '训练已暂停'].includes(training.status)} datasetDisabled={!modelConfig.kind} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
-    <section className="app-content">{topPage === 'model' ? <ModelPage value={activeModel} onChange={handleModelSelection} onContinue={() => { if (!modelConfig.kind) handleModelSelection(activeModel); setTopPage('dataset') }} /> : topPage === 'dataset' ? <DatasetPage model={activeModel} initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench
+    <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">web-deep-learning</p><h1>机器学习实验工作台</h1><p className="header-subtitle">选择模型与数据后，观察训练过程和结果。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
+    <TopLevelNavigation activePage={topPage} configurationDisabled={['训练中…', '训练已暂停'].includes(training.status)} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
+    <section className="app-content">{topPage === 'setup' ? <ExperimentSetupPage model={activeModel} onModelChange={handleModelSelection} initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; if (!modelConfig.kind) handleModelSelection(activeModel); setDatasetConfirmed(true); setTopPage('workflow') }} /> : topPage === 'workflow' ? <SinglePageWorkbench
       dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={layers => { invalidateConfiguration(); setVisualLayers(layers) }} model={activeModel} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots} capability={training.capability} evaluationConfig={evaluationConfig} onEvaluationConfigChange={config => { invalidateConfiguration(); setEvaluationConfig(config) }}
-      onDatasetChange={handleDatasetChange} onChangeDataset={() => setTopPage('dataset')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
+      onDatasetChange={handleDatasetChange} onChangeDataset={() => setTopPage('setup')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
       parametersValid={parametersValid} onParamsValidityChange={valid => { setParametersValid(valid); if (!valid) invalidateConfiguration() }}
       onModelChange={(kind) => { resetTraining(); setParametersValid(true); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => { invalidateConfiguration(); setModelConfig({ params }) }}
       onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining}

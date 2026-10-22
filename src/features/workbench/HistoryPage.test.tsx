@@ -66,15 +66,14 @@ describe('HistoryPage', () => {
 })
 
 describe('TopLevelNavigation', () => {
-  it('按模型、数据集、流程、历史的顺序提供主导航', async () => {
+  it('按准备、流程、历史的顺序提供主导航', async () => {
     const user = userEvent.setup()
     const onPageChange = vi.fn()
-    render(<TopLevelNavigation activePage="model" onPageChange={onPageChange} />)
+    render(<TopLevelNavigation activePage="setup" onPageChange={onPageChange} />)
 
-    expect(screen.getAllByRole('tab')).toHaveLength(4)
-    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['模型选择', '数据集选择', '实验流程', '历史记录'])
-    expect(screen.getByRole('tab', { name: '模型选择' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: '数据集选择' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['模型与数据', '实验流程', '历史记录'])
+    expect(screen.getByRole('tab', { name: '模型与数据' })).toHaveAttribute('aria-selected', 'true')
     await user.click(screen.getByRole('tab', { name: '历史记录' }))
     expect(onPageChange).toHaveBeenCalledWith('history')
   })
