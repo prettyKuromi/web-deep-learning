@@ -7,6 +7,7 @@ const scope = globalThis as unknown as WorkerScope
 let control = createTrainingControl()
 let cancelled = false
 let activeRunId = ''
+let stepPending = false
 let cancellationKind: 'stopped' | 'cancelled' = 'cancelled'
 scope.onmessage = async ({ data }) => {
   if (data.type !== 'start') {
@@ -24,12 +25,16 @@ scope.onmessage = async ({ data }) => {
   activeRunId = data.runId ?? createRunId()
   const capability = getTrainingCapability(data.config.kind, data.config as unknown as Record<string, unknown>)
   emit({ type: 'preparing', runId: activeRunId, capability })
-  control = createTrainingControl(paused => emit({ type: paused ? 'paused' : 'resumed', runId: activeRunId, capability }), () => emit({ type: 'step-completed', runId: activeRunId, capability }))
+  stepPending = false
+  control = createTrainingControl(paused => emit({ type: paused ? 'paused' : 'resumed', runId: activeRunId, capability }), () => { stepPending = true })
   try {
     emit({ type: 'initializing', runId: activeRunId, capability })
     await Promise.resolve()
     emit({ type: 'started', runId: activeRunId, capability })
-    const result = await runTrainingInHandler(data.config, snapshot => scope.postMessage({ type: 'snapshot', runId: activeRunId, snapshot, capability }), () => cancelled, control)
+    const result = await runTrainingInHandler(data.config, snapshot => {
+      scope.postMessage({ type: 'snapshot', runId: activeRunId, snapshot, capability })
+      if (stepPending) { stepPending = false; emit({ type: 'step-completed', runId: activeRunId, capability }) }
+    }, () => cancelled, control)
     if (!cancelled) { emit({ type: 'completed', runId: activeRunId, capability }); scope.postMessage({ type: 'complete', runId: activeRunId, result }) }
   } catch (error) {
     if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) {

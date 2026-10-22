@@ -2,7 +2,7 @@ import { ExperimentResultPanel } from './features/workbench/ExperimentResultPane
 import { experimentSummary } from './features/workbench/resultUtils'
 import { defaultParameters, validateParameters } from './features/training/modelParameters'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { isModelCompatible, modelTask, recommendedModel, type ModelKind } from './app/workbenchTypes'
+import { isModelCompatible, modelTask, recommendedModel, type ExperimentRecord, type ModelKind } from './app/workbenchTypes'
 import { useWorkbenchStore } from './app/workbenchStore'
 import { classificationMetrics } from './features/training/metrics'
 import { createKnnTrainer } from './features/training/knn'
@@ -18,9 +18,11 @@ import { createDbscanTrainer } from './features/training/dbscan'
 import { createMlpTrainer } from './features/training/mlp'
 import { createVisualCnnTrainer } from './features/training/visualCnn'
 import { createTrainInWorkerClient, runTrainingInHandler, type WorkerTrainConfig } from './features/training/workerClient'
-import type { TrainingEvent } from './features/training/types'
+import type { TrainingEvent, TrainingUnit } from './features/training/types'
 import { regressionMetrics, selectLabels, selectRows, splitDataset, type EvaluationConfig } from './features/training/evaluation'
 import { saveExperiment, exportExperiments, importExperiments, deleteExperiment } from './features/persistence/persistence'
+import { datasetFingerprint, createRunMetadata, serializeExperimentReport, reportFilename } from './features/persistence/reproducibility'
+import { experimentMetricGroups } from './features/persistence/experimentMetrics'
 import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/workbench/HistoryPage'
 import { formatParameterLabel, formatParameterValue } from './features/workbench/experimentParameterFormat'
 import { ExperimentSetupPage } from './features/workbench/pages'
@@ -74,14 +76,22 @@ export default function App() {
     if (!isModelCompatible(modelConfig.kind, dataset).compatible) { setTraining({ status: '训练失败', error: isModelCompatible(modelConfig.kind, dataset).reason }); return }
     abortRef.current?.abort()
     const controller = new AbortController()
+    const startedAt = Date.now()
     abortRef.current = controller
     stopRequestedRef.current = false
     setSelectedStep(undefined)
     setCurrentExperimentId(undefined)
     setTraining({ status: '准备训练', progress: 0, snapshots: [], error: undefined, metrics: undefined, runId: undefined, capability: undefined })
+    const kind = modelConfig.kind
+    const effectiveParams = { ...defaultParameters(kind), ...modelConfig.params }
+    let recordConfig: Record<string, unknown> = { ...effectiveParams }
+    let snapshots: ReturnType<typeof normalizeTrainSnapshot>[] = []
+    let trainingUnit: TrainingUnit | undefined
+    let stopConfirmed = false
+    let partialEvaluation: ExperimentRecord['evaluation']
+    let totalUpdates: number | undefined
+    const seed = typeof effectiveParams.seed === 'number' ? effectiveParams.seed : evaluationConfig.seed
     try {
-      const kind = modelConfig.kind
-      const effectiveParams = { ...defaultParameters(kind), ...modelConfig.params }
       const supervised = modelTask[kind] === 'classification' || modelTask[kind] === 'regression'
       const split = evaluationConfig.enabled && supervised
         ? splitDataset(dataset.labels, evaluationConfig, modelTask[kind] as 'classification' | 'regression')
@@ -90,11 +100,12 @@ export default function App() {
       const trainLabels = selectLabels(dataset.labels, split.trainIndices)
       const validationSamples = selectRows(dataset.features, split.validationIndices)
       const validationLabels = selectLabels(dataset.labels, split.validationIndices)
-      const totalUpdates = effectiveParams.iterations ?? effectiveParams.epochs
+      partialEvaluation = evaluationConfig.enabled && supervised ? { config: evaluationConfig, trainSampleCount: trainSamples.length, validationSampleCount: validationSamples.length } : undefined
+      totalUpdates = effectiveParams.iterations ?? effectiveParams.epochs ?? effectiveParams.trees ?? effectiveParams.rounds
       const trainer = trainers[kind] as any
-      const snapshots: any[] = []
       const mlpParams = kind === 'mlp' ? { ...modelConfig.params, hiddenLayers: Array.from({ length: modelConfig.params.hiddenLayerCount ?? 2 }, () => modelConfig.params.hiddenUnits ?? 16) } : {}
       const cnnParams = kind === 'visual-cnn' ? { layers: visualLayers, imageShape: dataset.imageShape } : {}
+      recordConfig = { ...effectiveParams, ...mlpParams, ...cnnParams }
       const config = { kind, samples: trainSamples, labels: trainLabels, ...effectiveParams, ...mlpParams, ...cnnParams } as WorkerTrainConfig
       let lastUiUpdate = 0
       let pendingSnapshot: ReturnType<typeof normalizeTrainSnapshot> | undefined
@@ -107,6 +118,7 @@ export default function App() {
       const onSnapshot = (snapshot: any) => {
         const normalized = normalizeTrainSnapshot(snapshot)
         snapshots.push(normalized)
+        trainingUnit = normalized.unit ?? trainingUnit
         pendingSnapshot = normalized
         const now = Date.now()
         if (now - lastUiUpdate >= 100 || normalized.iteration >= (totalUpdates ?? Infinity)) { lastUiUpdate = now; flushSnapshot() }
@@ -114,11 +126,13 @@ export default function App() {
       const onEvent = (event: TrainingEvent) => {
         if (activeRunIdRef.current && event.runId !== activeRunIdRef.current) return
         activeRunIdRef.current = event.runId
+        trainingUnit = event.capability?.unit ?? trainingUnit
         if (event.type === 'preparing') setTraining({ status: '准备训练', runId: event.runId, capability: event.capability })
         else if (event.type === 'initializing') setTraining({ status: '初始化模型', runId: event.runId, capability: event.capability })
         else if (event.type === 'started' || event.type === 'resumed') setTraining({ status: '训练中…', runId: event.runId, capability: event.capability })
-        else if (event.type === 'paused') setTraining({ status: '训练已暂停', runId: event.runId, capability: event.capability })
-        else if (event.type === 'stopped') setTraining({ status: '训练已停止', runId: event.runId, capability: event.capability })
+        else if (event.type === 'paused') { flushSnapshot(); setTraining({ status: '训练已暂停', runId: event.runId, capability: event.capability }) }
+        else if (event.type === 'step-completed') flushSnapshot()
+        else if (event.type === 'stopped') { stopConfirmed = true; flushSnapshot(); setTraining({ status: '训练已停止', runId: event.runId, capability: event.capability }) }
         else if (event.type === 'cancelled') setTraining({ status: '训练已取消', runId: event.runId, capability: event.capability })
         else if (event.type === 'failed') setTraining({ status: '训练失败', runId: event.runId, error: event.message, capability: event.capability })
       }
@@ -144,7 +158,8 @@ export default function App() {
             ? regressionMetrics(validationLabels as readonly number[], validationPredictions as readonly number[])
             : undefined
         : undefined
-      const record = { id: String(Date.now()), createdAt: Date.now(), dataset, modelKind: kind, config: { ...effectiveParams, ...mlpParams, ...cnnParams }, metrics, evaluation: evaluationConfig.enabled && supervised ? { config: evaluationConfig, trainSampleCount: trainSamples.length, validationSampleCount: validationSamples.length, trainMetrics, validationMetrics } : undefined, snapshots: result.snapshots, model: result.model, predictions }
+      const completedAt = Date.now()
+      const record: ExperimentRecord = { id: String(completedAt), createdAt: completedAt, dataset, modelKind: kind, config: recordConfig, metrics, evaluation: evaluationConfig.enabled && supervised ? { config: evaluationConfig, trainSampleCount: trainSamples.length, validationSampleCount: validationSamples.length, trainMetrics, validationMetrics } : undefined, snapshots: result.snapshots, model: result.model, predictions, runMetadata: { ...createRunMetadata(startedAt, completedAt, seed, trainingUnit, 'completed'), datasetFingerprint: await datasetFingerprint(dataset), evaluation: evaluationConfig.enabled && supervised ? { source: '训练集/验证集划分', split: `${Math.round(evaluationConfig.validationSplit * 100)}%` } : { source: '全量数据' } } }
       addExperiment(record)
       void saveExperiment(record).then(() => setPersistenceNotice('')).catch(() => { setPersistenceNotice(''); setTraining({ status: '训练完成，保存失败', error: '训练结果已生成，但未能写入本地历史记录；导出实验可保留结果。' }) })
       setTraining({ status: '训练完成', progress: 100, snapshots: result.snapshots, metrics })
@@ -152,7 +167,21 @@ export default function App() {
       setHistorySelectedId(record.id)
     } catch (error) {
       if (abortRef.current !== controller) return
-      setTraining({ status: stopRequestedRef.current ? '训练已停止' : error instanceof DOMException && error.name === 'AbortError' ? '训练已取消' : '训练失败', error: stopRequestedRef.current ? undefined : error instanceof Error && /[\u4e00-\u9fff]/.test(error.message) ? error.message : '训练失败：请检查数据维度、标签及参数范围，或降低学习率后重试。' })
+      if (stopRequestedRef.current && stopConfirmed) {
+        const completedAt = Date.now()
+        const fingerprint = await datasetFingerprint(dataset)
+        const record: ExperimentRecord = {
+          id: String(completedAt), createdAt: completedAt, dataset, modelKind: kind, config: recordConfig,
+          evaluation: partialEvaluation, snapshots, predictions: [],
+          runMetadata: { ...createRunMetadata(startedAt, completedAt, seed, trainingUnit, 'stopped'), datasetFingerprint: fingerprint, evaluation: partialEvaluation ? { source: '训练集/验证集划分', split: `${Math.round(evaluationConfig.validationSplit * 100)}%` } : { source: '全量数据' } },
+        }
+        addExperiment(record)
+        setHistorySelectedId(record.id)
+        void saveExperiment(record).then(() => setPersistenceNotice('')).catch(() => setPersistenceNotice('训练已停止；停止记录保存失败'))
+        const lastSnapshot = snapshots.at(-1)
+        const progress = totalUpdates && lastSnapshot ? Math.min(100, lastSnapshot.iteration / totalUpdates * 100) : 0
+        setTraining({ status: '训练已停止', progress, snapshots: [...snapshots], metrics: lastSnapshot?.metrics })
+      } else setTraining({ status: error instanceof DOMException && error.name === 'AbortError' ? '训练已取消' : '训练失败', error: error instanceof Error && /[\u4e00-\u9fff]/.test(error.message) ? error.message : '训练失败：请检查数据维度、标签及参数范围，或降低学习率后重试。' })
     } finally {
       if (abortRef.current === controller) workerClientRef.current = null
     }
@@ -202,7 +231,7 @@ export default function App() {
     setTopPage(page)
   }
 
-  const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], modelKind: record.modelKind, snapshots: record.snapshots, runMetadata: record.runMetadata, timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), summary: experimentSummary(record), metrics: record.metrics ?? {} }))
+  const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], modelKind: record.modelKind, task: modelTask[record.modelKind], snapshots: record.snapshots, runMetadata: record.runMetadata, timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), summary: experimentSummary(record), metrics: record.metrics ?? {}, sampleCount: record.dataset.features.length, featureCount: record.dataset.features[0]?.length ?? 0, config: record.config, evaluation: record.evaluation, metricGroups: experimentMetricGroups(record) }))
   const activeModel = modelConfig.kind ?? recommendedModel(dataset)
   const explanationPanel = <ModelExplanationPanel kind={activeModel} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.features[0]?.length} />
   return <main className="app-shell">
@@ -215,10 +244,21 @@ export default function App() {
       onModelChange={(kind) => { resetTraining(); setParametersValid(true); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => { invalidateConfiguration(); setModelConfig({ params }) }}
       onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining}
       explanation={explanationPanel} resultPanel={currentExperiment ? <ExperimentResultPanel record={currentExperiment} predict={(point) => predictionLabel(currentExperiment.modelKind, currentExperiment.model, point)} /> : undefined} error={training.error}
-    /> : <HistoryPage records={records} selectedId={historySelectedId} onSelect={(item) => setHistorySelectedId(item.id)} selectedDetail={historySelected ? <ExperimentDetail record={historySelected} /> : undefined} importError={historyError || persistenceNotice} onExport={async () => { const json = await exportExperiments(useWorkbenchStore.getState().experiments); const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'web-deep-learning-experiments.json'; anchor.click(); URL.revokeObjectURL(url) }} onImport={async (file: File) => { try { const records = await importExperiments(await file.text()); useWorkbenchStore.getState().mergeExperiments(records); setHistoryError('') } catch (error) { setHistoryError(error instanceof Error ? error.message : '导入失败') } }} onDelete={(id) => { void Promise.resolve(deleteExperiment(id)).then(() => { useWorkbenchStore.getState().removeExperiment(id); if (historySelectedId === id) setHistorySelectedId(undefined) }).catch(() => setHistoryError('删除失败：本地存储不可用')) }} />}</section>
+    /> : <HistoryPage records={records} selectedId={historySelectedId} onSelect={(item) => setHistorySelectedId(item.id)} selectedDetail={historySelected ? <ExperimentDetail record={historySelected} /> : undefined} importError={historyError || persistenceNotice} onExport={async () => { const json = await exportExperiments(useWorkbenchStore.getState().experiments); const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'web-deep-learning-experiments.json'; anchor.click(); URL.revokeObjectURL(url) }} onExportReport={async (format) => { if (!historySelected) return; try { const content = await serializeExperimentReport(historySelected, format); anchorDownload(content, format === 'html' ? 'text/html;charset=utf-8' : 'text/markdown;charset=utf-8', reportFilename(historySelected, format)); setHistoryError('') } catch (error) { setHistoryError(error instanceof Error ? error.message : '报告导出失败：请稍后重试') } }} onImport={async (file: File) => { try { const records = await importExperiments(await file.text()); useWorkbenchStore.getState().mergeExperiments(records); setHistoryError('') } catch (error) { setHistoryError(error instanceof Error ? error.message : '导入失败') } }} onDelete={(id) => { void Promise.resolve(deleteExperiment(id)).then(() => { useWorkbenchStore.getState().removeExperiment(id); if (historySelectedId === id) setHistorySelectedId(undefined) }).catch(() => setHistoryError('删除失败：本地存储不可用')) }} />}</section>
   </main>
 }
 
 function ExperimentDetail({ record }: { record: ReturnType<typeof useWorkbenchStore.getState>['experiments'][number] }) {
-  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2><p className="history-detail-meta">{record.dataset.features.length} 条样本 · {record.dataset.features[0]?.length ?? 0} 个特征 · {new Date(record.createdAt).toLocaleString('zh-CN')}</p><h3>训练参数</h3><dl className="experiment-parameters">{Object.entries(record.config).map(([key, value]) => <div key={key}><dt>{formatParameterLabel(key, record.modelKind)}</dt><dd>{formatParameterValue(key, value)}</dd></div>)}</dl><ExperimentResultPanel record={record} predict={(point) => predictionLabel(record.modelKind, record.model, point)} /></section>
+  const stopped = record.runMetadata?.status === 'stopped'
+  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2><p className="history-detail-meta">{record.dataset.features.length} 条样本 · {record.dataset.features[0]?.length ?? 0} 个特征 · {new Date(record.createdAt).toLocaleString('zh-CN')}</p>{stopped && <p role="status">训练已停止，未生成最终模型或指标。已保留 {record.snapshots.length} 个训练快照。</p>}<h3>训练参数</h3><dl className="experiment-parameters">{Object.entries(record.config).map(([key, value]) => <div key={key}><dt>{formatParameterLabel(key, record.modelKind)}</dt><dd>{formatParameterValue(key, value)}</dd></div>)}</dl>{!stopped && <ExperimentResultPanel record={record} predict={(point) => predictionLabel(record.modelKind, record.model, point)} />}</section>
+}
+
+function anchorDownload(content: string, type: string, filename: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
 }

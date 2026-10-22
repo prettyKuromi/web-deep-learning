@@ -29,6 +29,57 @@ test.describe('工作台关键流程', () => {
     await expect(page.getByLabel('当前快照')).toContainText('第 1 步 · 损失')
   })
 
+  test('暂停确认刷新快照、单步前进一单位，停止记录不显示最终结果', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('combobox', { name: '具体模型' }).selectOption('logistic-regression')
+    await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
+    await page.getByRole('spinbutton', { name: '迭代次数' }).fill('5000')
+    await page.getByRole('button', { name: '开始训练', exact: true }).click()
+
+    const currentIteration = async () => {
+      const text = await page.getByLabel('实时训练反馈').locator('strong').innerText()
+      return Number(text.match(/(\d+)\s*\/\s*5000/)?.[1] ?? 0)
+    }
+    await expect.poll(currentIteration).toBeGreaterThan(0)
+    await page.getByRole('button', { name: '暂停', exact: true }).click()
+    await expect(page.locator('.single-page-status')).toHaveText('训练已暂停')
+    const pausedAt = await currentIteration()
+    await expect.poll(currentIteration, { timeout: 1200 }).toBe(pausedAt)
+
+    await page.getByRole('button', { name: '单步', exact: true }).click()
+    await expect.poll(currentIteration).toBe(pausedAt + 1)
+    await expect(page.locator('.single-page-status')).toHaveText('训练已暂停')
+    await page.getByRole('button', { name: '继续', exact: true }).click()
+    await expect.poll(currentIteration).toBeGreaterThan(pausedAt + 1)
+    await page.getByRole('button', { name: '停止', exact: true }).click()
+    await expect(page.locator('.single-page-status')).toHaveText('训练已停止')
+
+    await page.getByRole('tab', { name: '历史记录' }).click()
+    const detail = page.getByRole('complementary', { name: '实验详情' })
+    await expect(detail).toContainText('训练已停止')
+    await expect(detail).toContainText('未生成最终模型或指标')
+    await expect(detail.getByRole('region', { name: '当前结果' })).toHaveCount(0)
+  })
+
+  test('手机宽度下所有高维特征可在样本表格内部滚动查看', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('combobox', { name: '具体模型' }).selectOption('visual-cnn')
+    await page.getByLabel('内置数据集').selectOption('digits')
+
+    const tableWrap = page.locator('.dataset-table-wrap')
+    await expect(page.locator('.dataset-preview-grid > div:nth-child(2) li')).toHaveCount(64)
+    const dimensions = await tableWrap.evaluate(element => {
+      const wrapper = element as HTMLElement
+      const table = wrapper.querySelector('table')!
+      wrapper.scrollLeft = wrapper.scrollWidth
+      return { clientWidth: wrapper.clientWidth, scrollWidth: wrapper.scrollWidth, pageWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth, lastColumnRight: table.querySelector('thead th:last-child')!.getBoundingClientRect().right, wrapperRight: wrapper.getBoundingClientRect().right }
+    })
+    expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth)
+    expect(dimensions.pageWidth).toBeLessThanOrEqual(dimensions.viewportWidth)
+    expect(dimensions.lastColumnRight).toBeLessThanOrEqual(dimensions.wrapperRight + 1)
+  })
+
   test('可切换到历史记录页', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('tab', { name: '历史记录' }).click()

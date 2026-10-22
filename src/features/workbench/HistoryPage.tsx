@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { ResultsPage, type ExperimentRecord } from './pages'
+import { taskLabels } from '../../app/workbenchTypes'
+import { trainingUnitLabel } from '../training/trainingCapabilities'
 
 export type TopLevelPage = 'setup' | 'workflow' | 'history'
 
@@ -26,6 +28,7 @@ export interface HistoryPageProps {
   onImport?: (file: File) => void
   onExport?: () => void
   onDelete?: (recordId: string) => void
+  onExportReport?: (format: 'markdown' | 'html') => void
   importError?: string
   records: readonly ExperimentRecord[]
   onSelect?: (record: ExperimentRecord) => void
@@ -33,9 +36,17 @@ export interface HistoryPageProps {
   selectedId?: string
 }
 
-function metricValue(record: ExperimentRecord, key: string) {
-  const value = record.metrics?.[key]
-  return typeof value === 'number' ? value.toFixed(3) : '—'
+const metricTasks: Record<string, readonly string[]> = {
+  '准确率': ['classification'], '精确率': ['classification'], '召回率': ['classification'], F1: ['classification'],
+  MAE: ['regression'], MSE: ['regression'], 'R²': ['regression'], '簇数': ['clustering'], '噪声样本数': ['clustering'],
+}
+
+function compareValue(record: ExperimentRecord, label: string) {
+  const [source, metric] = label.split(' · ')
+  const value = record.metricGroups?.find(group => group.source === source)?.metrics.find(item => item.label === metric)?.value
+  if (typeof value === 'number' && Number.isFinite(value)) return Number.isInteger(value) ? String(value) : value.toFixed(3)
+  const applicableTasks = metricTasks[metric] ?? (metric.includes('方差解释率') ? ['dimensionality-reduction'] : undefined)
+  return record.task && applicableTasks && !applicableTasks.includes(record.task) ? '不适用' : '未记录'
 }
 
 function ComparisonPanel({ records, onRemove }: { records: readonly ExperimentRecord[]; onRemove: (id: string) => void }) {
@@ -44,25 +55,34 @@ function ComparisonPanel({ records, onRemove }: { records: readonly ExperimentRe
   const sameDataset = new Set(records.map((record) => record.runMetadata?.datasetFingerprint ?? record.datasetName)).size === 1
   const sameModel = new Set(records.map((record) => record.modelKind)).size === 1
   const showCurve = curveComparable && sameDataset && sameModel
-  const losses = records.map((record) => record.snapshots!.map((snapshot) => snapshot.loss!))
+  const losses = records.map((record) => (record.snapshots ?? []).map((snapshot) => snapshot.loss!))
   const allLosses = losses.flat()
   const minLoss = Math.min(...allLosses)
   const maxLoss = Math.max(...allLosses)
   const colors = ['#44d7a8', '#ffb85c', '#6eb8ff', '#ff718a']
+  const metricRows = [...new Set(records.flatMap(record => (record.metricGroups ?? []).flatMap(group => group.metrics.map(metric => `${group.source} · ${metric.label}`))))]
+  const rows: Array<[string, (record: ExperimentRecord) => string]> = [
+    ['任务', record => record.task ? taskLabels[record.task] : '未记录'],
+    ['运行状态', record => record.runMetadata?.status === 'stopped' ? '已停止（不完整）' : record.runMetadata?.status === 'completed' ? '已完成' : '未记录'],
+    ['数据规模', record => record.sampleCount == null || record.featureCount == null ? '未记录' : `${record.sampleCount} 条 · ${record.featureCount} 维`],
+    ['训练/验证样本数', record => record.evaluation ? `${record.evaluation.trainSampleCount ?? '未记录'} 条 · ${record.evaluation.validationSampleCount ?? '未记录'} 条` : `${record.sampleCount ?? '未记录'} 条 · 未设置验证集`],
+    ['评估来源', record => record.runMetadata?.evaluation?.source ?? (record.evaluation ? '未记录' : '全量数据')],
+    ['训练单位', record => record.runMetadata?.trainingUnit ? trainingUnitLabel(record.runMetadata.trainingUnit) : '未记录'],
+    ['训练耗时', record => record.runMetadata?.durationMs == null ? '未记录' : `${(record.runMetadata.durationMs / 1000).toFixed(1)} 秒`],
+    ['参数', record => record.config ? JSON.stringify(record.config) : '未记录'],
+  ]
   return <section className="history-comparison" aria-label="实验比较" data-testid="history-comparison">
     <header><div><p className="eyebrow">横向分析</p><h3>实验比较（{records.length}/4）</h3></div><span>{sameDataset ? '同一数据集' : '数据集不同，指标仅供参考'}</span></header>
     <div className="comparison-table-wrap"><table><thead><tr><th>字段</th>{records.map((record) => <th key={record.id}>{record.datasetName}<button type="button" aria-label={`移除${record.datasetName}`} onClick={() => onRemove(record.id)}>移除</button></th>)}</tr></thead><tbody>
-      <tr><th>模型</th>{records.map((record) => <td key={record.id}>{record.modelKind}</td>)}</tr>
-      <tr><th>准确率</th>{records.map((record) => <td key={record.id}>{metricValue(record, 'accuracy')}</td>)}</tr>
-      <tr><th>F1</th>{records.map((record) => <td key={record.id}>{metricValue(record, 'f1')}</td>)}</tr>
-      <tr><th>随机种子</th>{records.map((record) => <td key={record.id}>{record.runMetadata?.seed ?? '历史记录未保存'}</td>)}</tr>
-      <tr><th>训练耗时</th>{records.map((record) => <td key={record.id}>{record.runMetadata?.durationMs == null ? '历史记录未保存' : `${(record.runMetadata.durationMs / 1000).toFixed(1)} 秒`}</td>)}</tr>
+      <tr><th>模型</th>{records.map((record) => <td key={record.id}>{record.model}</td>)}</tr>
+      {rows.map(([label, format]) => <tr key={label}><th>{label}</th>{records.map(record => <td key={record.id}>{format(record)}</td>)}</tr>)}
+      {metricRows.map(label => <tr key={label}><th>{label}</th>{records.map(record => <td key={record.id}>{compareValue(record, label)}</td>)}</tr>)}
     </tbody></table></div>
     {showCurve ? <div className="comparison-chart"><h4>训练损失趋势</h4><svg viewBox="0 0 600 180" role="img" aria-label="同一模型与数据集下的训练损失趋势比较"><line x1="48" y1="12" x2="48" y2="145" /><line x1="48" y1="145" x2="588" y2="145" /><text x="8" y="18">损失</text><text x="280" y="174">训练快照序号</text>{losses.map((series, index) => { const points = series.map((loss, point) => `${48 + point / Math.max(1, series.length - 1) * 540},${135 - (loss - minLoss) / Math.max(.000001, maxLoss - minLoss) * 112}`).join(' '); return <polyline key={records[index].id} points={points} fill="none" stroke={colors[index]} strokeWidth="2" /> })}</svg><ul>{records.map((record, index) => <li key={record.id} style={{ color: colors[index] }}>{record.datasetName} · {record.modelKind}</li>)}</ul></div> : <p className="comparison-note">训练曲线：{!curveComparable ? '快照或损失值不完整，无法绘制。' : !sameDataset ? '数据集不同，不叠加损失曲线。' : '模型不同，损失定义可能不同，不叠加曲线。'}指标仍可并列查看，但请结合数据集和任务理解。</p>}
   </section>
 }
 
-export function HistoryPage({ records, onSelect, selectedDetail, selectedId, onImport, onExport, onDelete, importError }: HistoryPageProps) {
+export function HistoryPage({ records, onSelect, selectedDetail, selectedId, onImport, onExport, onDelete, onExportReport, importError }: HistoryPageProps) {
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
   const comparisonRecords = records.filter((record) => comparisonIds.includes(record.id))
   const toggleComparison = (id: string) => setComparisonIds((current) => current.includes(id) ? current.filter((item) => item !== id) : current.length >= 4 ? current : [...current, id])
@@ -73,6 +93,7 @@ export function HistoryPage({ records, onSelect, selectedDetail, selectedId, onI
         <p>查看已保存的训练实验，回顾模型参数与评估结果。</p></div>
       <div className="history-actions" aria-label="历史记录操作">
         {onExport && <button type="button" onClick={onExport} disabled={!records.length}>导出 JSON</button>}
+        {onExportReport && <><button type="button" onClick={() => onExportReport('markdown')} disabled={!selectedId}>导出 Markdown</button><button type="button" onClick={() => onExportReport('html')} disabled={!selectedId}>导出 HTML</button></>}
         {onImport && <label><span>导入 JSON</span><input type="file" accept="application/json,.json" onChange={event => { const file = event.target.files?.[0]; if (file) onImport(file); event.currentTarget.value = '' }} /></label>}
       </div>
     </header>

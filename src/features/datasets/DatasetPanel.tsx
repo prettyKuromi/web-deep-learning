@@ -66,8 +66,6 @@ export function DatasetPanel({ controlsBefore, onDatasetChange, onError, onValid
   }
   const imageDatasetIds: BuiltinDatasetId[] = ['digits', 'shapes']
   const availableDatasets = BUILTIN_DATASETS.filter(({ id }) => !model || (model === 'visual-cnn' ? imageDatasetIds.includes(id) : !imageDatasetIds.includes(id)))
-  const visibleFeatures = profile.features.slice(0, 8)
-  const visibleRanges = preview.featureRanges.slice(0, 8)
   const canImportCsv = model !== 'visual-cnn'
   const importFile = async (file?: File) => {
     if (!file) return
@@ -138,10 +136,10 @@ export function DatasetPanel({ controlsBefore, onDatasetChange, onError, onValid
       </ul></details>
       <div className="dataset-preview-grid">
         <div><h4>标签分布</h4><ul>{profile.classDistribution.map(({ label, count, ratio }) => <li key={String(label)}><span>{String(label)}：{count}</span>（{formatPercent(ratio)}）</li>)}</ul></div>
-        <div><h4>特征统计</h4>{preview.featureCount > 8 && <p className="dataset-preview-limit">仅展示前 8 维，共 {preview.featureCount} 维</p>}<ul>{visibleFeatures.map((feature) => <li key={feature.index}>{feature.name}：均值 {formatValue(feature.mean)}，标准差 {formatValue(feature.standardDeviation)}，范围 <span title={String(feature.min ?? '')}>{formatValue(feature.min)}</span> ~ <span title={String(feature.max ?? '')}>{formatValue(feature.max)}</span>{feature.nonFiniteCount ? `，非有限值 ${feature.nonFiniteCount}` : ''}</li>)}</ul></div>
+        <div><h4>特征统计（全部 {preview.featureCount} 维）</h4><ul>{profile.features.map((feature) => <li key={feature.index}>{feature.name}：均值 {formatValue(feature.mean)}，标准差 {formatValue(feature.standardDeviation)}，范围 <span title={String(feature.min ?? '')}>{formatValue(feature.min)}</span> ~ <span title={String(feature.max ?? '')}>{formatValue(feature.max)}</span>{feature.nonFiniteCount ? `，非有限值 ${feature.nonFiniteCount}` : ''}</li>)}</ul></div>
       </div>
       <h4>前 {preview.sampleRows.length} 条有效样本</h4>
-      <div className="dataset-table-wrap"><table aria-label={`前 ${preview.sampleRows.length} 条有效样本`}><thead><tr><th>#</th>{visibleRanges.map((_, index) => <th key={index}>{profile.features[index]?.name ?? `特征 ${index + 1}`}</th>)}<th>标签</th></tr></thead><tbody>{preview.sampleRows.map((row) => <tr key={row.index}><td>{row.index + 1}</td>{visibleRanges.map((_, index) => <td key={index} title={String(row.features[index] ?? '')}>{formatValue(row.features[index])}</td>)}<td>{row.label ?? '—'}</td></tr>)}</tbody></table></div>
+      <div className="dataset-table-wrap"><table aria-label={`前 ${preview.sampleRows.length} 条有效样本`}><thead><tr><th>#</th>{preview.featureRanges.map((_, index) => <th key={index}>{profile.features[index]?.name ?? `特征 ${index + 1}`}</th>)}<th>标签</th></tr></thead><tbody>{preview.sampleRows.map((row) => <tr key={row.index}><td>{row.index + 1}</td>{preview.featureRanges.map((_, index) => <td key={index} title={String(row.features[index] ?? '')}>{formatValue(row.features[index])}</td>)}<td>{row.label ?? '—'}</td></tr>)}</tbody></table></div>
     </div>
   </section>
 }

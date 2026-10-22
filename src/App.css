@@ -61,6 +61,9 @@ h1, h2, h3, h4, p { margin-top: 0; } h1 { margin-bottom: 3px; color: var(--ink-s
 .dataset-panel .csv-upload-input { width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; }
 .dataset-table-wrap table { table-layout: fixed; }
 .dataset-preview-grid ul, .dataset-compatibility { overflow-wrap: anywhere; }
+.dataset-preview, .dataset-table-wrap { min-width: 0; }
+.dataset-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.dataset-preview .dataset-table-wrap table { width: max-content; min-width: 100%; }
 .primary-button, .single-page-controls .primary-button { background: linear-gradient(135deg, #61e6ff, #78c9ef); }
 .single-page-controls .primary-button:hover:not(:disabled) { color: #03111d; }
 .model-suitability-notice { margin: 0; border: 1px solid var(--line); border-radius: 8px; padding: 10px; color: var(--muted); background: rgba(3, 14, 30, .2); font-size: .75rem; line-height: 1.6; }

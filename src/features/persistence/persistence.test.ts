@@ -38,6 +38,16 @@ describe('实验持久化', () => {
     expect((await listExperiments()).map((item) => item.id)).toEqual(['old'])
   })
 
+  it('保存停止记录时保留部分快照且不要求最终预测或模型', async () => {
+    const stopped = {
+      ...record('stopped', 2),
+      snapshots: [{ iteration: 3, loss: .4 }], predictions: [],
+      runMetadata: { status: 'stopped', trainingUnit: 'iteration', startedAt: 1000, completedAt: 1300, durationMs: 300 },
+    } as unknown as ExperimentRecord
+    await saveExperiment(stopped)
+    expect(await listExperiments()).toEqual([stopped])
+  })
+
   it('导出 JSON 包含版本号，导入后可恢复实验', async () => {
     await saveExperiment(record('a'))
     const json = await exportExperiments()

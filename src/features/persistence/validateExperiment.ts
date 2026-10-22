@@ -23,6 +23,18 @@ export function validateExperiment(value: unknown): asserts value is ExperimentR
   ensure(data.name === undefined || typeof data.name === 'string', '数据名称')
   if (data.dataType === 'image') ensure(isObject(data.imageShape) && ['width', 'height', 'channels'].every(key => integer(data.imageShape[key], 1)) && data.imageShape.width * data.imageShape.height * data.imageShape.channels === dimensions, '图像尺寸')
   ensure(kind !== 'visual-cnn' || data.dataType === 'image', '模型数据类型')
+  if (value.runMetadata !== undefined) {
+    const metadata = value.runMetadata
+    ensure(isObject(metadata), '运行元数据')
+    ensure(metadata.status === undefined || ['completed', 'stopped'].includes(metadata.status), '运行状态')
+    ensure(metadata.trainingUnit === undefined || ['iteration', 'epoch', 'tree', 'round', 'fit'].includes(metadata.trainingUnit), '训练单位')
+    ensure(metadata.startedAt === undefined || finite(metadata.startedAt) && metadata.startedAt >= 0, '开始时间')
+    ensure(metadata.completedAt === undefined || finite(metadata.completedAt) && metadata.completedAt >= 0, '结束时间')
+    ensure(metadata.durationMs === undefined || finite(metadata.durationMs) && metadata.durationMs >= 0, '训练耗时')
+    ensure(metadata.datasetFingerprint === undefined || typeof metadata.datasetFingerprint === 'string', '数据指纹')
+  }
+  const stopped = value.runMetadata?.status === 'stopped'
+  if (stopped) ensure(value.model === undefined && value.metrics === undefined, '停止记录不得包含最终模型或指标')
   ensure(isObject(value.config), '参数')
   for (const [key, entry] of Object.entries(value.config)) {
     const definition = parameterDefinitions[kind].find(item => item.key === key)
@@ -32,11 +44,11 @@ export function validateExperiment(value: unknown): asserts value is ExperimentR
     else if (key === 'imageShape' && kind === 'visual-cnn') ensure(isObject(entry) && ['width', 'height', 'channels'].every(key => entry[key] === data.imageShape[key]), '图像参数')
     else ensure(finite(entry), '参数 ' + key)
   }
-  ensure(Array.isArray(value.predictions) && value.predictions.length === size, '预测长度')
-  if (task === 'classification') ensure(value.predictions.every((item: unknown) => data.labels.includes(item)), '预测类别')
-  if (task === 'regression') ensure(data.labels.every(finite) && vector(value.predictions, size), '回归数值')
-  if (task === 'clustering') ensure(value.predictions.every((item: unknown) => integer(item, -1)), '分簇标签')
-  if (task === 'dimensionality-reduction') ensure(isObject(value.model) && Array.isArray(value.model.components) && matrix(value.predictions, size, value.model.components.length), '投影维度')
+  ensure(Array.isArray(value.predictions) && (stopped ? value.predictions.length === 0 : value.predictions.length === size), '预测长度')
+  if (!stopped && task === 'classification') ensure(value.predictions.every((item: unknown) => data.labels.includes(item)), '预测类别')
+  if (!stopped && task === 'regression') ensure(data.labels.every(finite) && vector(value.predictions, size), '回归数值')
+  if (!stopped && task === 'clustering') ensure(value.predictions.every((item: unknown) => integer(item, -1)), '分簇标签')
+  if (!stopped && task === 'dimensionality-reduction') ensure(isObject(value.model) && Array.isArray(value.model.components) && matrix(value.predictions, size, value.model.components.length), '投影维度')
   ensure(Array.isArray(value.snapshots) && value.snapshots.every((item: unknown) => isObject(item) && integer(item.iteration) && (item.loss === undefined || finite(item.loss)) && (item.network === undefined || Array.isArray(item.network) && item.network.every((layer: unknown) => isObject(layer) && typeof layer.name === 'string' && typeof layer.shape === 'string' && integer(layer.parameters) && finite(layer.activation)))), '训练快照')
   if (value.metrics !== undefined) {
     const metrics = value.metrics

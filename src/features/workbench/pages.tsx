@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { DatasetPanel, type DatasetImportState } from '../datasets/DatasetPanel'
 import type { Dataset } from '../datasets/dataset'
 import { isModelCompatible, modelGroups, modelTask, taskLabels, workbenchStages, type ModelKind, type TaskKind, type WorkbenchStage } from '../../app/workbenchTypes'
+import type { TrainingUnit } from '../training/types'
 import './pages.css'
 
 export type ModelId = ModelKind
@@ -13,9 +14,15 @@ export interface ExperimentRecord {
   summary?: string
   timestamp: string
   metrics: { accuracy?: number; [key: string]: number | undefined }
+  task?: TaskKind
+  sampleCount?: number
+  featureCount?: number
+  config?: Record<string, unknown>
+  evaluation?: { config?: { enabled?: boolean; validationSplit?: number; seed?: number }; trainSampleCount?: number; validationSampleCount?: number }
+  metricGroups?: readonly { source: string; sampleCount?: number; metrics: readonly { label: string; value: number }[] }[]
   modelKind?: string
   snapshots?: readonly { loss?: number }[]
-  runMetadata?: { seed?: number; durationMs?: number; datasetFingerprint?: string }
+  runMetadata?: { seed?: number; durationMs?: number; datasetFingerprint?: string; status?: 'completed' | 'stopped'; trainingUnit?: TrainingUnit; evaluation?: { source?: string; split?: string } }
 }
 
 export interface DatasetPageProps {

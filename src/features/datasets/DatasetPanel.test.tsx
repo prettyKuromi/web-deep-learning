@@ -35,14 +35,24 @@ describe('DatasetPanel', () => {
     expect(screen.queryByLabelText('上传 CSV')).not.toBeInTheDocument()
   })
 
-  it('64 维图像预览只展示前八维并注明截取范围', () => {
-    const imageDataset = { name: '8×8 数字图像（0–9）', features: [Array(64).fill(0), Array(64).fill(1)], labels: [0, 1], dataType: 'image' as const, imageShape: { width: 8, height: 8, channels: 1 } }
+  it('64 维图像预览可查看所有维度的统计和样本值', () => {
+    const imageDataset = { name: '8×8 数字图像（0–9）', features: [Array.from({ length: 64 }, (_, index) => index), Array(64).fill(1)], labels: [0, 1], dataType: 'image' as const, imageShape: { width: 8, height: 8, channels: 1 } }
     render(<DatasetPanel model="visual-cnn" initialDataset={imageDataset} onDatasetChange={vi.fn()} />)
 
-    expect(screen.getByText('仅展示前 8 维，共 64 维')).toBeInTheDocument()
-    expect(document.querySelectorAll('.dataset-preview-grid > div:nth-child(2) li')).toHaveLength(8)
+    expect(document.querySelectorAll('.dataset-preview-grid > div:nth-child(2) li')).toHaveLength(64)
     expect(screen.getAllByRole('table')[0]).toHaveAccessibleName('前 2 条有效样本')
-    expect(screen.getAllByRole('table')[0].querySelectorAll('th')).toHaveLength(10)
+    expect(screen.getAllByRole('table')[0].querySelectorAll('th')).toHaveLength(66)
+    expect(screen.getByRole('columnheader', { name: '特征 64' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '63' })).toHaveAttribute('title', '63')
+  })
+
+  it('12 维数值数据展示末维统计和样本值', () => {
+    const features = [Array.from({ length: 12 }, (_, index) => index + 1), Array.from({ length: 12 }, (_, index) => index + 11)]
+    render(<DatasetPanel initialDataset={{ name: '12 维数据', features, labels: ['A', 'B'] }} onDatasetChange={vi.fn()} />)
+
+    expect(document.querySelectorAll('.dataset-preview-grid > div:nth-child(2) li')).toHaveLength(12)
+    expect(screen.getByRole('columnheader', { name: '特征 12' })).toBeInTheDocument()
+    expect(screen.getAllByRole('cell', { name: '12' })[0]).toHaveAttribute('title', '12')
   })
 
   it('默认展示内置数据集的预览、规模和特点说明', () => {
