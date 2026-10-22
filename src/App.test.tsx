@@ -46,7 +46,6 @@ describe('实验工作台', () => {
   it('支持调整 KNN 参数并显示训练损失曲线', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     const k = screen.getByRole('spinbutton', { name: '邻居数（k）' })
@@ -61,7 +60,6 @@ describe('实验工作台', () => {
   it('更换数据集后清空当前训练结果并保留模型配置', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     await user.click(screen.getByRole('button', { name: '更换数据集' }))
@@ -69,13 +67,12 @@ describe('实验工作台', () => {
     await user.selectOptions(screen.getByLabelText('内置数据集'), 'xor')
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('knn')
-    expect(screen.getByText('请重新训练')).toBeInTheDocument()
+    expect(screen.getByText('等待训练')).toBeInTheDocument()
   })
 
   it('启用验证集后使用确定性留出集并保存两组样本量与指标', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     await user.click(screen.getByRole('checkbox', { name: /启用验证集/ }))
@@ -92,7 +89,6 @@ describe('实验工作台', () => {
   it('回归验证集评估分别保存训练和验证 MAE、MSE、R²', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.click(screen.getByRole('tab', { name: '回归' }))
     await user.click(screen.getByRole('checkbox', { name: /启用验证集/ }))
@@ -107,8 +103,7 @@ describe('实验工作台', () => {
   it('确认后返回保留导航权限，实际更改数据后需重新确认', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
-    expect(screen.getByRole('heading', { name: '数据集' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '模型与数据' })).toBeInTheDocument()
     const workflow = screen.getByRole('tab', { name: '实验流程' })
     expect(workflow).toBeDisabled()
     expect(workflow).toHaveAttribute('title', '请先确认数据集')
@@ -126,7 +121,6 @@ describe('实验工作台', () => {
   it('CSV 错误禁用确认，重新选择或导入合法数据可恢复', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     const confirm = screen.getByRole('button', { name: '确认数据集并进入实验流程' })
     await user.upload(screen.getByLabelText('上传 CSV'), new File(['x,y,label\nnope,,'], 'bad.csv', { type: 'text/csv' }))
     await screen.findByRole('alert')
@@ -146,7 +140,6 @@ describe('实验工作台', () => {
   it('CSV 错误跨页保留，选择合法数据后清除错误状态', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.upload(screen.getByLabelText('上传 CSV'), new File(['x,y,label\nnope,,'], 'bad.csv', { type: 'text/csv' }))
     await screen.findByRole('alert')
     await user.click(screen.getByRole('tab', { name: '历史记录' }))
@@ -162,14 +155,13 @@ describe('实验工作台', () => {
   it('读取 CSV 时离开页面会中断，返回后仍需恢复有效数据', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     let resolveText!: (value: string) => void
     const file = new File([''], 'pending.csv', { type: 'text/csv' })
     Object.defineProperty(file, 'text', { value: () => new Promise<string>((resolve) => { resolveText = resolve }) })
     await user.upload(screen.getByLabelText('上传 CSV'), file)
     expect(screen.getByRole('button', { name: '确认数据集并进入实验流程' })).toBeDisabled()
     await user.click(screen.getByRole('tab', { name: '历史记录' }))
-    await user.click(screen.getByRole('tab', { name: '数据集选择' }))
+    await user.click(screen.getByRole('tab', { name: '模型与数据' }))
     expect(screen.getByRole('button', { name: '确认数据集并进入实验流程' })).toBeDisabled()
     expect(screen.getByRole('alert')).toHaveTextContent('CSV 导入已中断')
     await act(async () => resolveText('x,y,label\n1,2,A\n3,4,B'))
@@ -182,7 +174,6 @@ describe('实验工作台', () => {
   it('模型解释可查看较早快照，重置和重新训练恢复跟随最新步骤', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'logistic-regression')
     const snapshots = [{ iteration: 1, loss: 1, explanation: { note: '第一步说明' } }, { iteration: 2, loss: .5, explanation: { note: '第二步说明' } }]
@@ -204,7 +195,6 @@ describe('实验工作台', () => {
   it('单步在没有活动 Worker 时不会伪造快照', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     act(() => useWorkbenchStore.getState().setTraining({ status: '训练已暂停', snapshots: [{ iteration: 1, loss: 1 }] }))
@@ -213,10 +203,9 @@ describe('实验工作台', () => {
     expect(within(screen.getByRole('main', { name: '训练画布' })).getByText('第 1 次迭代 · 损失 1.0000')).toBeInTheDocument()
   })
 
-  it('查看旧历史记录不会替换当前实验的指标和模型解释', async () => {
+  it('重新进入实验流程时清空当前结果且历史记录仍可查看', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'knn')
     await user.clear(screen.getByRole('spinbutton', { name: '邻居数（k）' }))
@@ -228,8 +217,7 @@ describe('实验工作台', () => {
     await user.type(screen.getByRole('spinbutton', { name: '迭代次数' }), '1')
     await user.click(screen.getByRole('button', { name: '开始训练' }))
     const currentResult = await screen.findByRole('region', { name: '当前结果' })
-    const currentMetrics = currentResult.textContent
-    const currentExplanation = document.querySelector('.model-explanation-panel')?.textContent
+    expect(currentResult).toBeInTheDocument()
     const records = useWorkbenchStore.getState().experiments
     expect(records).toHaveLength(2)
     expect(records[0].metrics?.accuracy).not.toBe(records[1].metrics?.accuracy)
@@ -240,16 +228,14 @@ describe('实验工作台', () => {
     expect(oldDetail.getByText('邻居数（k）')).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: '实验流程' }))
     expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('logistic-regression')
-    expect(screen.getByRole('region', { name: '当前结果' }).textContent).toBe(currentMetrics)
-    expect(document.querySelector('.model-explanation-panel')?.textContent).toBe(currentExplanation)
-    await user.click(screen.getByRole('button', { name: '重置' }))
+    expect(screen.queryByRole('region', { name: '当前结果' })).not.toBeInTheDocument()
+    expect(useWorkbenchStore.getState().training).toMatchObject({ status: '等待训练', progress: 0, snapshots: [] })
     await user.click(screen.getByRole('tab', { name: '历史记录' }))
     expect(within(screen.getByLabelText('实验详情')).getByRole('heading', { name: 'KNN · 月牙形' })).toBeInTheDocument()
   })
   it('回归任务展示真实误差、预测与历史摘要，改参数使结果失效', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '选择此模型并继续' }))
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.click(screen.getByRole('tab', { name: '回归' }))
     expect(screen.getByLabelText('迭代次数')).toHaveValue(500)

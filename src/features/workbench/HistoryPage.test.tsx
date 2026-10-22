@@ -7,6 +7,18 @@ import { HistoryPage, TopLevelNavigation } from './HistoryPage'
 afterEach(() => cleanup())
 
 describe('HistoryPage', () => {
+  it('主导航将模型和数据合并为准备页', async () => {
+    const user = userEvent.setup()
+    const onPageChange = vi.fn()
+    render(<TopLevelNavigation activePage="setup" onPageChange={onPageChange} workflowDisabled />)
+
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(3)
+    expect(screen.getByRole('tab', { name: '模型与数据' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('tab', { name: '历史记录' }))
+    expect(onPageChange).toHaveBeenCalledWith('history')
+  })
+
   it('shows a helpful empty state when there are no saved experiments', () => {
     render(<HistoryPage records={[]} />)
 
