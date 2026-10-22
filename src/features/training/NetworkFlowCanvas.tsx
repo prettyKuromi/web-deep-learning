@@ -103,5 +103,5 @@ export function NetworkFlowCanvas({ layers, imageShape, status, snapshots, onCha
 }
 
 function InsertionControl({ label, onClick }: { label: string; onClick: () => void }) {
-  return <button className="network-flow-insert" type="button" aria-label={`在${label}插入`} onClick={onClick}>＋<span>插入</span></button>
+  return <button className="network-flow-insert" type="button" aria-label={`在${label}插入`} onClick={onClick}>＋</button>
 }

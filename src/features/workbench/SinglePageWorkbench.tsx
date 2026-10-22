@@ -84,7 +84,7 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
         </div>
       </section>
     </aside>
-    <main className="single-page-column single-page-canvas" aria-label="训练画布">
+    <main className={`single-page-column single-page-canvas${isVisualCnn ? ' single-page-canvas--cnn' : ''}`} aria-label="训练画布">
       <header className="single-page-heading workflow-dataset-header"><div><p className="eyebrow">实时训练</p><h2>训练过程</h2><p>配置模型后开始训练，实时观察损失与结果。</p></div></header>
       <section className="workflow-context-bar" aria-label="当前数据集" role="region"><div className="workflow-context-icon" aria-hidden="true">◈</div><div className="workflow-context-copy"><span>当前数据集</span><strong>{datasetName ?? '未命名数据集'}</strong></div>{onChangeDataset && <button type="button" className="workflow-context-action" disabled={isActive} onClick={onChangeDataset}>更换数据集<span aria-hidden="true">→</span></button>}</section>
       <section data-testid={isVisualCnn ? 'cnn-training-card' : undefined} className={`single-page-card training-canvas-card${isVisualCnn ? ' training-canvas-card--cnn' : ''}`}>
@@ -98,7 +98,7 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
         <div className={`single-page-chart${isVisualCnn ? ' single-page-chart--cnn' : ''}`}>{showCompletedResult ? <div className="single-page-final-result">{resultPanel}</div> : model === 'visual-cnn' && activeDataset.imageShape ? <NetworkFlowCanvas layers={activeVisualLayers} imageShape={activeDataset.imageShape} outputClasses={new Set(activeDataset.labels).size} onChange={onVisualLayersChange} status={status} snapshots={snapshots} /> : <TrainingProgressChart snapshots={snapshots} status={status} fallback={datasetPlot} />}</div>
         {status === '训练失败' && snapshots.length > 0 && <details><summary>查看已收到的训练上下文（{snapshots.length} 个快照）</summary><p>最近迭代：{currentIteration}，损失：{lastSnapshot?.loss?.toFixed(4) ?? '无'}</p></details>}
       </section>
-      {snapshots.length > 0 && <section className="single-page-card"><h3>训练时间线</h3><ol className="single-page-timeline">{snapshots.slice(-8).map((snapshot) => <li key={`${snapshot.iteration}-${snapshot.timestamp}`}>{snapshot.iteration === 0 && snapshot.loss == null ? status === '训练完成' ? '已完成拟合' : '已接收训练快照' : `第 ${snapshot.iteration} 次迭代${snapshot.loss != null ? ` · 损失 ${snapshot.loss.toFixed(4)}` : ''}`}</li>)}</ol></section>}
+      {(snapshots.length > 0 || isVisualCnn) && <section className="single-page-card single-page-timeline-card"><h3>训练时间线</h3><ol className="single-page-timeline">{snapshots.slice(-8).map((snapshot) => <li key={`${snapshot.iteration}-${snapshot.timestamp}`}>{snapshot.iteration === 0 && snapshot.loss == null ? status === '训练完成' ? '已完成拟合' : '已接收训练快照' : `第 ${snapshot.iteration} 次迭代${snapshot.loss != null ? ` · 损失 ${snapshot.loss.toFixed(4)}` : ''}`}</li>)}</ol></section>}
     </main>
     <aside className="single-page-column single-page-explanation" aria-label="模型解释与结果"><header className="single-page-heading"><p className="eyebrow">模型解读</p><h2>模型解释与结果</h2><p>理解模型如何做出预测。</p></header><section className="single-page-card model-explanation-card"><h3>{model ? modelNames[model] : '尚未选择模型'}</h3>{explanation ?? <p className="single-page-hint">训练后将展示模型结构、关键参数和决策过程。</p>}</section>{!showCompletedResult && (resultPanel ?? (currentResult && <CurrentResultPanel result={currentResult} />))}</aside>
   </div>

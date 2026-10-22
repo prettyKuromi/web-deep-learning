@@ -19,10 +19,8 @@
 .network-flow-controls label { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 7px; color: var(--muted); font-size: .64rem; }
 .network-flow-controls input, .network-flow-controls select { width: 100%; min-width: 0; border: 1px solid rgba(112,238,255,.28); border-radius: 6px; padding: 4px 6px; color: var(--text, #eff7ff); background: rgba(4,14,35,.72); font: inherit; }
 .network-flow-insertions { display: flex; align-items: center; gap: 5px; }
-.network-flow-insert { display: inline-flex; align-items: center; gap: 3px; min-height: 25px; border: 1px dashed rgba(112,238,255,.38); border-radius: 7px; padding: 3px 6px; color: var(--cyan-soft); background: rgba(9,27,58,.78); font-size: .66rem; cursor: pointer; opacity: .55; transition: opacity .16s ease, border-color .16s ease; }
-.network-flow-insert span { display: none; }
+.network-flow-insert { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex: 0 0 30px; width: 30px; min-height: 25px; border: 1px dashed rgba(112,238,255,.38); border-radius: 7px; padding: 3px 0; color: var(--cyan-soft); background: rgba(9,27,58,.78); font-size: .66rem; cursor: pointer; opacity: .55; transition: opacity .16s ease, border-color .16s ease; }
 .network-flow-step:hover .network-flow-insert, .network-flow-step:focus-within .network-flow-insert, .network-flow-insert:focus-visible { opacity: 1; border-color: var(--cyan); }
-.network-flow-step:hover .network-flow-insert span, .network-flow-step:focus-within .network-flow-insert span { display: inline; }
 .network-flow-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; border-top: 1px solid rgba(112,238,255,.18); padding-top: 10px; color: var(--muted); font-size: .72rem; }
 .network-flow-menu button { border: 1px solid rgba(112,238,255,.28); border-radius: 7px; padding: 5px 9px; color: var(--cyan-soft); background: rgba(9,27,58,.8); cursor: pointer; }
 .network-flow-errors { margin: 0; padding: 8px 12px 8px 30px; border: 1px solid rgba(255,120,137,.4); border-radius: 9px; color: #ffd3d8; background: rgba(100,28,48,.2); font-size: .72rem; }

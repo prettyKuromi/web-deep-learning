@@ -97,6 +97,19 @@ describe('单页训练工作台', () => {
     expect(within(canvas).getByLabelText('神经网络数据流').parentElement).toHaveClass('single-page-chart--cnn')
   })
 
+  it('CNN 空快照时预留固定时间线卡片，普通模型保持按需显示', () => {
+    const cnn = <SinglePageWorkbench model="visual-cnn" params={{ epochs: 40 }} status="等待训练" snapshots={[]} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} onDatasetChange={vi.fn()} onModelChange={vi.fn()} onParamsChange={vi.fn()} onStartTraining={vi.fn()} />
+    const { rerender } = render(cnn)
+
+    const canvas = screen.getByRole('main', { name: '训练画布' })
+    expect(canvas).toHaveClass('single-page-canvas--cnn')
+    expect(within(canvas).getByRole('heading', { name: '训练时间线' })).toBeInTheDocument()
+    expect(within(canvas).getByRole('heading', { name: '训练时间线' }).closest('section')).toHaveClass('single-page-timeline-card')
+
+    rerender(<SinglePageWorkbench {...baseProps} snapshots={[]} />)
+    expect(screen.queryByRole('heading', { name: '训练时间线' })).not.toBeInTheDocument()
+  })
+
   it('图像模型只显示当前数据兼容的分类任务与模型', () => {
     render(<SinglePageWorkbench model="visual-cnn" params={{ epochs: 40 }} status="等待训练" snapshots={[]} dataset={{ features: [Array(64).fill(0), Array(64).fill(1)], labels: [0, 1], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} onDatasetChange={vi.fn()} onModelChange={vi.fn()} onParamsChange={vi.fn()} onStartTraining={vi.fn()} />)
 

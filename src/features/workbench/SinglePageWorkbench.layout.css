@@ -31,6 +31,8 @@
 .single-page-workbench--immersive { height: 100%; min-height: 0; grid-template-columns: minmax(250px, .7fr) minmax(480px, 2fr) minmax(260px, .9fr); grid-template-rows: minmax(0, 1fr); gap: 12px; align-items: stretch; overflow: hidden; }
 .single-page-workbench--immersive .single-page-column { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; align-content: start; scrollbar-gutter: stable; }
 .single-page-workbench--immersive .single-page-canvas { grid-template-rows: auto auto minmax(0, 1fr); }
+.single-page-workbench--immersive .single-page-canvas--cnn { grid-template-rows: auto auto minmax(0, 1fr) 152px; }
+.single-page-workbench--immersive .single-page-canvas--cnn .single-page-timeline-card { height: 152px; min-height: 0; overflow: hidden; }
 .single-page-workbench--immersive .single-page-config .single-page-card { overflow: visible; }
 .single-page-workbench--immersive .single-page-canvas .training-canvas-card { height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto auto; overflow: hidden; }
 .single-page-workbench--immersive .single-page-canvas .training-canvas-card:has(.training-live) { grid-template-rows: auto auto minmax(0, 1fr) auto; }

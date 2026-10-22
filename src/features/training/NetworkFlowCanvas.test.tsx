@@ -43,6 +43,15 @@ describe('网络数据流画布', () => {
     expect(onChange.mock.lastCall?.[0][1].type).toBe('dropout')
   })
 
+  it('插入控件始终只显示加号并保留位置说明', () => {
+    render(<NetworkFlowCanvas layers={defaultVisualLayers()} imageShape={imageShape} status="就绪" snapshots={snapshots} onChange={vi.fn()} />)
+    const buttons = screen.getAllByRole('button', { name: /在.*插入/ })
+
+    expect(buttons.length).toBeGreaterThan(0)
+    for (const button of buttons) expect(button.textContent).toBe('＋')
+    expect(buttons[0]).toHaveAccessibleName('在输入后插入')
+  })
+
   it('通过拖放重排用户层', () => {
     const onChange = vi.fn()
     render(<NetworkFlowCanvas layers={defaultVisualLayers()} imageShape={imageShape} status="就绪" snapshots={snapshots} onChange={onChange} />)
