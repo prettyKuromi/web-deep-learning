@@ -1,7 +1,8 @@
 ﻿import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import App, { formatParameterLabel, formatParameterValue } from './App'
+import App from './App'
+import { formatParameterLabel, formatParameterValue } from './features/workbench/experimentParameterFormat'
 import { useWorkbenchStore } from './app/workbenchStore'
 
 describe('实验工作台', () => {
