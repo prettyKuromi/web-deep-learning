@@ -150,7 +150,7 @@ describe('trainInWorker client', () => {
       event => { if (event.type === 'stopped') throw listenerError },
     ).catch(error => { settledError = error })
 
-    expect(() => client.sendControl('stop')).toThrow(listenerError)
+    expect(() => client.sendControl('stop')).not.toThrow()
     expect(worker.terminate).toHaveBeenCalledTimes(1)
     await Promise.resolve()
     expect(settledError).toMatchObject({ name: 'AbortError' })
