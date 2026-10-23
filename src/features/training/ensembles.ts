@@ -20,14 +20,18 @@ export function createPerceptronTrainer(): Trainer<PerceptronTrainConfig, Percep
 
 export function createRandomForestTrainer(): Trainer<RandomForestTrainConfig, RandomForestModel> {
   return {
-    async train({ samples, labels, trees = 9, maxDepth = 5 }, emit) {
+    async train({ samples, labels, trees = 9, maxDepth = 5, seed = 42 }, emit) {
       validateClassification(samples, labels)
+      if (!Number.isSafeInteger(seed) || seed < 0) throw new Error('seed must be a non-negative integer')
       const dimensions = samples[0].length
       const treeTrainer = createDecisionTreeTrainer()
       const forest: RandomForestModel['trees'] = []
       const snapshots: TrainSnapshot[] = []
       for (let i = 0; i < trees; i++) {
-        const result = await treeTrainer.train({ samples, labels, maxDepth })
+        const treeSeed = deriveSeed(seed, i)
+        const random = createRandom(treeSeed)
+        const bootstrap = Array.from({ length: samples.length }, () => Math.floor(random() * samples.length))
+        const result = await treeTrainer.train({ samples: bootstrap.map(index => samples[index]), labels: bootstrap.map(index => labels[index]), maxDepth, maxFeatures: Math.max(1, Math.floor(Math.sqrt(dimensions))), seed: treeSeed })
         forest.push(result.model)
         const loss = samples.reduce((sum, sample, index) => sum + (vote(forest.map(tree => predictTree(tree, sample))) === labels[index] ? 0 : 1), 0) / samples.length
         const snapshot = { iteration: i + 1, loss }
@@ -69,6 +73,9 @@ export function createAdaBoostTrainer(): Trainer<AdaBoostTrainConfig, AdaBoostMo
 }
 
 function predictTree(tree: RandomForestModel['trees'][number], sample: readonly number[]): Label { let node = tree.root; while (node.feature !== undefined && node.threshold !== undefined) node = sample[node.feature] <= node.threshold ? node.left! : node.right!; return node.prediction }
+
+function deriveSeed(seed: number, index: number): number { return ((seed >>> 0) + Math.imul(index + 1, 0x9e3779b9)) >>> 0 }
+function createRandom(seed: number): () => number { let value = seed >>> 0; return () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 4294967296 } }
 
 function vote(values: readonly Label[]): Label { const counts = new Map<Label, number>(); values.forEach(value => counts.set(value, (counts.get(value) ?? 0) + 1)); return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0] }
 function argmax(values: readonly number[]) { return values.reduce((best, value, i) => value > values[best] ? i : best, 0) }

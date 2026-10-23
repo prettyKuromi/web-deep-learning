@@ -99,14 +99,14 @@ export interface KMeansTrainConfig { samples: FeatureMatrix; k: number; iteratio
 export interface KMeansModel { kind: 'k-means'; centroids: number[][]; dimensions: number }
 export interface PcaTrainConfig { samples: FeatureMatrix; components?: number }
 export interface PcaModel { kind: 'pca'; means: number[]; components: number[][]; explainedVariance: number[]; dimensions: number }
-export interface DecisionTreeTrainConfig { samples: FeatureMatrix; labels: Labels; maxDepth?: number; minSamplesSplit?: number }
+export interface DecisionTreeTrainConfig { samples: FeatureMatrix; labels: Labels; maxDepth?: number; minSamplesSplit?: number; maxFeatures?: number; seed?: number }
 export type DecisionTreeNode = { prediction: Label; feature?: number; threshold?: number; left?: DecisionTreeNode; right?: DecisionTreeNode }
 export interface DecisionTreeModel { kind: 'decision-tree'; root: DecisionTreeNode; dimensions: number }
 export interface NaiveBayesTrainConfig { samples: FeatureMatrix; labels: Labels; varianceSmoothing?: number }
 export interface NaiveBayesModel { kind: 'naive-bayes'; labels: Label[]; means: number[][]; variances: number[][]; priors: number[]; dimensions: number }
 export interface PerceptronTrainConfig { samples: FeatureMatrix; labels: Labels; learningRate?: number; iterations?: number }
 export interface PerceptronModel { kind: 'perceptron'; labels: Label[]; weights: number[][]; dimensions: number }
-export interface RandomForestTrainConfig { samples: FeatureMatrix; labels: Labels; trees?: number; maxDepth?: number }
+export interface RandomForestTrainConfig { samples: FeatureMatrix; labels: Labels; trees?: number; maxDepth?: number; seed?: number }
 export interface RandomForestModel { kind: 'random-forest'; trees: DecisionTreeModel[]; labels: Label[]; dimensions: number }
 export interface AdaBoostTrainConfig { samples: FeatureMatrix; labels: Labels; rounds?: number }
 export interface AdaBoostModel { kind: 'adaboost'; stumps: Array<{ feature: number; threshold: number; polarity: number; alpha: number }>; labels: Label[]; dimensions: number }

@@ -10,6 +10,7 @@ import { createNaiveBayesTrainer } from '../naiveBayes'
 import { createPerceptronTrainer, createRandomForestTrainer, createAdaBoostTrainer } from '../ensembles'
 import { createDbscanTrainer } from '../dbscan'
 import { classificationMetrics } from '../metrics'
+import { defaultParameters } from '../modelParameters'
 import type { FeatureMatrix, Labels, Trainer } from '../types'
 
 const samples: FeatureMatrix = [
@@ -119,6 +120,29 @@ describe('K-Means trainer', () => {
     expect(result.model.kind).toBe('k-means')
     expect(new Set(trainer.predict(result.model, [[0, 0], [10, 10]])).size).toBe(2)
   })
+
+  it('uses reproducible k-means++ centers instead of the first k samples', async () => {
+    const trainer = createKMeansTrainer()
+    const config = { samples: [[0, 0], [1, 0], [10, 10], [11, 10], [30, 30]], k: 3, iterations: 0, seed: 42 }
+    const first = await trainer.train(config)
+    const second = await trainer.train(config)
+
+    expect(first.model.centroids).toEqual(second.model.centroids)
+    expect(first.model.centroids).not.toEqual(config.samples.slice(0, config.k))
+  })
+
+  it('lets a different seed change the initial centers', async () => {
+    const trainer = createKMeansTrainer()
+    const samples = [[0, 0], [1, 0], [10, 10], [11, 10]]
+    const first = await trainer.train({ samples, k: 2, iterations: 0, seed: 42 })
+    const second = await trainer.train({ samples, k: 2, iterations: 0, seed: 7 })
+
+    expect(first.model.centroids).not.toEqual(second.model.centroids)
+  })
+
+  it('exposes a default random seed in the model parameters', () => {
+    expect(defaultParameters('k-means').seed).toBe(42)
+  })
 })
 
 describe('PCA trainer', () => {
@@ -153,6 +177,22 @@ describe('additional course algorithms', () => {
     }
   })
 
+  it('builds reproducible random forests with different XOR root features', async () => {
+    const xorSamples = Array.from({ length: 8 }, () => [[0, 0], [0, 1], [1, 0], [1, 1]]).flat()
+    const xorLabels = xorSamples.map(([first, second]) => first === second ? 'same' : 'different')
+    const trainer = createRandomForestTrainer()
+    const config = { samples: xorSamples, labels: xorLabels, trees: 31, maxDepth: 2, seed: 42 }
+    const first = await trainer.train(config)
+    const second = await trainer.train(config)
+
+    expect(first.model).toEqual(second.model)
+    expect(new Set(first.model.trees.map(tree => tree.root.feature)).size).toBeGreaterThan(1)
+  })
+
+  it('exposes a default random seed for random forests', () => {
+    expect(defaultParameters('random-forest').seed).toBe(42)
+  })
+
   it('finds dense groups and labels isolated points as noise with DBSCAN', async () => {
     const trainer = createDbscanTrainer()
     const result = await trainer.train({ samples: [[0, 0], [0.1, 0], [5, 5], [5.1, 5], [20, 20]], epsilon: 0.3, minPoints: 2 })
@@ -182,6 +222,16 @@ describe('decision tree trainer', () => {
     const result = await trainer.train({ samples: [[0], [1], [4], [5]], labels: ['low', 'low', 'high', 'high'], maxDepth: 2 }, snapshot => emitted.push(snapshot))
     expect(result.snapshots.length).toBeGreaterThan(0); expect(emitted).toEqual(result.snapshots)
     expect(result.snapshots.every(snapshot => Number.isFinite(snapshot.loss))).toBe(true)
+  })
+
+  it('keeps default full-feature selection deterministic', async () => {
+    const trainer = createDecisionTreeTrainer()
+    const config = { samples: [[0, 0], [0, 1], [1, 0], [1, 1]], labels: ['same', 'different', 'different', 'same'], maxDepth: 2 }
+    const first = await trainer.train(config)
+    const second = await trainer.train(config)
+
+    expect(first.model.root.feature).toBe(0)
+    expect(first.model).toEqual(second.model)
   })
 })
 
