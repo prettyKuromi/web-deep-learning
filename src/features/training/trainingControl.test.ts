@@ -17,7 +17,10 @@ describe('迭代控制检查点', () => {
   }
 })
 
-import { createTrainingControl } from './trainingControl'
+import { createTrainingControl, supportsTrainingControl } from './trainingControl'
+it.each(['lstm', 'transformer'] as const)('%s 支持训练过程控制', kind => {
+  expect(supportsTrainingControl(kind)).toBe(true)
+})
 it('暂停阻止推进，单步只放行一次检查点，继续恢复', async () => {
   const states: boolean[] = []
   const control = createTrainingControl(value => states.push(value))

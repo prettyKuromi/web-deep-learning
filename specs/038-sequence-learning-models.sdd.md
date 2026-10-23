@@ -1,6 +1,6 @@
 # SDD-038：LSTM 与 Transformer 时序分类实验
 
-- 状态：已确认，开发中
+- 状态：已完成
 - 编号：038
 - 创建日期：2026-10-23
 
@@ -100,7 +100,7 @@
 ## 8. 测试策略
 
 - Vitest：序列数据确定性、形状与标签分布；模型兼容矩阵；LSTM 门控与分类收敛、种子复现和异常输入；Transformer 注意力形状、参数校验、分类收敛与种子复现。
-- Worker 测试：两种模型路由、epoch 快照、训练控制与取消。
+- Worker 测试：两种模型路由、epoch 快照，以及 LSTM/Transformer 的暂停、单步和停止控制。
 - React Testing Library：序列数据筛选与预览、模型参数、训练曲线、指标和无决策边界。
 - 持久化测试：序列形状和两种模型配置的 JSON 往返及非法输入拒绝。
 - 验证命令：相关 Vitest、npm test -- --run、npm run build、npm run lint、git diff --check。
@@ -108,7 +108,7 @@
 ## 9. 实现记录
 
 - 实现状态：已完成。已接入固定 32 步、单通道的内置波形分类数据集；完成 LSTM 与 Transformer 的模型兼容和参数配置、Worker 路由、实验流程及指标展示、实验历史和 JSON 持久化校验。
-- 验证命令与结果：`npm test -- --run`（40 个测试文件、292 项通过）；`npm run build`（通过）；`npm run lint`（0 警告、0 错误）；`git diff --check`（通过）。App 流程定向检查：`npx vitest run src/App.test.tsx src/App.training.test.tsx --reporter=dot`（2 个文件、17 项通过）。
+- 验证命令与结果：`npm test -- --run`（40 个测试文件、296 项通过）；`npm run build`（通过）；`npm run lint`（0 警告、0 错误）；`git diff --check`（通过）。App 流程定向检查：`npx vitest run src/App.test.tsx src/App.training.test.tsx --reporter=dot`（2 个文件、17 项通过）。Worker 控制定向检查覆盖两种序列模型的暂停、单步和停止。
 - 已知限制：首版仅支持固定长度的内置序列分类数据，暂不支持 CSV 序列、序列预测和注意力热力图。
 
 ## 10. 未决问题
