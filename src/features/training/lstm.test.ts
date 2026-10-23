@@ -98,6 +98,16 @@ describe('LSTM trainer', () => {
   })
 
 
+
+  it('rejects non-finite numeric labels', async () => {
+    const trainer = createLstmTrainer()
+    const config = { samples: [[0], [1]], sequenceShape: { steps: 1, channels: 1 }, epochs: 1 }
+
+    for (const label of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      await expect(trainer.train({ ...config, labels: [label, 1] })).rejects.toThrow(/标签.*有限/)
+    }
+  })
+
   it('rejects non-finite updates from finite but extreme sequence values', async () => {
     const trainer = createLstmTrainer()
     const emitted: Array<{ loss?: number }> = []

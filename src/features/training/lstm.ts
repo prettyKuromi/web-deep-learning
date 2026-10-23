@@ -228,6 +228,9 @@ function validate(config: LstmTrainConfig): void {
   if (!config.samples.length || config.samples.length !== config.labels.length) {
     throw new Error('samples and labels must be non-empty and have equal length')
   }
+  if (config.labels.some(label => typeof label === 'number' && !Number.isFinite(label))) {
+    throw new Error('数值标签必须是有限数值')
+  }
   if (new Set(config.labels).size < 2) throw new Error('at least two classes are required')
   const { steps, channels } = config.sequenceShape ?? {} as LstmSequenceShape
   if (!Number.isSafeInteger(steps) || steps < 1 || !Number.isSafeInteger(channels) || channels < 1) {
