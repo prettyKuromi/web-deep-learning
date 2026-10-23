@@ -10,6 +10,16 @@
   align-items: stretch;
 }
 
+.app-shell:has(.single-page-workbench) { padding-block: 8px; }
+.app-shell:has(.single-page-workbench) .app-header { gap: 12px; padding-bottom: 8px; }
+.app-shell:has(.single-page-workbench) .brand-mark { width: 32px; height: 32px; border-radius: 9px; font-size: 17px; }
+.app-shell:has(.single-page-workbench) .brand-lockup { gap: 10px; }
+.app-shell:has(.single-page-workbench) .app-header .eyebrow,
+.app-shell:has(.single-page-workbench) .app-header .header-subtitle { display: none; }
+.app-shell:has(.single-page-workbench) .app-header h1 { margin: 0; font-size: 1.2rem; }
+.app-shell:has(.single-page-workbench) .top-level-navigation-wrap { margin: 6px 0 8px; }
+.app-shell:has(.single-page-workbench) .top-level-navigation button { min-height: 34px; padding-block: 5px; }
+
 .single-page-workbench--immersive .single-page-column {
   min-width: 0;
   min-height: 0;
@@ -21,8 +31,16 @@
 }
 
 .single-page-workbench--immersive .single-page-config .single-page-card { overflow: visible; }
-.single-page-workbench--immersive .single-page-canvas { grid-template-rows: auto auto auto minmax(0, 1fr); }
+.single-page-workbench--immersive .single-page-canvas { grid-template-rows: auto auto minmax(0, 1fr); }
+.single-page-workbench--immersive .single-page-canvas:has(.workbench-canvas-panel--training) { overflow: hidden; }
 .single-page-workbench--immersive .single-page-canvas > * { min-width: 0; }
+.single-page-workbench--immersive .workflow-dataset-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 42px; }
+.single-page-workbench--immersive .workflow-dataset-header > div > .eyebrow { margin-bottom: 2px; }
+.single-page-workbench--immersive .workflow-dataset-header h2 { margin: 0; }
+.single-page-workbench--immersive .workflow-dataset-header > div > p:last-child { display: none; }
+.single-page-workbench--immersive .workflow-context-bar { flex: 0 1 420px; min-width: 220px; padding: 6px 9px; border-radius: 9px; }
+.single-page-workbench--immersive .workflow-context-icon { width: 24px; height: 24px; }
+.single-page-workbench--immersive .workflow-context-action { min-height: 28px; padding: 4px 7px; }
 
 .workbench-canvas-tabs {
   display: flex;
@@ -64,7 +82,7 @@
 .workbench-canvas-panel--training {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -95,12 +113,15 @@
   min-height: 0;
   height: 100%;
   place-items: center;
-  overflow: auto;
+  overflow: hidden;
 }
 
-.single-page-workbench--immersive .single-page-chart > * { min-width: 0; }
-.single-page-workbench--immersive .single-page-timeline-card { min-width: 0; max-height: 170px; overflow: auto; }
-.single-page-workbench--immersive .single-page-timeline { max-height: 100px; overflow-y: auto; }
+.single-page-workbench--immersive .single-page-chart > * { min-width: 0; max-height: 100%; }
+.single-page-workbench--immersive .training-chart-wrapper { grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; min-height: 0; gap: 4px; }
+.single-page-workbench--immersive .training-chart-wrapper svg { width: 100%; height: 100% !important; min-height: 0; }
+.single-page-workbench--immersive .single-page-timeline-card { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; max-height: none; overflow: hidden; padding: 9px 14px; }
+.single-page-workbench--immersive .single-page-timeline-card h3 { margin: 0; }
+.single-page-workbench--immersive .single-page-timeline { display: flex; flex-wrap: wrap; gap: 0 14px; max-height: none; overflow: visible; padding-left: 18px; font-size: .68rem; line-height: 1.5; }
 .single-page-workbench--immersive .single-page-explanation { display: grid; align-content: start; gap: 12px; min-width: 0; }
 .single-page-workbench--immersive .single-page-explanation .current-result { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .single-page-workbench--immersive .model-explanation-card { min-width: 0; overflow-wrap: anywhere; }
@@ -110,7 +131,11 @@
 .single-page-workbench--immersive .single-page-controls .primary-button { flex: 1 0 100%; min-height: 42px; }
 .single-page-workbench--immersive .single-page-controls button:not(.primary-button) { flex: 1; }
 
-@media (max-width: 900px) {
+@media (max-width: 767px) {
+  #root:has(.single-page-workbench) { height: auto; min-height: 100dvh; overflow: visible; }
+  .app-shell:has(.single-page-workbench) { height: auto; min-height: 100dvh; grid-template-rows: auto auto auto; align-content: start; overflow: visible; }
+  .app-content:has(.single-page-workbench) { display: block; height: auto; overflow: visible; }
+
   .single-page-workbench--immersive {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto;
@@ -125,10 +150,17 @@
     scrollbar-gutter: auto;
   }
 
-  .single-page-workbench--immersive .single-page-canvas { grid-template-rows: auto auto auto minmax(480px, 1fr); }
+  .app-shell:has(.single-page-workbench) .app-header { padding-bottom: 12px; }
+  .app-shell:has(.single-page-workbench) .app-header .eyebrow { display: block; }
+  .app-shell:has(.single-page-workbench) .app-header .header-subtitle { display: block; }
+  .single-page-workbench--immersive .single-page-canvas { grid-template-rows: auto auto minmax(480px, 1fr); }
+  .single-page-workbench--immersive .workflow-dataset-header { align-items: start; flex-wrap: wrap; }
+  .single-page-workbench--immersive .workflow-dataset-header > div > p:last-child { display: block; }
+  .single-page-workbench--immersive .workflow-context-bar { flex: 1 1 100%; max-width: none; }
   .workbench-canvas-panel { overflow: visible; }
   .workbench-canvas-panel--training { grid-template-rows: minmax(420px, 1fr) auto; }
   .single-page-workbench--immersive .training-canvas-card { min-height: 420px; }
+  .single-page-workbench--immersive .single-page-timeline-card { grid-template-columns: 1fr; gap: 5px; }
   .single-page-workbench--immersive .single-page-architecture { min-height: 420px; }
 }
 

@@ -1,6 +1,6 @@
 # SDD-037：实验流程重入空态与主画布布局
 
-- 状态：已确认，开发中
+- 状态：已完成
 - 编号：037
 - 创建日期：2026-10-23
 
@@ -77,9 +77,9 @@
 
 ## 9. 实现记录
 
-- 实现状态：开发中。上一轮实现（提交 `b08df5b`）完成重入空态、两栏布局和画布页签；当前补充桌面训练画布完整占高且无需内部滚动。
-- 验证命令：`node ./node_modules/vitest/vitest.mjs run src/features/workbench/SinglePageWorkbench.test.tsx`（22 项通过）；`npm test -- --run`（40 个文件、296 项通过）；`npm run build`；`npm run lint`；`git diff --check`。
-- 已知限制：无。
+- 实现状态：已完成。进入工作流时训练态和训练画布页签恢复为空态；桌面工作流收紧顶部栏并合并画布标题与数据集信息，训练卡片和图表占满剩余高度，时间线改为紧凑换行展示。
+- 验证命令：`npm test -- --run src/features/workbench/SinglePageWorkbench.test.tsx`（22 项通过）；`npm run build`；`npm run lint`（0 警告、0 错误）；`git diff --check`。浏览器检查：1366×768、1280×720、900×800 下训练卡片/图表无内部滚动条且完整显示；767×800 下布局纵向排列且无横向溢出。
+- 已知限制：767px 以下配置与画布纵向排列，窄屏使用页面纵向滚动；训练画布内部不产生滚动条。
 
 ## 10. 未决问题
 
