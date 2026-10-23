@@ -1,6 +1,6 @@
 # SDD-037：训练语义与评估口径修正
 
-- 状态：已批准，待实施
+- 状态：修复已实现；全量测试尚有 5 项工作台界面断言失败
 - 编号：037
 - 创建日期：2026-10-23
 
@@ -76,8 +76,10 @@
 
 ## 9. 实现记录
 
-- 实现状态：待实施。
-- 验证命令：待实施后填写。
+- 实现状态：本规格中的算法随机性、回归指标口径、Worker 停止结算和文档修正已实现。
+- 定向验证：`npm.cmd test -- --run src/features/training/__tests__/training.test.ts src/features/training/workerClient.test.ts src/features/workbench/ExperimentResultPanel.test.tsx src/App.training.test.tsx`，4 个测试文件、50 项全部通过。
+- 全量验证：`npm.cmd test -- --run`，292 项中 287 项通过、5 项失败；失败全部位于 `src/App.test.tsx`，断言仍依赖当前工作台不再呈现的“当前结果”区域、训练步骤选择器或默认可见的回归指标。当前工作树包含尚未提交的工作台界面改动，需同步这些交互测试后才能满足全量测试验收。
+- 其他验证：`npm.cmd run lint`（99 个文件，0 警告、0 错误）、`npm.cmd run build`、`git diff --check` 均通过。
 - 已知限制：仍只支持 CSV 的数值特征与简单标签布局；验证集可选，不提供测试集、交叉验证和系统调参；CNN 仅使用本地合成的 8×8 图像数据，属于教学型简化实现；实验历史最多保留 20 条。
 
 ## 10. 未决问题

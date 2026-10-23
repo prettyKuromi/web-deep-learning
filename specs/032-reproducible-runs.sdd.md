@@ -30,7 +30,8 @@ Vitest 覆盖 fingerprint、元数据生成和报告序列化；组件测试覆�
 
 ## 实现状态
 
-- 状态：运行元数据和报告导出已开始实现；本轮评估要求的停止记录、完整任务指标和失败隔离按下述验证命令完成后再更新。
-- 实现内容：训练完成记录真实开始/结束时间、耗时、seed、数据 fingerprint 和评估来源；历史页支持导出 Markdown/HTML 报告，缺失字段显示未记录。
-- 验证命令：`npm test -- --run`；`npm run build`；`npm run lint`。
+- 状态：运行元数据、停止记录、任务指标和报告导出均已实现；当前全量测试仍有工作台界面断言未同步。
+- 实现内容：训练完成或停止时记录真实开始/结束时间、耗时、seed、数据 fingerprint 和评估来源；停止记录保留已收快照且不包含最终模型、预测或指标；历史页支持导出 Markdown/HTML 报告，缺失字段显示未记录。
+- 验证命令：`npm.cmd test -- --run src/features/training/__tests__/training.test.ts src/features/training/workerClient.test.ts src/features/workbench/ExperimentResultPanel.test.tsx src/App.training.test.tsx`；`npm.cmd test -- --run`；`npm.cmd run build`；`npm.cmd run lint`；`git diff --check`。
+- 验证结果：停止记录定向测试包含在 `src/App.training.test.tsx`（2 项通过）；历史和 fingerprint 测试在全量运行中通过。全量 Vitest 为 287/292，5 项失败全部在 `src/App.test.tsx`，原因是断言仍查询旧工作台界面元素；lint、build 和 `git diff --check` 通过。
 - 已知限制：浏览器端不记录代码版本；报告不替代完整实验审计系统。
