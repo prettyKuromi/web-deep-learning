@@ -161,32 +161,38 @@ describe('trainInWorker client', () => {
     const worker = new FakeWorker()
     const listenerError = new Error('完成监听器异常')
     const result = { model: { kind: 'knn' }, snapshots: [] }
+    const notifications: string[] = []
     const promise = createTrainInWorkerClient(() => worker).trainInWorker(
       { kind: 'knn', samples: [[0]], labels: ['a'], k: 1 },
       undefined,
       undefined,
       undefined,
-      event => { if (event.type === 'completed') throw listenerError },
+      event => { if (event.type === 'completed') { notifications.push(event.type); throw listenerError } },
     )
 
+    expect(() => worker.emit({ type: 'event', event: { type: 'completed', runId: 'complete-run', capability: { unit: 'iteration', total: 1, canPause: false, canStep: false, canStop: true } } })).not.toThrow()
     expect(() => worker.emit({ type: 'complete', result })).not.toThrow()
     await expect(promise).resolves.toEqual(result)
+    expect(notifications).toEqual(['completed'])
     expect(worker.terminate).toHaveBeenCalledTimes(1)
   })
 
   it('rejects with the training error and terminates if the failed listener throws', async () => {
     const worker = new FakeWorker()
     const listenerError = new Error('失败监听器异常')
+    const notifications: string[] = []
     const promise = createTrainInWorkerClient(() => worker).trainInWorker(
       { kind: 'knn', samples: [[0]], labels: ['a'], k: 1 },
       undefined,
       undefined,
       undefined,
-      event => { if (event.type === 'failed') throw listenerError },
+      event => { if (event.type === 'failed') { notifications.push(event.type); throw listenerError } },
     )
 
+    expect(() => worker.emit({ type: 'event', event: { type: 'failed', runId: 'failed-run', errorCode: 'TRAINING_ERROR', message: '训练错误' } })).not.toThrow()
     expect(() => worker.emit({ type: 'error', error: '训练错误' })).not.toThrow()
     await expect(promise).rejects.toThrow('训练错误')
+    expect(notifications).toEqual(['failed'])
     expect(worker.terminate).toHaveBeenCalledTimes(1)
   })
 

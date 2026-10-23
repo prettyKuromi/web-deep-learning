@@ -100,6 +100,13 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
       const capability = getTrainingCapability(config.kind, config as unknown as Record<string, unknown>)
       return new Promise<WorkerTrainResult>((resolve, reject) => {
         let settled = false
+        let terminalEventNotified = false
+        const notifyTerminalEvent = (event: TrainingEvent) => {
+          if (terminalEventNotified) return
+          terminalEventNotified = true
+          try { onEvent?.(event) }
+          catch { /* 终态监听器不能改变训练结果或阻止 Worker 收尾。 */ }
+        }
         const cleanup = () => signal?.removeEventListener('abort', abort)
         const finish = (callback: () => void) => {
           if (settled) return
@@ -124,17 +131,20 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
           if (settled) return
           const messageRunId = data.type === 'event' ? data.event.runId : 'runId' in data ? data.runId : undefined
           if (messageRunId) currentRunId = messageRunId
-          if (data.type === 'event') { onEvent?.(data.event); if (data.event.type === 'paused' || data.event.type === 'resumed') onControl?.(data.event.type === 'paused'); return }
+          if (data.type === 'event') {
+            if (data.event.type === 'completed' || data.event.type === 'failed') notifyTerminalEvent(data.event)
+            else onEvent?.(data.event)
+            if (data.event.type === 'paused' || data.event.type === 'resumed') onControl?.(data.event.type === 'paused')
+            return
+          }
           if (data.type === 'snapshot') {
             const event: TrainingEvent = { type: 'snapshot', runId: data.runId ?? localRunId, snapshot: data.snapshot, capability: data.capability ?? capability }
             onSnapshot?.(data.snapshot); onEvent?.(event)
           } else if (data.type === 'complete') {
-            try { onEvent?.({ type: 'completed', runId: data.runId ?? localRunId, capability }) }
-            catch { /* 终态监听器不能改变训练结果或阻止 Worker 收尾。 */ }
+            notifyTerminalEvent({ type: 'completed', runId: data.runId ?? localRunId, capability })
             finish(() => resolve(data.result))
           } else if (data.type === 'error') {
-            try { onEvent?.({ type: 'failed', runId: data.runId ?? localRunId, errorCode: data.errorCode ?? 'TRAINING_ERROR', message: data.error }) }
-            catch { /* 终态监听器不能改变训练结果或阻止 Worker 收尾。 */ }
+            notifyTerminalEvent({ type: 'failed', runId: data.runId ?? localRunId, errorCode: data.errorCode ?? 'TRAINING_ERROR', message: data.error })
             finish(() => reject(new Error(data.error)))
           } else if (data.type === 'paused' || data.type === 'resumed' || data.type === 'step-completed') { onControl?.(data.type === 'paused'); onEvent?.({ type: data.type, runId: data.runId, capability })
           } else if (data.type === 'stopped' || data.type === 'cancelled' || data.type === 'cancel') { onEvent?.({ type: data.type === 'stopped' ? 'stopped' : 'cancelled', runId: data.type === 'cancelled' || data.type === 'stopped' ? data.runId : localRunId, capability }); finish(() => reject(createAbortError()))
