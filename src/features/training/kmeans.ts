@@ -10,10 +10,12 @@ export function createKMeansTrainer(): Trainer<KMeansTrainConfig, KMeansModel, n
       const snapshots: TrainSnapshot[] = []
       for (let iteration = 0; iteration < (config.iterations ?? 100); iteration++) {
         const assignments = points.map(point => nearest(centroids, point))
-        const sums = centroids.map(() => Array(dimensions).fill(0)); const counts = Array(config.k).fill(0)
-        points.forEach((point, i) => { const c = assignments[i]; counts[c]++; point.forEach((v, j) => { sums[c][j] += v }) })
-        centroids.forEach((centroid, i) => { if (counts[i]) centroid.forEach((_, j) => { centroid[j] = sums[i][j] / counts[i] }) })
-        const loss = points.reduce((sum, point, i) => sum + squaredDistance(point, centroids[assignments[i]]), 0) / points.length
+        const clusters = centroids.map(() => [] as number[][])
+        points.forEach((point, i) => clusters[assignments[i]].push(point))
+        centroids.forEach((centroid, i) => {
+          if (clusters[i].length) centroid.forEach((_, j) => { centroid[j] = stableMean(clusters[i].map(point => point[j])) })
+        })
+        const loss = stableMean(points.map((point, i) => squaredDistance(point, centroids[assignments[i]])))
         if (iteration === 0 || iteration === (config.iterations ?? 100) - 1) { const snapshot = { iteration: iteration + 1, loss }; snapshots.push(snapshot); emit?.(snapshot) }
       }
       return { model: { kind: 'k-means', centroids, dimensions }, snapshots }
@@ -22,21 +24,37 @@ export function createKMeansTrainer(): Trainer<KMeansTrainConfig, KMeansModel, n
   }
 }
 function nearest(centroids: readonly number[][], point: readonly number[]): number { return centroids.map(c => squaredDistance(c, point)).reduce((best, value, i, all) => value < all[best] ? i : best, 0) }
-function squaredDistance(a: readonly number[], b: readonly number[]): number { return a.reduce((sum, value, i) => sum + (value - b[i]) ** 2, 0) }
+function squaredDistance(a: readonly number[], b: readonly number[]): number {
+  let total = 0
+  for (let i = 0; i < a.length; i++) {
+    const difference = a[i] - b[i]
+    const square = difference * difference
+    total += square
+    if (!Number.isFinite(difference) || !Number.isFinite(total)) throw new Error('特征范围过大，平方距离超出可表示范围')
+  }
+  return total
+}
+function stableMean(values: readonly number[]): number {
+  const scale = values.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0)
+  if (scale === 0) return 0
+  const normalized = values.reduce((sum, value) => sum + value / scale, 0) / values.length
+  return Math.max(-1, Math.min(1, normalized)) * scale
+}
 function initializeCentroids(points: number[][], k: number, random: () => number): number[][] {
   const selected = [Math.floor(random() * points.length)]
   const used = Array(points.length).fill(false)
   used[selected[0]] = true
   const nearestDistances = points.map(point => squaredDistance(point, points[selected[0]]))
   while (selected.length < k) {
-    const total = nearestDistances.reduce((sum, distance) => sum + distance, 0)
+    const maximum = nearestDistances.reduce((best, distance) => Math.max(best, distance), 0)
     let next: number
-    if (total === 0) {
+    if (maximum === 0) {
       let remaining = Math.floor(random() * (points.length - selected.length))
       next = used.findIndex(isUsed => !isUsed && remaining-- === 0)
     } else {
+      const total = nearestDistances.reduce((sum, distance) => sum + distance / maximum, 0)
       let target = random() * total
-      next = nearestDistances.findIndex(distance => (target -= distance) < 0)
+      next = nearestDistances.findIndex(distance => (target -= distance / maximum) < 0)
       if (next < 0) next = nearestDistances.length - 1
     }
     selected.push(next)

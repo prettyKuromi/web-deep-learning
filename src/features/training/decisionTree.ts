@@ -39,7 +39,7 @@ function build(samples: FeatureMatrix, labels: Labels, indices: number[], depth:
   for (const feature of features) {
     const values = [...new Set(indices.map(i => samples[i][feature]))].sort((a, b) => a - b)
     for (let i = 0; i < values.length - 1; i++) {
-      const threshold = (values[i] + values[i + 1]) / 2
+      const threshold = midpoint(values[i], values[i + 1])
       const left = indices.filter(index => samples[index][feature] <= threshold)
       const right = indices.filter(index => samples[index][feature] > threshold)
       if (!left.length || !right.length) continue
@@ -49,6 +49,10 @@ function build(samples: FeatureMatrix, labels: Labels, indices: number[], depth:
   }
   if (!best) return { prediction }
   return { prediction, feature: best.feature, threshold: best.threshold, left: build(samples, labels, best.left, depth + 1, maxDepth, minSplit, maxFeatures, random), right: build(samples, labels, best.right, depth + 1, maxDepth, minSplit, maxFeatures, random) }
+}
+function midpoint(lower: number, upper: number): number {
+  if ((lower < 0) === (upper < 0)) return lower + (upper - lower) / 2
+  return lower / 2 + upper / 2
 }
 function chooseFeatures(dimensions: number, count: number, random: () => number): number[] {
   const features = Array.from({ length: dimensions }, (_, feature) => feature)

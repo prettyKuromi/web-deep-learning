@@ -264,3 +264,49 @@ describe('naive bayes trainer', () => {
     expect(result.snapshots.every(snapshot => Number.isFinite(snapshot.loss))).toBe(true)
   })
 })
+
+
+describe('finite numeric range boundaries', () => {
+  it('splits large finite decision-tree values with a finite threshold', async () => {
+    const trainer = createDecisionTreeTrainer()
+    const result = await trainer.train({ samples: [[1.6e308], [1.7e308]], labels: ['low', 'high'], maxDepth: 1 })
+
+    expect(Number.isFinite(result.model.root.threshold)).toBe(true)
+    expect(trainer.predict(result.model, [[1.6e308], [1.7e308]])).toEqual(['low', 'high'])
+  })
+
+  it('rejects K-Means squared distances outside the finite numeric range', async () => {
+    const trainer = createKMeansTrainer()
+
+    await expect(trainer.train({ samples: [[1.6e308], [1.7e308], [0]], k: 2, seed: 42 }))
+      .rejects.toThrow('平方距离超出可表示范围')
+  })
+
+
+  it('normalizes squared-distance weights before summing', async () => {
+    const trainer = createKMeansTrainer()
+    const radius = Math.sqrt(0.9 * Number.MAX_VALUE)
+    const samples = [[0, 0], [radius, 0], [radius / 2, radius * Math.sqrt(3) / 2]]
+    const result = await trainer.train({ samples, k: 2, iterations: 0, seed: 42 })
+
+    expect(result.model.centroids).toEqual([[0, 0], [radius, 0]])
+  })
+
+  it('averages finite squared losses without overflowing their sum', async () => {
+    const trainer = createKMeansTrainer()
+    const samples = [[0], [0], [0], [0], [0], [1e154], [1e154], [1e154]]
+    const result = await trainer.train({ samples, k: 1, iterations: 1, seed: 42 })
+
+    expect(Number.isFinite(result.model.centroids[0][0])).toBe(true)
+    expect(Number.isFinite(result.snapshots[0].loss)).toBe(true)
+  })
+
+  it('keeps repeated large-value K-Means centers and losses finite', async () => {
+    const trainer = createKMeansTrainer()
+    const result = await trainer.train({ samples: [[1.6e308], [1.6e308]], k: 1, iterations: 2 })
+
+    expect(result.model.centroids[0][0]).toBe(1.6e308)
+    expect(result.model.centroids.flat().every(Number.isFinite)).toBe(true)
+    expect(result.snapshots.every(snapshot => Number.isFinite(snapshot.loss))).toBe(true)
+  })
+})
