@@ -128,8 +128,14 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
           if (data.type === 'snapshot') {
             const event: TrainingEvent = { type: 'snapshot', runId: data.runId ?? localRunId, snapshot: data.snapshot, capability: data.capability ?? capability }
             onSnapshot?.(data.snapshot); onEvent?.(event)
-          } else if (data.type === 'complete') { onEvent?.({ type: 'completed', runId: data.runId ?? localRunId, capability }); finish(() => resolve(data.result))
-          } else if (data.type === 'error') { onEvent?.({ type: 'failed', runId: data.runId ?? localRunId, errorCode: data.errorCode ?? 'TRAINING_ERROR', message: data.error }); finish(() => reject(new Error(data.error)))
+          } else if (data.type === 'complete') {
+            try { onEvent?.({ type: 'completed', runId: data.runId ?? localRunId, capability }) }
+            catch { /* 终态监听器不能改变训练结果或阻止 Worker 收尾。 */ }
+            finish(() => resolve(data.result))
+          } else if (data.type === 'error') {
+            try { onEvent?.({ type: 'failed', runId: data.runId ?? localRunId, errorCode: data.errorCode ?? 'TRAINING_ERROR', message: data.error }) }
+            catch { /* 终态监听器不能改变训练结果或阻止 Worker 收尾。 */ }
+            finish(() => reject(new Error(data.error)))
           } else if (data.type === 'paused' || data.type === 'resumed' || data.type === 'step-completed') { onControl?.(data.type === 'paused'); onEvent?.({ type: data.type, runId: data.runId, capability })
           } else if (data.type === 'stopped' || data.type === 'cancelled' || data.type === 'cancel') { onEvent?.({ type: data.type === 'stopped' ? 'stopped' : 'cancelled', runId: data.type === 'cancelled' || data.type === 'stopped' ? data.runId : localRunId, capability }); finish(() => reject(createAbortError()))
           }
