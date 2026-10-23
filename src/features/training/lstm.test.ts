@@ -97,6 +97,23 @@ describe('LSTM trainer', () => {
     await expect(trainer.train({ ...valid, seed: Number.NaN })).rejects.toThrow(/seed/i)
   })
 
+
+  it('rejects non-finite updates from finite but extreme sequence values', async () => {
+    const trainer = createLstmTrainer()
+    const emitted: Array<{ loss?: number }> = []
+    await expect(trainer.train({
+      samples: [[200], [100], [-20]],
+      labels: [0, 0, 1],
+      sequenceShape: { steps: 1, channels: 1 },
+      hiddenSize: 1,
+      learningRate: Number.MAX_VALUE,
+      epochs: 1,
+      batchSize: 3,
+      seed: 1,
+    }, snapshot => emitted.push(snapshot))).rejects.toThrow(/非有限|有限数值/)
+    expect(emitted).toHaveLength(0)
+  })
+
   it('rejects prediction sequences with the wrong flattened dimension', async () => {
     const trainer = createLstmTrainer()
     const result = await trainer.train({ samples, labels, sequenceShape, epochs: 1, seed: 2 })

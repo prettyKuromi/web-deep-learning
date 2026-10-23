@@ -89,12 +89,14 @@ export function createLstmTrainer(): Trainer<LstmTrainConfig, LstmModel> {
             )
           }
           applyGradients(model, gradients, learningRate / batch.length)
+          if (!hasFiniteParameters(model)) throw new Error('LSTM 训练产生非有限模型参数，已停止')
         }
 
         const loss = config.samples.reduce((total, sample, index) => {
           const probabilities = forward(model, sample).probabilities
           return total - Math.log(Math.max(probabilities[labels.indexOf(config.labels[index])], 1e-12))
         }, 0) / config.samples.length
+        if (!Number.isFinite(loss)) throw new Error('LSTM 训练损失不是有限数值，已停止')
         const snapshot: TrainSnapshot = { iteration: epoch + 1, step: epoch + 1, unit: 'epoch', epoch: epoch + 1, loss }
         snapshots.push(snapshot)
         emit?.(snapshot)
@@ -251,6 +253,11 @@ function validate(config: LstmTrainConfig): void {
     throw new Error('batchSize must be a positive integer')
   }
   if (config.seed !== undefined && !Number.isSafeInteger(config.seed)) throw new Error('seed must be a finite integer')
+}
+
+function hasFiniteParameters(model: LstmModel): boolean {
+  return [...model.inputWeights, ...model.recurrentWeights, model.gateBiases, ...model.outputWeights, model.outputBiases]
+    .every(values => values.every(Number.isFinite))
 }
 
 function createRandom(seed: number): () => number {
