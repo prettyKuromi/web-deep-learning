@@ -131,6 +131,13 @@ describe('K-Means trainer', () => {
     expect(first.model.centroids).not.toEqual(config.samples.slice(0, config.k))
   })
 
+  it('selects the next center using squared-distance weighting', async () => {
+    const trainer = createKMeansTrainer()
+    const result = await trainer.train({ samples: [[0], [1], [3], [10]], k: 2, iterations: 0, seed: 42 })
+
+    expect(result.model.centroids).toEqual([[1], [10]])
+  })
+
   it('lets a different seed change the initial centers', async () => {
     const trainer = createKMeansTrainer()
     const samples = [[0, 0], [1, 0], [10, 10], [11, 10]]
@@ -187,6 +194,13 @@ describe('additional course algorithms', () => {
 
     expect(first.model).toEqual(second.model)
     expect(new Set(first.model.trees.map(tree => tree.root.feature)).size).toBeGreaterThan(1)
+  })
+
+  it('bootstraps rows instead of repeating the same full-data tree', async () => {
+    const trainer = createRandomForestTrainer()
+    const result = await trainer.train({ samples: [[0], [1], [2], [3]], labels: ['low', 'low', 'high', 'high'], trees: 31, seed: 42 })
+
+    expect(new Set(result.model.trees.map(tree => JSON.stringify(tree.root))).size).toBeGreaterThan(1)
   })
 
   it('exposes a default random seed for random forests', () => {

@@ -28,10 +28,11 @@ export function createRandomForestTrainer(): Trainer<RandomForestTrainConfig, Ra
       const forest: RandomForestModel['trees'] = []
       const snapshots: TrainSnapshot[] = []
       for (let i = 0; i < trees; i++) {
-        const treeSeed = deriveSeed(seed, i)
-        const random = createRandom(treeSeed)
+        const bootstrapSeed = deriveSeed(seed, i * 2)
+        const featureSeed = deriveSeed(seed, i * 2 + 1)
+        const random = createRandom(bootstrapSeed)
         const bootstrap = Array.from({ length: samples.length }, () => Math.floor(random() * samples.length))
-        const result = await treeTrainer.train({ samples: bootstrap.map(index => samples[index]), labels: bootstrap.map(index => labels[index]), maxDepth, maxFeatures: Math.max(1, Math.floor(Math.sqrt(dimensions))), seed: treeSeed })
+        const result = await treeTrainer.train({ samples: bootstrap.map(index => samples[index]), labels: bootstrap.map(index => labels[index]), maxDepth, maxFeatures: Math.max(1, Math.floor(Math.sqrt(dimensions))), seed: featureSeed })
         forest.push(result.model)
         const loss = samples.reduce((sum, sample, index) => sum + (vote(forest.map(tree => predictTree(tree, sample))) === labels[index] ? 0 : 1), 0) / samples.length
         const snapshot = { iteration: i + 1, loss }
