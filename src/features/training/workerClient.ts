@@ -85,14 +85,18 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
   sendControl(control: WorkerControl): void
 } {
   let activeWorker: WorkerLike | undefined
+  let stopActiveRun: (() => void) | undefined
   return {
     sendControl(control) {
-      if (activeWorker) activeWorker.postMessage({ type: control })
+      if (!activeWorker) return
+      if (control === 'stop') stopActiveRun?.()
+      else activeWorker.postMessage({ type: control })
     },
     trainInWorker(config, onSnapshot, signal, onControl, onEvent) {
       const worker = createWorker()
       activeWorker = worker
       const localRunId = createRunId()
+      let currentRunId = localRunId
       const capability = getTrainingCapability(config.kind, config as unknown as Record<string, unknown>)
       return new Promise<WorkerTrainResult>((resolve, reject) => {
         let settled = false
@@ -102,14 +106,23 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
           settled = true
           cleanup()
           if (activeWorker === worker) activeWorker = undefined
+          if (stopActiveRun === stop) stopActiveRun = undefined
           worker.terminate()
           callback()
         }
+        const stop = () => finish(() => {
+          onEvent?.({ type: 'stopped', runId: currentRunId, capability })
+          reject(createAbortError())
+        })
         const abort = () => {
           worker.postMessage({ type: 'cancel' })
           finish(() => reject(createAbortError()))
         }
+        stopActiveRun = stop
         worker.onmessage = ({ data }: MessageEvent<WorkerMessage>) => {
+          if (settled) return
+          const messageRunId = data.type === 'event' ? data.event.runId : 'runId' in data ? data.runId : undefined
+          if (messageRunId) currentRunId = messageRunId
           if (data.type === 'event') { onEvent?.(data.event); if (data.event.type === 'paused' || data.event.type === 'resumed') onControl?.(data.event.type === 'paused'); return }
           if (data.type === 'snapshot') {
             const event: TrainingEvent = { type: 'snapshot', runId: data.runId ?? localRunId, snapshot: data.snapshot, capability: data.capability ?? capability }

@@ -86,6 +86,57 @@ describe('trainInWorker client', () => {
     expect(worker.terminate).toHaveBeenCalled()
   })
 
+  it('stops immediately when the Worker does not respond and ignores late messages', async () => {
+    const worker = new FakeWorker()
+    const events: any[] = []
+    const client = createTrainInWorkerClient(() => worker)
+    const promise = client.trainInWorker(
+      { kind: 'logistic-regression', samples: [[0]], labels: ['a'], iterations: 2 },
+      undefined,
+      undefined,
+      undefined,
+      event => events.push(event),
+    )
+
+    worker.emit({ type: 'event', event: { type: 'started', runId: 'worker-run-7', capability: { unit: 'iteration', total: 2, canPause: true, canStep: true, canStop: true } } })
+    client.sendControl('stop')
+
+    expect(events.filter(event => event.type === 'stopped')).toEqual([
+      expect.objectContaining({ type: 'stopped', runId: 'worker-run-7' }),
+    ])
+    expect(worker.terminate).toHaveBeenCalledTimes(1)
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' })
+
+    client.sendControl('stop')
+    worker.emit({ type: 'complete', runId: 'worker-run-7', result: { model: { kind: 'logistic-regression' }, snapshots: [] } })
+    worker.emit({ type: 'snapshot', runId: 'worker-run-7', snapshot: { iteration: 2 } })
+    expect(events.filter(event => ['stopped', 'completed', 'snapshot'].includes(event.type))).toHaveLength(1)
+    expect(worker.terminate).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses the local run id before receiving a Worker run id and keeps other controls as messages', async () => {
+    const worker = new FakeWorker()
+    const events: any[] = []
+    const client = createTrainInWorkerClient(() => worker)
+    const promise = client.trainInWorker(
+      { kind: 'logistic-regression', samples: [[0]], labels: ['a'], iterations: 2 },
+      undefined,
+      undefined,
+      undefined,
+      event => events.push(event),
+    )
+
+    client.sendControl('pause')
+    client.sendControl('resume')
+    client.sendControl('step')
+    expect(worker.messages.slice(1)).toEqual([{ type: 'pause' }, { type: 'resume' }, { type: 'step' }])
+    client.sendControl('stop')
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' })
+    expect(events).toHaveLength(1)
+    expect(events[0]).toEqual(expect.objectContaining({ type: 'stopped', runId: expect.any(String) }))
+    expect(events[0].runId.length).toBeGreaterThan(0)
+  })
+
   it('rejects with worker errors', async () => {
     const worker = new FakeWorker()
     const promise = createTrainInWorkerClient(() => worker).trainInWorker(
