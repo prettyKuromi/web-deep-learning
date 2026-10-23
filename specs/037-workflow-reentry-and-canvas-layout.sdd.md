@@ -72,8 +72,8 @@
 
 ## 9. 实现记录
 
-- 实现状态：未开始。
-- 验证命令：
+- 实现状态：已完成（提交 `b08df5b`）。进入工作流时训练态和训练画布页签恢复为空态；桌面布局改为固定 300px 配置栏加弹性主画布，结果、解释及 CNN 结构位于画布页签中。
+- 验证命令：`node ./node_modules/vitest/vitest.mjs run src/features/workbench/SinglePageWorkbench.test.tsx`（22 项通过）；`npm test -- --run`（40 个文件、292 项通过）；`npm run build`；`npm run lint`；`git diff --check`。
 - 已知限制：无。
 
 ## 10. 未决问题
