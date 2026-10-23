@@ -82,4 +82,27 @@ describe('训练运行记录', () => {
     expect(detail).toHaveTextContent('训练已停止')
     expect(within(detail).queryByRole('region', { name: '当前结果' })).not.toBeInTheDocument()
   })
+
+  it('从准备页选择 LSTM 后使用内置时序数据并完成分类训练', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'lstm')
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '内置数据集' })).toHaveValue('sequence-waves'))
+    expect(screen.queryByLabelText('上传 CSV')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.clear(screen.getByRole('spinbutton', { name: '隐藏单元数' }))
+    await user.type(screen.getByRole('spinbutton', { name: '隐藏单元数' }), '2')
+    await user.clear(screen.getByRole('spinbutton', { name: '训练轮数' }))
+    await user.type(screen.getByRole('spinbutton', { name: '训练轮数' }), '1')
+    await user.clear(screen.getByRole('spinbutton', { name: '批大小' }))
+    await user.type(screen.getByRole('spinbutton', { name: '批大小' }), '128')
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+
+    await waitFor(() => expect(document.querySelector('.single-page-status')).toHaveTextContent('训练完成'), { timeout: 15000 })
+    const record = useWorkbenchStore.getState().experiments.at(-1)
+    expect(record).toMatchObject({ modelKind: 'lstm', dataset: { dataType: 'sequence', sequenceShape: { steps: 32, channels: 1 } } })
+    expect(record?.metrics?.labels).toHaveLength(4)
+    expect(record?.snapshots).toHaveLength(1)
+  })
 })

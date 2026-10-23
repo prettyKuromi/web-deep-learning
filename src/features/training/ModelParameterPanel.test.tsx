@@ -77,6 +77,18 @@ describe('ModelParameterPanel', () => {
     expect(screen.getByLabelText('每层神经元数')).toBeInTheDocument()
     expect(screen.getByRole('note')).toHaveTextContent('MLP 仅适合数值特征')
   })
+
+  it('Transformer 显示模型参数并提示维度与注意力头数不匹配', () => {
+    const onValidityChange = vi.fn()
+    const { rerender } = render(<ModelParameterPanel model="transformer" value={{ modelDimension: 8, attentionHeads: 2 }} onChange={vi.fn()} onValidityChange={onValidityChange} />)
+    expect(screen.getByLabelText('模型维度')).toBeInTheDocument()
+    expect(screen.getByLabelText('注意力头数')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('注意力头数'), { target: { value: '3' } })
+    expect(onValidityChange).toHaveBeenLastCalledWith(false)
+
+    rerender(<ModelParameterPanel model="transformer" value={{ modelDimension: 8, attentionHeads: 3 }} onChange={vi.fn()} onValidityChange={onValidityChange} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('模型维度必须能被注意力头数整除')
+  })
 })
 
 it('允许清空输入并报告无效草稿，不把空值转换成零', () => {

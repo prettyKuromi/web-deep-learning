@@ -3,7 +3,7 @@ export type FeatureMatrix = readonly FeatureVector[]
 export type Label = string | number
 export type Labels = readonly Label[]
 export type TaskKind = 'classification' | 'regression' | 'clustering' | 'dimensionality-reduction'
-export type ModelKind = 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes' | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca' | 'mlp'
+export type ModelKind = 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes' | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca' | 'mlp' | 'lstm' | 'transformer'
 
 /** Worker 快照中训练单位的真实语义。fit 表示一次性拟合，不应伪造百分比。 */
 export type TrainingUnit = 'iteration' | 'epoch' | 'tree' | 'round' | 'fit'

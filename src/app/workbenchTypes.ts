@@ -9,7 +9,7 @@ import type { EvaluationConfig, RegressionMetrics } from '../features/training/e
 export type TaskKind = 'classification' | 'regression' | 'clustering' | 'dimensionality-reduction'
 export type ModelKind =
   | 'knn' | 'logistic-regression' | 'linear-svm' | 'perceptron' | 'decision-tree' | 'random-forest' | 'adaboost' | 'naive-bayes' | 'mlp'
-  | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca' | 'visual-cnn'
+  | 'linear-regression' | 'ridge-regression' | 'k-means' | 'dbscan' | 'pca' | 'visual-cnn' | 'lstm' | 'transformer'
 
 export const taskLabels: Record<TaskKind, string> = {
   classification: '分类',
@@ -19,7 +19,7 @@ export const taskLabels: Record<TaskKind, string> = {
 }
 
 export const modelGroups: Record<TaskKind, readonly ModelKind[]> = {
-  classification: ['knn', 'logistic-regression', 'linear-svm', 'perceptron', 'decision-tree', 'random-forest', 'adaboost', 'naive-bayes', 'mlp', 'visual-cnn'],
+  classification: ['knn', 'logistic-regression', 'linear-svm', 'perceptron', 'decision-tree', 'random-forest', 'adaboost', 'naive-bayes', 'mlp', 'visual-cnn', 'lstm', 'transformer'],
   regression: ['linear-regression', 'ridge-regression'],
   clustering: ['k-means', 'dbscan'],
   'dimensionality-reduction': ['pca'],
@@ -32,11 +32,13 @@ export const modelTask: Record<ModelKind, TaskKind> = Object.fromEntries(
 export function isModelCompatible(model: ModelKind, dataset: Dataset): { compatible: boolean; reason?: string } {
   const dataType = dataset.dataType ?? 'tabular'
   if (model === 'visual-cnn') return dataType === 'image' && dataset.imageShape ? { compatible: true } : { compatible: false, reason: '仅支持带图像尺寸信息的图像数据集' }
+  if (model === 'lstm' || model === 'transformer') return dataType === 'sequence' && dataset.sequenceShape ? { compatible: true } : { compatible: false, reason: '仅支持带时序尺寸信息的序列数据集' }
+  if (dataType === 'sequence') return { compatible: false, reason: '仅支持表格数值数据集' }
   return dataType === 'tabular' ? { compatible: true } : { compatible: false, reason: '仅支持二维或表格数值数据集' }
 }
 
 export function recommendedModel(dataset: Dataset): ModelKind {
-  return (dataset.dataType ?? 'tabular') === 'image' ? 'visual-cnn' : 'knn'
+  return dataset.dataType === 'image' ? 'visual-cnn' : dataset.dataType === 'sequence' ? 'lstm' : 'knn'
 }
 
 export interface ModelConfig {

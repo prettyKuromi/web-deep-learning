@@ -14,4 +14,9 @@ describe('训练能力注册表', () => {
     expect(getTrainingCapability('random-forest', { trees: 8 }).unit).toBe('tree')
     expect(getTrainingCapability('adaboost', { rounds: 6 }).total).toBe(6)
   })
+
+  it('LSTM 和 Transformer 按轮次训练且支持训练控制', () => {
+    expect(getTrainingCapability('lstm', { epochs: 7 })).toEqual({ unit: 'epoch', total: 7, canPause: true, canStep: true, canStop: true })
+    expect(getTrainingCapability('transformer', { epochs: 5 }).total).toBe(5)
+  })
 })

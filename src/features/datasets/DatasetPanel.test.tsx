@@ -35,6 +35,19 @@ describe('DatasetPanel', () => {
     expect(screen.queryByLabelText('上传 CSV')).not.toBeInTheDocument()
   })
 
+  it('LSTM 和 Transformer 仅展示时序数据并预览波形，不开放 CSV', () => {
+    const { rerender } = render(<DatasetPanel model="lstm" onDatasetChange={vi.fn()} />)
+    expect(screen.getByRole('option', { name: '时序波形分类（4 类）' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '线性可分' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('上传 CSV')).not.toBeInTheDocument()
+    expect(screen.getByText('序列长度')).toBeInTheDocument()
+    expect(screen.getByText('通道数')).toBeInTheDocument()
+    expect(screen.getAllByRole('img', { name: /波形/ })).toHaveLength(4)
+
+    rerender(<DatasetPanel model="transformer" onDatasetChange={vi.fn()} />)
+    expect(screen.getByRole('option', { name: '时序波形分类（4 类）' })).toBeInTheDocument()
+  })
+
   it('64 维图像预览可查看所有维度的统计和样本值', () => {
     const imageDataset = { name: '8×8 数字图像（0–9）', features: [Array.from({ length: 64 }, (_, index) => index), Array(64).fill(1)], labels: [0, 1], dataType: 'image' as const, imageShape: { width: 8, height: 8, channels: 1 } }
     render(<DatasetPanel model="visual-cnn" initialDataset={imageDataset} onDatasetChange={vi.fn()} />)

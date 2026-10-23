@@ -14,7 +14,7 @@ import { describeVisualNetwork } from '../training/visualNetwork'
 import './SinglePageWorkbench.css'
 import './SinglePageWorkbench.layout.css'
 
-const modelNames: Partial<Record<ModelKind, string>> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'visual-cnn': '可视化卷积神经网络', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
+const modelNames: Partial<Record<ModelKind, string>> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'visual-cnn': '可视化卷积神经网络', lstm: 'LSTM', transformer: 'Transformer', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
 const modelName = (kind?: ModelKind) => kind ? modelNames[kind] ?? '未命名模型' : '尚未选择模型'
 type CanvasView = 'training' | 'results' | 'architecture'
 

@@ -21,6 +21,7 @@ const titles: Record<ModelKind, string> = {
   knn: 'K 最近邻', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机',
   'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）',
   'visual-cnn': '可视化卷积神经网络', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA',
+  lstm: 'LSTM 序列分类', transformer: 'Transformer 序列分类',
 }
 
 export function createModelExplanation(kind: ModelKind, model?: unknown): ModelExplanation {
@@ -33,6 +34,15 @@ export function createModelExplanation(kind: ModelKind, model?: unknown): ModelE
     case 'decision-tree': return explainTree(safeModel as Partial<DecisionTreeModel>)
     case 'random-forest': return explainForest(safeModel as Partial<RandomForestModel>)
     case 'adaboost': return explainAdaBoost(safeModel as Partial<AdaBoostModel>)
+    case 'lstm': return basicExplanation(kind, '单层 LSTM 按时间步更新门控状态，并用最终隐藏状态完成分类。', [
+      { label: '网络结构', value: '输入序列 → LSTM → Softmax 分类' },
+      { label: '隐藏单元数', value: String((safeModel as { hiddenSize?: number }).hiddenSize ?? '未训练') },
+    ])
+    case 'transformer': return basicExplanation(kind, '单层 Transformer 使用位置编码和多头自注意力整合时间步信息，再进行序列分类。', [
+      { label: '编码结构', value: '位置编码 → 多头注意力 → 前馈层 → Softmax 分类' },
+      { label: '模型维度', value: String((safeModel as { modelDimension?: number }).modelDimension ?? '未训练') },
+      { label: '注意力头数', value: String((safeModel as { attentionHeads?: number }).attentionHeads ?? '未训练') },
+    ])
     default: return basicExplanation(kind)
   }
 }
@@ -98,11 +108,11 @@ function explainAdaBoost(model: Partial<AdaBoostModel>): ModelExplanation {
   }
 }
 
-function basicExplanation(kind: ModelKind): ModelExplanation {
+function basicExplanation(kind: ModelKind, description?: string, items?: ModelExplanationItem[]): ModelExplanation {
   return {
     kind, level: 'basic', title: titles[kind],
-    description: kind === 'visual-cnn' ? '卷积网络结构和层参数可在中央网络画布中编辑；此处汇总训练状态与分类表现。' : '该模型提供统一训练时间线、结果画布和基础指标；内部结构暂不展开。',
-    items: [{ label: '可视化内容', value: kind === 'visual-cnn' ? '可编辑网络结构与分类结果' : '训练时间线与结果画布' }],
+    description: description ?? (kind === 'visual-cnn' ? '卷积网络结构和层参数可在中央网络画布中编辑；此处汇总训练状态与分类表现。' : '该模型提供统一训练时间线、结果画布和基础指标；内部结构暂不展开。'),
+    items: items ?? [{ label: '可视化内容', value: kind === 'visual-cnn' ? '可编辑网络结构与分类结果' : '训练时间线与结果画布' }],
     visualization: { type: 'timeline' },
   }
 }

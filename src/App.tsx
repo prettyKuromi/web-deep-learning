@@ -17,6 +17,8 @@ import { createAdaBoostTrainer, createPerceptronTrainer, createRandomForestTrain
 import { createDbscanTrainer } from './features/training/dbscan'
 import { createMlpTrainer } from './features/training/mlp'
 import { createVisualCnnTrainer } from './features/training/visualCnn'
+import { createLstmTrainer } from './features/training/lstm'
+import { createTransformerTrainer } from './features/training/transformer'
 import { createTrainInWorkerClient, runTrainingInHandler, type WorkerTrainConfig } from './features/training/workerClient'
 import type { TrainingEvent, TrainingUnit } from './features/training/types'
 import { regressionMetrics, selectLabels, selectRows, splitDataset, type EvaluationConfig } from './features/training/evaluation'
@@ -34,9 +36,9 @@ import { normalizeTrainSnapshot } from './features/training/snapshots'
 import { defaultVisualLayers } from './features/training/visualNetwork'
 import './App.css'
 
-const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'visual-cnn': '可视化卷积神经网络', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
+const modelNames: Record<ModelKind, string> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'visual-cnn': '可视化卷积神经网络', lstm: 'LSTM', transformer: 'Transformer', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
 const defaults = Object.fromEntries((Object.keys(modelNames) as ModelKind[]).map(kind => [kind, defaultParameters(kind)])) as Record<ModelKind, Record<string, number>>
-const createTrainer = (kind: ModelKind) => kind === 'knn' ? createKnnTrainer() : kind === 'logistic-regression' ? createLogisticRegressionTrainer() : kind === 'linear-svm' ? createLinearSvmTrainer() : kind === 'perceptron' ? createPerceptronTrainer() : kind === 'mlp' ? createMlpTrainer() : kind === 'visual-cnn' ? createVisualCnnTrainer() : kind === 'linear-regression' ? createLinearRegressionTrainer() : kind === 'ridge-regression' ? createRidgeRegressionTrainer() : kind === 'k-means' ? createKMeansTrainer() : kind === 'dbscan' ? createDbscanTrainer() : kind === 'pca' ? createPcaTrainer() : kind === 'decision-tree' ? createDecisionTreeTrainer() : kind === 'random-forest' ? createRandomForestTrainer() : kind === 'adaboost' ? createAdaBoostTrainer() : createNaiveBayesTrainer()
+const createTrainer = (kind: ModelKind) => kind === 'knn' ? createKnnTrainer() : kind === 'logistic-regression' ? createLogisticRegressionTrainer() : kind === 'linear-svm' ? createLinearSvmTrainer() : kind === 'perceptron' ? createPerceptronTrainer() : kind === 'mlp' ? createMlpTrainer() : kind === 'visual-cnn' ? createVisualCnnTrainer() : kind === 'lstm' ? createLstmTrainer() : kind === 'transformer' ? createTransformerTrainer() : kind === 'linear-regression' ? createLinearRegressionTrainer() : kind === 'ridge-regression' ? createRidgeRegressionTrainer() : kind === 'k-means' ? createKMeansTrainer() : kind === 'dbscan' ? createDbscanTrainer() : kind === 'pca' ? createPcaTrainer() : kind === 'decision-tree' ? createDecisionTreeTrainer() : kind === 'random-forest' ? createRandomForestTrainer() : kind === 'adaboost' ? createAdaBoostTrainer() : createNaiveBayesTrainer()
 const predictionLabel = (kind: ModelKind, model: unknown, point: readonly number[]) => {
   const value = createTrainer(kind).predict(model as never, [point])[0]
   return Array.isArray(value) ? value[0] : value
@@ -109,8 +111,9 @@ export default function App() {
       const trainer = trainers[kind] as any
       const mlpParams = kind === 'mlp' ? { ...modelConfig.params, hiddenLayers: Array.from({ length: modelConfig.params.hiddenLayerCount ?? 2 }, () => modelConfig.params.hiddenUnits ?? 16) } : {}
       const cnnParams = kind === 'visual-cnn' ? { layers: visualLayers, imageShape: dataset.imageShape } : {}
+      const sequenceParams = kind === 'lstm' || kind === 'transformer' ? { sequenceShape: trainingDataset.sequenceShape } : {}
       recordConfig = { ...effectiveParams, ...mlpParams, ...cnnParams }
-      const config = { kind, samples: trainSamples, labels: trainLabels, ...effectiveParams, ...mlpParams, ...cnnParams } as WorkerTrainConfig
+      const config = { kind, samples: trainSamples, labels: trainLabels, ...effectiveParams, ...mlpParams, ...cnnParams, ...sequenceParams } as WorkerTrainConfig
       let lastUiUpdate = 0
       let pendingSnapshot: ReturnType<typeof normalizeTrainSnapshot> | undefined
       const flushSnapshot = () => {
@@ -224,7 +227,7 @@ export default function App() {
     setCurrentExperimentId(undefined)
     setModelConfig({ kind, params: defaults[kind] })
     if (!isModelCompatible(kind, dataset).compatible) {
-      setDataset(kind === 'visual-cnn' ? generateBuiltinDataset('digits') : generateBuiltinDataset('linear'))
+      setDataset(generateBuiltinDataset(kind === 'visual-cnn' ? 'digits' : kind === 'lstm' || kind === 'transformer' ? 'sequence-waves' : 'linear'))
     }
     setTraining({ status: '请重新训练', progress: 0, snapshots: [], error: undefined, metrics: undefined })
   }
@@ -237,9 +240,9 @@ export default function App() {
     setTopPage(page)
   }
 
-  const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], modelKind: record.modelKind, task: modelTask[record.modelKind], snapshots: record.snapshots, runMetadata: record.runMetadata, timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), summary: experimentSummary(record), metrics: record.metrics ?? {}, sampleCount: record.dataset.features.length, featureCount: record.dataset.features[0]?.length ?? 0, config: record.config, evaluation: record.evaluation, metricGroups: experimentMetricGroups(record) }))
+  const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], modelKind: record.modelKind, task: modelTask[record.modelKind], snapshots: record.snapshots, runMetadata: record.runMetadata, timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), summary: experimentSummary(record), metrics: record.metrics ?? {}, sampleCount: record.dataset.features.length, featureCount: record.dataset.features[0]?.length ?? 0, sequenceShape: record.dataset.sequenceShape, config: record.config, evaluation: record.evaluation, metricGroups: experimentMetricGroups(record) }))
   const activeModel = modelConfig.kind ?? recommendedModel(dataset)
-  const explanationPanel = <ModelExplanationPanel kind={activeModel} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.features[0]?.length} />
+  const explanationPanel = <ModelExplanationPanel kind={activeModel} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.dataType === 'sequence' ? undefined : dataset.features[0]?.length} />
   return <main className="app-shell">
     <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">web-deep-learning</p><h1>机器学习实验工作台</h1><p className="header-subtitle">选择模型与数据后，观察训练过程和结果。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
     <TopLevelNavigation activePage={topPage} configurationDisabled={['训练中…', '训练已暂停'].includes(training.status)} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
@@ -256,7 +259,7 @@ export default function App() {
 
 function ExperimentDetail({ record }: { record: ReturnType<typeof useWorkbenchStore.getState>['experiments'][number] }) {
   const stopped = record.runMetadata?.status === 'stopped'
-  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2><p className="history-detail-meta">{record.dataset.features.length} 条样本 · {record.dataset.features[0]?.length ?? 0} 个特征 · {new Date(record.createdAt).toLocaleString('zh-CN')}</p>{stopped && <p role="status">训练已停止，未生成最终模型或指标。已保留 {record.snapshots.length} 个训练快照。</p>}<h3>训练参数</h3><dl className="experiment-parameters">{Object.entries(record.config).map(([key, value]) => <div key={key}><dt>{formatParameterLabel(key, record.modelKind)}</dt><dd>{formatParameterValue(key, value)}</dd></div>)}</dl>{!stopped && <ExperimentResultPanel record={record} predict={(point) => predictionLabel(record.modelKind, record.model, point)} />}</section>
+  return <section className="result-detail workbench-page-card"><h2>{modelNames[record.modelKind]} · {record.dataset.name ?? '数据集'}</h2><p className="history-detail-meta">{record.dataset.features.length} 条样本 · {record.dataset.sequenceShape ? `${record.dataset.sequenceShape.steps} 个时间步 · ${record.dataset.sequenceShape.channels} 个通道` : `${record.dataset.features[0]?.length ?? 0} 个特征`} · {new Date(record.createdAt).toLocaleString('zh-CN')}</p>{stopped && <p role="status">训练已停止，未生成最终模型或指标。已保留 {record.snapshots.length} 个训练快照。</p>}<h3>训练参数</h3><dl className="experiment-parameters">{Object.entries(record.config).map(([key, value]) => <div key={key}><dt>{formatParameterLabel(key, record.modelKind)}</dt><dd>{formatParameterValue(key, value)}</dd></div>)}</dl>{!stopped && <ExperimentResultPanel record={record} predict={(point) => predictionLabel(record.modelKind, record.model, point)} />}</section>
 }
 
 function anchorDownload(content: string, type: string, filename: string) {

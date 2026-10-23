@@ -14,6 +14,16 @@ describe('内置数据集', () => {
   it('暴露至少五种内置数据集', () => {
     expect(BUILTIN_DATASETS.length).toBeGreaterThanOrEqual(5)
   })
+
+  it('生成可复现的四类 32 步单通道波形序列', () => {
+    const first = generateBuiltinDataset('sequence-waves', { samples: 16, seed: 13 })
+    const second = generateBuiltinDataset('sequence-waves', { samples: 16, seed: 13 })
+    expect(first).toEqual(second)
+    expect(first).toMatchObject({ dataType: 'sequence', sequenceShape: { steps: 32, channels: 1 } })
+    expect(first.features).toHaveLength(16)
+    expect(first.features.every(row => row.length === 32 && row.every(Number.isFinite))).toBe(true)
+    expect(new Set(first.labels)).toEqual(new Set([0, 1, 2, 3]))
+  })
 })
 
 describe('多维数据集扩展', () => {
@@ -136,5 +146,11 @@ describe('数据集校验', () => {
 
   it('接受二分类和多分类二维数据', () => {
     expect(validateDataset({ features: [[1, 2], [3, 4]], labels: ['a', 'b'] })).toEqual({ valid: true, errors: [] })
+  })
+
+  it('校验序列数据的时间步与通道数', () => {
+    const dataset = generateBuiltinDataset('sequence-waves', { samples: 8 })
+    expect(validateDataset(dataset)).toEqual({ valid: true, errors: [] })
+    expect(validateDataset({ ...dataset, sequenceShape: { steps: 16, channels: 1 } }).valid).toBe(false)
   })
 })

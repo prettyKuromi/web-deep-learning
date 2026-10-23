@@ -11,6 +11,8 @@ import { createAdaBoostTrainer, createPerceptronTrainer, createRandomForestTrain
 import { createDbscanTrainer } from './dbscan'
 import { createMlpTrainer } from './mlp'
 import { createVisualCnnTrainer } from './visualCnn'
+import { createLstmTrainer, type LstmModel, type LstmTrainConfig } from './lstm'
+import { createTransformerTrainer, type TransformerModel, type TransformerTrainConfig } from './transformer'
 import type {
   KnnModel,
   KnnTrainConfig,
@@ -43,6 +45,8 @@ export type WorkerTrainConfig =
   | ({ kind: 'dbscan' } & DbscanTrainConfig)
   | ({ kind: 'mlp' } & MlpTrainConfig)
   | ({ kind: 'visual-cnn' } & VisualCnnTrainConfig)
+  | ({ kind: 'lstm' } & LstmTrainConfig)
+  | ({ kind: 'transformer' } & TransformerTrainConfig)
 
 export type WorkerTrainResult =
   | { model: KnnModel; snapshots: TrainSnapshot[] }
@@ -59,6 +63,8 @@ export type WorkerTrainResult =
   | { model: DbscanModel; snapshots: TrainSnapshot[] }
   | { model: MlpModel; snapshots: TrainSnapshot[] }
   | { model: VisualCnnModel; snapshots: TrainSnapshot[] }
+  | { model: LstmModel; snapshots: TrainSnapshot[] }
+  | { model: TransformerModel; snapshots: TrainSnapshot[] }
 
 export interface WorkerLike {
   onmessage: ((event: MessageEvent) => void) | null
@@ -188,6 +194,8 @@ export async function runTrainingInHandler(config: WorkerTrainConfig, emit?: (sn
   if (config.kind === 'adaboost') return createAdaBoostTrainer().train(config, snapshotEmit, control)
   if (config.kind === 'mlp') return createMlpTrainer().train(config, snapshotEmit, control)
   if (config.kind === 'visual-cnn') return createVisualCnnTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'lstm') return createLstmTrainer().train(config, snapshotEmit, control)
+  if (config.kind === 'transformer') return createTransformerTrainer().train(config, snapshotEmit, control)
   return createDbscanTrainer().train(config, snapshotEmit, control)
 }
 

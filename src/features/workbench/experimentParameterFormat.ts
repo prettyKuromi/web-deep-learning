@@ -4,7 +4,8 @@ const parameterLabels: Record<string, string> = {
   learningRate: '学习率', iterations: '迭代次数', regularization: '正则化强度', epochs: '训练轮数', batchSize: '批大小', seed: '随机种子',
   k: '邻居数（k）', margin: '间隔', trees: '树数量', maxDepth: '最大深度', minSamplesSplit: '最小分裂样本数', rounds: '训练轮数',
   varianceSmoothing: '方差平滑', epsilon: '邻域半径', minPoints: '最小样本数', components: '主成分数量', hiddenLayerCount: '隐藏层数量',
-  hiddenUnits: '每层神经元数', layers: '网络层配置', imageShape: '图像尺寸',
+  hiddenUnits: '每层神经元数', layers: '网络层配置', imageShape: '图像尺寸', hiddenSize: '隐藏单元数',
+  modelDimension: '模型维度', attentionHeads: '注意力头数', feedForwardSize: '前馈层宽度',
 }
 
 export function formatParameterLabel(key: string, modelKind?: ModelKind) {

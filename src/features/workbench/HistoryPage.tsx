@@ -64,7 +64,7 @@ function ComparisonPanel({ records, onRemove }: { records: readonly ExperimentRe
   const rows: Array<[string, (record: ExperimentRecord) => string]> = [
     ['任务', record => record.task ? taskLabels[record.task] : '未记录'],
     ['运行状态', record => record.runMetadata?.status === 'stopped' ? '已停止（不完整）' : record.runMetadata?.status === 'completed' ? '已完成' : '未记录'],
-    ['数据规模', record => record.sampleCount == null || record.featureCount == null ? '未记录' : `${record.sampleCount} 条 · ${record.featureCount} 维`],
+    ['数据规模', record => record.sampleCount == null ? '未记录' : record.sequenceShape ? `${record.sampleCount} 条 · ${record.sequenceShape.steps} 步 × ${record.sequenceShape.channels} 通道` : record.featureCount == null ? '未记录' : `${record.sampleCount} 条 · ${record.featureCount} 维`],
     ['训练/验证样本数', record => record.evaluation ? `${record.evaluation.trainSampleCount ?? '未记录'} 条 · ${record.evaluation.validationSampleCount ?? '未记录'} 条` : `${record.sampleCount ?? '未记录'} 条 · 未设置验证集`],
     ['评估来源', record => record.runMetadata?.evaluation?.source ?? (record.evaluation ? '未记录' : '全量数据')],
     ['训练单位', record => record.runMetadata?.trainingUnit ? trainingUnitLabel(record.runMetadata.trainingUnit) : '未记录'],

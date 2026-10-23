@@ -1,5 +1,5 @@
 import { modelTask, type ExperimentRecord, type ModelKind } from '../../app/workbenchTypes'
-import { parameterDefinitions, parameterError } from '../training/modelParameters'
+import { parameterDefinitions, parameterError, validateParameters } from '../training/modelParameters'
 import { describeVisualNetwork, type VisualLayer } from '../training/visualNetwork'
 const isObject = (value: unknown): value is Record<string, any> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
@@ -19,10 +19,12 @@ export function validateExperiment(value: unknown): asserts value is ExperimentR
   ensure(isObject(data) && Array.isArray(data.features) && data.features.length > 0 && Array.isArray(data.labels) && data.features.length === data.labels.length, '数据集')
   const size = data.features.length; const dimensions = data.features[0]?.length
   ensure(integer(dimensions, 1) && matrix(data.features, size, dimensions) && data.labels.every(label), '数据维度或数值')
-  ensure(data.dataType === undefined || ['tabular', 'image'].includes(data.dataType), '数据类型')
+  ensure(data.dataType === undefined || ['tabular', 'image', 'sequence'].includes(data.dataType), '数据类型')
   ensure(data.name === undefined || typeof data.name === 'string', '数据名称')
   if (data.dataType === 'image') ensure(isObject(data.imageShape) && ['width', 'height', 'channels'].every(key => integer(data.imageShape[key], 1)) && data.imageShape.width * data.imageShape.height * data.imageShape.channels === dimensions, '图像尺寸')
-  ensure(kind !== 'visual-cnn' || data.dataType === 'image', '模型数据类型')
+  const sequenceModel = kind === 'lstm' || kind === 'transformer'
+  if (data.dataType === 'sequence') ensure(sequenceModel && isObject(data.sequenceShape) && integer(data.sequenceShape.steps, 1) && integer(data.sequenceShape.channels, 1) && data.sequenceShape.steps * data.sequenceShape.channels === dimensions, '序列尺寸')
+  else ensure(data.sequenceShape === undefined && (kind === 'visual-cnn' ? data.dataType === 'image' : data.dataType !== 'image' && !sequenceModel), '模型数据类型')
   if (value.runMetadata !== undefined) {
     const metadata = value.runMetadata
     ensure(isObject(metadata), '运行元数据')
@@ -44,6 +46,7 @@ export function validateExperiment(value: unknown): asserts value is ExperimentR
     else if (key === 'imageShape' && kind === 'visual-cnn') ensure(isObject(entry) && ['width', 'height', 'channels'].every(key => entry[key] === data.imageShape[key]), '图像参数')
     else ensure(finite(entry), '参数 ' + key)
   }
+  ensure(kind !== 'transformer' || validateParameters(kind, value.config as Record<string, number>) === '', '参数')
   ensure(Array.isArray(value.predictions) && (stopped ? value.predictions.length === 0 : value.predictions.length === size), '预测长度')
   if (!stopped && task === 'classification') ensure(value.predictions.every((item: unknown) => data.labels.includes(item)), '预测类别')
   if (!stopped && task === 'regression') ensure(data.labels.every(finite) && vector(value.predictions, size), '回归数值')
@@ -57,17 +60,38 @@ export function validateExperiment(value: unknown): asserts value is ExperimentR
     const metricSampleCount = value.evaluation?.trainSampleCount ?? size
     ensure(matrix(metrics.confusionMatrix, metrics.labels.length, metrics.labels.length) && metrics.confusionMatrix.flat().every((item: unknown) => integer(item)) && metrics.confusionMatrix.flat().reduce((sum: number, item: number) => sum + item, 0) === metricSampleCount, '混淆矩阵')
   }
-  if (value.model !== undefined) validateModel(value.model, kind, dimensions, data.labels)
+  if (value.model !== undefined) validateModel(value.model, kind, dimensions, data.labels, data.sequenceShape)
 }
 function validateLayers(layers: unknown, shape: any, classes: number) {
   ensure(Array.isArray(layers) && layers.length <= 30 && layers.every(item => isObject(item) && typeof item.id === 'string' && ['conv2d', 'max-pool', 'dense', 'activation', 'dropout'].includes(item.type)), '网络结构')
   ensure(describeVisualNetwork(layers as VisualLayer[], shape, classes).valid, '网络结构')
 }
-function validateModel(model: unknown, kind: ModelKind, dimensions: number, sourceLabels: any[]) {
+function validateModel(model: unknown, kind: ModelKind, dimensions: number, sourceLabels: any[], datasetSequenceShape?: unknown) {
   ensure(isObject(model) && model.kind === kind, '模型结构')
   const labels = [...new Set(sourceLabels)]
   const classes = labels.length
   const validLabels = () => ensure(Array.isArray(model.labels) && model.labels.length === classes && new Set(model.labels).size === classes && model.labels.every((item: unknown) => labels.includes(item)), '模型类别')
+  if (kind === 'lstm') {
+    validLabels()
+    const shape = model.sequenceShape
+    ensure(isObject(shape) && isObject(datasetSequenceShape) && shape.steps === datasetSequenceShape.steps && shape.channels === datasetSequenceShape.channels && shape.steps * shape.channels === dimensions, 'LSTM 序列尺寸')
+    const hidden = model.hiddenSize
+    ensure(integer(hidden, 1) && hidden <= 64 && integer(model.seed), 'LSTM 参数')
+    ensure(matrix(model.inputWeights, hidden * 4, shape.channels) && matrix(model.recurrentWeights, hidden * 4, hidden) && vector(model.gateBiases, hidden * 4) && matrix(model.outputWeights, classes, hidden) && vector(model.outputBiases, classes), 'LSTM 权重形状')
+    return
+  }
+  if (kind === 'transformer') {
+    validLabels()
+    const shape = model.sequenceShape
+    ensure(isObject(shape) && isObject(datasetSequenceShape) && shape.steps === datasetSequenceShape.steps && shape.channels === datasetSequenceShape.channels && shape.steps * shape.channels === dimensions, 'Transformer 序列尺寸')
+    const dimension = model.modelDimension; const heads = model.attentionHeads; const feedForward = model.feedForwardSize
+    ensure(integer(dimension, 2) && dimension <= 64 && integer(heads, 1) && heads <= 8 && dimension % heads === 0 && integer(feedForward, 2) && feedForward <= 128 && integer(model.seed), 'Transformer 参数')
+    ensure(matrix(model.inputWeights, dimension, shape.channels) && vector(model.inputBias, dimension), 'Transformer 输入权重形状')
+    for (const name of ['queryWeights', 'keyWeights', 'valueWeights', 'attentionOutputWeights']) ensure(matrix(model[name], dimension, dimension), 'Transformer 注意力权重形状')
+    for (const name of ['queryBias', 'keyBias', 'valueBias', 'attentionOutputBias', 'norm1Scale', 'norm1Bias', 'projectionBias', 'norm2Scale', 'norm2Bias']) ensure(vector(model[name], dimension), 'Transformer 注意力参数形状')
+    ensure(matrix(model.feedForwardWeights, feedForward, dimension) && vector(model.feedForwardBias, feedForward) && matrix(model.projectionWeights, dimension, feedForward) && matrix(model.outputWeights, classes, dimension) && vector(model.outputBias, classes), 'Transformer 前馈权重形状')
+    return
+  }
   if (kind !== 'mlp' && kind !== 'visual-cnn' && kind !== 'knn') ensure(model.dimensions === dimensions, '模型维度')
   if (kind === 'knn') { ensure(Array.isArray(model.samples) && matrix(model.samples, model.samples.length, dimensions) && Array.isArray(model.labels) && model.labels.length === model.samples.length && model.labels.every(label) && integer(model.k, 1), '邻居模型'); return }
   if (['logistic-regression', 'linear-svm', 'perceptron'].includes(kind)) { validLabels(); ensure(matrix(model.weights, classes, dimensions + 1), '线性权重'); return }

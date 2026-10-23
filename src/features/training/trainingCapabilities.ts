@@ -2,14 +2,14 @@ import type { ModelKind } from '../../app/workbenchTypes'
 import type { TrainingCapability, TrainingUnit } from './types'
 
 const CONTROLLED_MODELS = new Set<ModelKind>([
-  'logistic-regression', 'linear-svm', 'mlp', 'visual-cnn', 'linear-regression', 'ridge-regression',
+  'logistic-regression', 'linear-svm', 'mlp', 'visual-cnn', 'lstm', 'transformer', 'linear-regression', 'ridge-regression',
 ])
 
 const MODEL_UNITS: Record<ModelKind, TrainingUnit> = {
   knn: 'fit', 'logistic-regression': 'iteration', 'linear-svm': 'iteration', perceptron: 'iteration',
   'decision-tree': 'fit', 'random-forest': 'tree', adaboost: 'round', 'naive-bayes': 'fit',
   'linear-regression': 'iteration', 'ridge-regression': 'iteration', 'k-means': 'iteration', dbscan: 'fit',
-  pca: 'fit', mlp: 'epoch', 'visual-cnn': 'epoch',
+  pca: 'fit', mlp: 'epoch', 'visual-cnn': 'epoch', lstm: 'epoch', transformer: 'epoch',
 }
 
 /** 根据真实配置集中生成 Worker 能力，UI 不应再按模型名称猜测。 */

@@ -46,7 +46,7 @@ export function ModelExplanationPanel({ kind, model, snapshots = [], selectedSte
 
       {currentSnapshot && <p className="model-explanation-basic" aria-label="当前快照">{currentStep === 0 ? '拟合快照' : `第 ${currentStep} 步`}{Number.isFinite(currentSnapshot.loss) ? ` · 损失 ${currentSnapshot.loss!.toFixed(4)}` : ''}</p>}
       {currentSnapshot?.explanation && <pre className="snapshot-explanation">{JSON.stringify(currentSnapshot.explanation, null, 2)}</pre>}
-      {(dimensions ?? inferDimensions(model)) > 2 && <p className="projection-notice">当前图表仅展示前两个特征的投影，不代表真实的高维决策边界。</p>}
+      {kind !== 'lstm' && kind !== 'transformer' && (dimensions ?? inferDimensions(model)) > 2 && <p className="projection-notice">当前图表仅展示前两个特征的投影，不代表真实的高维决策边界。</p>}
     </section>
   )
 }

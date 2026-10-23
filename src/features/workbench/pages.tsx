@@ -17,6 +17,7 @@ export interface ExperimentRecord {
   task?: TaskKind
   sampleCount?: number
   featureCount?: number
+  sequenceShape?: { steps: number; channels: number }
   config?: Record<string, unknown>
   evaluation?: { config?: { enabled?: boolean; validationSplit?: number; seed?: number }; trainSampleCount?: number; validationSampleCount?: number }
   metricGroups?: readonly { source: string; sampleCount?: number; metrics: readonly { label: string; value: number }[] }[]
@@ -88,6 +89,8 @@ const modelInfo: Record<ModelKind, { name: string; description: string }> = {
   pca: { name: 'PCA', description: '提取主成分降维。' },
   mlp: { name: '多层感知机（MLP）', description: '通过多层神经网络学习非线性关系。' },
   'visual-cnn': { name: '可视化卷积神经网络', description: '通过卷积、池化和全连接层识别 8×8 图像。' },
+  lstm: { name: 'LSTM', description: '按时间步更新门控状态，适合识别序列中的时序模式。' },
+  transformer: { name: 'Transformer', description: '通过位置编码和多头注意力整合序列中的时间步信息。' },
 }
 
 export function ModelPage({ value, onChange, dataset, onContinue }: ModelPageProps) {

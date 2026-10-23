@@ -7,7 +7,7 @@ import type { Label, Labels, PcaModel } from '../training/types'
 import { PredictionPlayground } from './PredictionPlayground'
 export function ExperimentResultPanel({ record, predict }: { record: ExperimentRecord; predict?: (point: readonly number[]) => Label }) {
   const task = modelTask[record.modelKind]
-  if (task === 'classification' && record.metrics) return <CurrentResultPanel result={{ dataset: record.dataset, metrics: record.metrics, predictions: record.predictions as Labels, predict, evaluation: record.evaluation && { trainSampleCount: record.evaluation.trainSampleCount, validationSampleCount: record.evaluation.validationSampleCount, validationMetrics: record.evaluation.validationMetrics as import('../training/types').ClassificationMetrics | undefined } }} />
+  if (task === 'classification' && record.metrics) return <CurrentResultPanel result={{ dataset: record.dataset, metrics: record.metrics, predictions: record.predictions as Labels, predict: record.dataset.dataType === 'sequence' ? undefined : predict, evaluation: record.evaluation && { trainSampleCount: record.evaluation.trainSampleCount, validationSampleCount: record.evaluation.validationSampleCount, validationMetrics: record.evaluation.validationMetrics as import('../training/types').ClassificationMetrics | undefined } }} />
   if (task === 'dimensionality-reduction') return <PcaResultPanel model={record.model as PcaModel} projections={record.predictions as readonly (readonly number[])[]} />
   const predictions = record.predictions as number[]
   const evaluation = record.evaluation?.config.enabled ? record.evaluation : undefined

@@ -107,8 +107,8 @@
 
 ## 9. 实现记录
 
-- 实现状态：未开始。
-- 验证命令：
+- 实现状态：已完成。已接入固定 32 步、单通道的内置波形分类数据集；完成 LSTM 与 Transformer 的模型兼容和参数配置、Worker 路由、实验流程及指标展示、实验历史和 JSON 持久化校验。
+- 验证命令与结果：`npm test -- --run`（40 个测试文件、292 项通过）；`npm run build`（通过）；`npm run lint`（0 警告、0 错误）；`git diff --check`（通过）。App 流程定向检查：`npx vitest run src/App.test.tsx src/App.training.test.tsx --reporter=dot`（2 个文件、17 项通过）。
 - 已知限制：首版仅支持固定长度的内置序列分类数据，暂不支持 CSV 序列、序列预测和注意力热力图。
 
 ## 10. 未决问题

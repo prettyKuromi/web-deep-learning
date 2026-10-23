@@ -1,8 +1,9 @@
 import Papa from 'papaparse'
 
 export type FeatureVector = number[]
-export type DatasetDataType = 'tabular' | 'image'
+export type DatasetDataType = 'tabular' | 'image' | 'sequence'
 export interface ImageShape { width: number; height: number; channels: number }
+export interface SequenceShape { steps: number; channels: number }
 
 export interface DatasetMetadata {
   description: string
@@ -17,6 +18,7 @@ export const BUILTIN_DATASET_METADATA: Record<BuiltinDatasetId, DatasetMetadata>
   blobs: { description: '默认约 200 条二维二分类样本。', characteristics: '两个带高斯噪声的随机簇，类别通常近似线性可分。' },
   digits: { description: '默认约 500 条 8×8 灰度数字图像，包含 0–9 十类。', characteristics: '单通道图像分类数据，适合卷积、池化和全连接网络；不适用于二维决策边界模型。' },
   shapes: { description: '默认约 500 条 8×8 灰度图像，包含五种几何图形。', characteristics: '包含横线、竖线、斜线、十字和方框，适合观察卷积网络提取局部形状特征。' },
+  'sequence-waves': { description: '默认约 200 条固定长度的单通道时序样本，包含四种波形类别。', characteristics: '每条序列包含 32 个时间步，样本由周期与波形形状区分，适合 LSTM 和 Transformer 分类。' },
 }
 
 export interface Dataset {
@@ -27,6 +29,7 @@ export interface Dataset {
   labelName?: string
   dataType?: DatasetDataType
   imageShape?: ImageShape
+  sequenceShape?: SequenceShape
 }
 
 export interface DatasetPreview {
@@ -59,7 +62,7 @@ export function createDatasetPreview(dataset: Dataset, maxRows = 8): DatasetPrev
   }
 }
 
-export type BuiltinDatasetId = 'linear' | 'xor' | 'moons' | 'circles' | 'blobs' | 'digits' | 'shapes'
+export type BuiltinDatasetId = 'linear' | 'xor' | 'moons' | 'circles' | 'blobs' | 'digits' | 'shapes' | 'sequence-waves'
 
 export const BUILTIN_DATASETS: Array<{ id: BuiltinDatasetId; name: string }> = [
   { id: 'linear', name: '线性可分' },
@@ -69,6 +72,7 @@ export const BUILTIN_DATASETS: Array<{ id: BuiltinDatasetId; name: string }> = [
   { id: 'blobs', name: '随机簇' },
   { id: 'digits', name: '8×8 数字图像（0–9）' },
   { id: 'shapes', name: '8×8 图形图像（5 类）' },
+  { id: 'sequence-waves', name: '时序波形分类（4 类）' },
 ]
 
 export interface BuiltinDatasetOptions {
@@ -98,6 +102,7 @@ export function generateBuiltinDataset(id: BuiltinDatasetId, options: BuiltinDat
   const samples = Math.max(2, Math.floor(options.samples ?? (id === 'digits' || id === 'shapes' ? 500 : 200)))
   if (id === 'digits') return generateDigitsDataset(samples, options.seed ?? 42)
   if (id === 'shapes') return generateShapesDataset(samples, options.seed ?? 42)
+  if (id === 'sequence-waves') return generateSequenceWavesDataset(samples, options.seed ?? 42, options.noise ?? 0.035)
   const noise = options.noise ?? 0.1
   const random = rng(options.seed ?? 42)
   const features: FeatureVector[] = []
@@ -145,6 +150,29 @@ export function generateBuiltinDataset(id: BuiltinDatasetId, options: BuiltinDat
     labels.push(label)
   }
   return { features, labels, name: BUILTIN_DATASETS.find((item) => item.id === id)?.name, dataType: 'tabular' }
+}
+
+function generateSequenceWavesDataset(samples: number, seed: number, noise: number): Dataset {
+  const random = rng(seed)
+  const features: FeatureVector[] = []
+  const labels: number[] = []
+  const steps = 32
+  for (let index = 0; index < samples; index += 1) {
+    const label = index % 4
+    const phase = random() * Math.PI * 2
+    const sequence = Array.from({ length: steps }, (_, step) => {
+      const angle = (step / steps) * Math.PI * 2 * (label === 1 ? 2 : 1) + phase
+      const sine = Math.sin(angle)
+      const waveform = label === 0 ? sine
+        : label === 1 ? sine
+          : label === 2 ? Math.sign(sine)
+            : 2 / Math.PI * Math.asin(sine)
+      return waveform + gaussian(random) * noise
+    })
+    features.push(sequence)
+    labels.push(label)
+  }
+  return { features, labels, name: BUILTIN_DATASETS.find(item => item.id === 'sequence-waves')?.name, dataType: 'sequence', sequenceShape: { steps, channels: 1 } }
 }
 
 const digitGlyphs = [
@@ -279,5 +307,9 @@ export function validateDataset(dataset: Dataset): { valid: boolean; errors: str
   }
   if (dataset.labels.some((label) => label === '' || label === null || label === undefined)) errors.push('标签不能为空')
   if (new Set(dataset.labels).size < 2) errors.push('至少需要两个不同的类别标签')
+  if (dataset.dataType === 'sequence') {
+    const { steps, channels } = dataset.sequenceShape ?? {} as SequenceShape
+    if (!Number.isSafeInteger(steps) || steps < 1 || !Number.isSafeInteger(channels) || channels < 1 || steps * channels !== dimension) errors.push('序列尺寸必须与每条样本的特征数一致')
+  }
   return { valid: errors.length === 0, errors }
 }
