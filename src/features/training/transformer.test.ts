@@ -53,6 +53,32 @@ describe('Transformer trainer', () => {
     expect(trainer.predict(first.model, binarySamples)).toEqual(trainer.predict(second.model, binarySamples))
   })
 
+  it('updates query, key, and value attention projections during training', async () => {
+    const samples = [
+      [1, 0, 0.4, 1, -0.2, 0.6, -0.4, 1],
+      [0.8, 0.2, 0.5, 0.7, -0.1, 0.4, -0.5, 0.8],
+      [0.6, -0.1, 0.3, 0.8, -0.4, 0.5, -0.2, 0.7],
+      [-1, 0, -0.4, -1, 0.2, -0.6, 0.4, -1],
+      [-0.8, -0.2, -0.5, -0.7, 0.1, -0.4, 0.5, -0.8],
+      [-0.6, 0.1, -0.3, -0.8, 0.4, -0.5, 0.2, -0.7],
+    ]
+    const labels = ['positive', 'positive', 'positive', 'negative', 'negative', 'negative']
+    const config = {
+      ...baseConfig,
+      samples,
+      labels,
+      sequenceShape: { steps: 4, channels: 2 },
+      epochs: 1,
+      batchSize: samples.length,
+    }
+    const trainer = createTransformerTrainer()
+    const smallStep = await trainer.train({ ...config, learningRate: 0.001 })
+    const largeStep = await trainer.train({ ...config, learningRate: 0.2 })
+    expect(smallStep.model.queryWeights).not.toEqual(largeStep.model.queryWeights)
+    expect(smallStep.model.keyWeights).not.toEqual(largeStep.model.keyWeights)
+    expect(smallStep.model.valueWeights).not.toEqual(largeStep.model.valueWeights)
+  })
+
   it('checks once per epoch and yields before each batch', async () => {
     const checkpoints: number[] = []
     let yields = 0
