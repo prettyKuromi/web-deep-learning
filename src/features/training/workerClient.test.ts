@@ -137,6 +137,26 @@ describe('trainInWorker client', () => {
     expect(events[0].runId.length).toBeGreaterThan(0)
   })
 
+  it('settles the stop promise even if the stopped listener throws', async () => {
+    const worker = new FakeWorker()
+    const listenerError = new Error('监听器异常')
+    let settledError: unknown
+    const client = createTrainInWorkerClient(() => worker)
+    const promise = client.trainInWorker(
+      { kind: 'logistic-regression', samples: [[0]], labels: ['a'], iterations: 2 },
+      undefined,
+      undefined,
+      undefined,
+      event => { if (event.type === 'stopped') throw listenerError },
+    ).catch(error => { settledError = error })
+
+    expect(() => client.sendControl('stop')).toThrow(listenerError)
+    expect(worker.terminate).toHaveBeenCalledTimes(1)
+    await Promise.resolve()
+    expect(settledError).toMatchObject({ name: 'AbortError' })
+    await promise
+  })
+
   it('rejects with worker errors', async () => {
     const worker = new FakeWorker()
     const promise = createTrainInWorkerClient(() => worker).trainInWorker(

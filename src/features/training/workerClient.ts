@@ -111,8 +111,12 @@ export function createTrainInWorkerClient(createWorker: () => WorkerLike = defau
           callback()
         }
         const stop = () => finish(() => {
-          onEvent?.({ type: 'stopped', runId: currentRunId, capability })
+          let listenerFailed = false
+          let listenerError: unknown
+          try { onEvent?.({ type: 'stopped', runId: currentRunId, capability }) }
+          catch (error) { listenerFailed = true; listenerError = error }
           reject(createAbortError())
+          if (listenerFailed) throw listenerError
         })
         const abort = () => {
           worker.postMessage({ type: 'cancel' })
