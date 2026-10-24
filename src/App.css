@@ -39,6 +39,7 @@ h1, h2, h3, h4, p { margin-top: 0; } h1 { margin-bottom: 3px; color: var(--ink-s
 .chart-frame { min-width: 0; min-height: 0; }
 .chart-frame canvas, .chart-frame svg { max-width: 100%; }
 .matrix-wrap { max-width: 100%; overflow-x: auto; }
+.current-result .matrix-wrap th:first-child { white-space: nowrap; }
 .current-result { display: grid; gap: 18px; }
 .current-result > h3 { margin: 0; }
 .prediction-playground { display: grid; gap: 12px; border: 1px solid rgba(88,221,255,.28); border-radius: 12px; padding: 14px; background: rgba(3, 20, 38, .4); }

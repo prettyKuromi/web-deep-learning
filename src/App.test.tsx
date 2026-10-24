@@ -43,7 +43,7 @@ describe('实验工作台', () => {
     expect(screen.queryByRole('tab', { name: '回归' })).not.toBeInTheDocument()
   })
 
-  it('支持调整 KNN 参数并显示训练损失曲线', async () => {
+  it('调整 KNN 参数后先查看结果，再返回训练状态', async () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
@@ -53,8 +53,10 @@ describe('实验工作台', () => {
     await user.type(k, '3')
     expect(k).toHaveValue(3)
     await user.click(screen.getByRole('button', { name: '开始训练' }))
-    expect(await screen.findAllByText('训练完成')).not.toHaveLength(0)
-    expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '结果与解释' })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByRole('region', { name: '当前结果' })).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
+    expect(within(screen.getByRole('main', { name: '训练画布' })).getByRole('status')).toHaveTextContent('训练完成')
   })
 
   it('更换数据集后清空当前训练结果并保留模型配置', async () => {
