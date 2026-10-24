@@ -5,6 +5,18 @@ import { trainingUnitLabel } from '../training/trainingCapabilities'
 export type GuidancePage = 'setup' | 'workflow' | 'history'
 export type GuidanceCanvasView = 'training' | 'results' | 'architecture'
 
+export interface GuidanceEvaluationSources {
+  train?: string
+  validation?: string
+  result?: string
+}
+
+export interface SelectedHistoryExperiment {
+  task: TaskKind
+  model?: ModelKind
+  evaluationSources?: GuidanceEvaluationSources
+}
+
 export interface GuidanceContext {
   page: GuidancePage
   canvasView?: GuidanceCanvasView
@@ -12,11 +24,8 @@ export interface GuidanceContext {
   model?: ModelKind
   trainingStatus?: string
   capability?: TrainingCapability
-  evaluationSources?: {
-    train?: string
-    validation?: string
-    result?: string
-  }
+  evaluationSources?: GuidanceEvaluationSources
+  selectedHistoryExperiment?: SelectedHistoryExperiment
 }
 
 export interface GuidanceChapter {
@@ -66,13 +75,22 @@ const setupChapter: GuidanceChapter = {
   ],
 }
 
-const historyChapter: GuidanceChapter = {
-  id: 'history',
-  title: '历史记录',
-  paragraphs: [
+function historyChapter(context: GuidanceContext): GuidanceChapter {
+  const paragraphs = [
     '这里保存已完成的实验。选择记录可查看详情，勾选多条记录可比较适用指标、参数和训练信息。',
     '比较结果只展示实际记录且适用于当前任务的指标；JSON 导入和导出用于在本地保存或迁移实验记录。',
-  ],
+  ]
+
+  const selected = context.selectedHistoryExperiment
+  if (selected) {
+    const selectedContext: GuidanceContext = { ...context, ...selected }
+    const description = selected.model
+      ? `所选实验：${taskNames[selected.task]} · ${modelNames[selected.model]}。`
+      : `所选实验任务：${taskNames[selected.task]}。`
+    paragraphs.push(description, ...resultChapter(selectedContext).paragraphs)
+  }
+
+  return { id: 'history', title: '历史记录', paragraphs }
 }
 
 function sourceLabel(value?: string): string {
@@ -180,16 +198,17 @@ function architectureChapter(context: GuidanceContext): GuidanceChapter {
 
 export function getGuidanceContent(context: GuidanceContext): GuidanceContent {
   const view = context.canvasView ?? 'training'
+  const history = historyChapter(context)
   const workflowChapter = view === 'results'
     ? resultChapter(context)
     : view === 'architecture'
       ? architectureChapter(context)
       : trainingChapter(context)
-  const chapters = [setupChapter, workflowChapter, historyChapter]
+  const chapters = [setupChapter, workflowChapter, history]
   const current = context.page === 'setup'
     ? setupChapter
     : context.page === 'history'
-      ? historyChapter
+      ? history
       : workflowChapter
 
   return { current, chapters }

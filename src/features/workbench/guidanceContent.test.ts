@@ -136,6 +136,59 @@ describe('工作台上下文帮助内容', () => {
     expect(pca).toContain('来源：未记录')
   })
 
+  it('K-Means 聚类说明簇数且不显示 DBSCAN 噪声标签', () => {
+    const content = getGuidanceContent({
+      page: 'workflow',
+      canvasView: 'results',
+      task: 'clustering',
+      model: 'k-means',
+    }).current.paragraphs.join('')
+
+    expect(content).toContain('簇数')
+    expect(content).not.toContain('噪声标签 -1')
+  })
+
+  it('有选中实验上下文时历史页展示任务指标说明和明确来源', () => {
+    const content = getGuidanceContent({
+      page: 'history',
+      selectedHistoryExperiment: {
+        task: 'regression',
+        model: 'linear-regression',
+        evaluationSources: { train: '训练集', validation: '验证集' },
+      },
+    }).current
+
+    expect(content.title).toBe('历史记录')
+    expect(content.paragraphs.join('')).toContain('MAE')
+    expect(content.paragraphs.join('')).toContain('训练集指标使用训练集；验证集指标使用验证集')
+  })
+
+  it('历史记录来源缺失时明确标记未记录且不推断', () => {
+    const content = getGuidanceContent({
+      page: 'history',
+      selectedHistoryExperiment: {
+        task: 'classification',
+        model: 'logistic-regression',
+      },
+    }).current.paragraphs.join('')
+
+    expect(content).toContain('训练集指标使用未记录；验证集指标使用未记录')
+    expect(content).not.toContain('训练集指标使用训练集；验证集指标使用验证集')
+  })
+
+  it('没有选中历史实验时保留通用历史帮助', () => {
+    const content = getGuidanceContent({
+      page: 'history',
+      task: 'classification',
+      model: 'logistic-regression',
+      evaluationSources: { train: '训练集', validation: '验证集' },
+    }).current.paragraphs.join('')
+
+    expect(content).toContain('选择记录可查看详情')
+    expect(content).not.toContain('MAE')
+    expect(content).not.toContain('混淆矩阵')
+  })
+
   it('CNN 结构视图和训练视图使用相应模型说明', () => {
     const structure = getGuidanceContent({
       page: 'workflow',
