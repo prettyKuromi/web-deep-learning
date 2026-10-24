@@ -30,6 +30,15 @@ describe('单页训练工作台', () => {
     expect(screen.queryByText('第 0 次迭代')).not.toBeInTheDocument()
     expect(screen.getByRole('listitem')).toHaveTextContent('已完成拟合')
   })
+  it('训练时间线紧凑展示快照并保留完整可访问名称', () => {
+    const snapshots = Array.from({ length: 8 }, (_, index) => ({ iteration: index + 93, loss: 0.3 - index * 0.001 }))
+    render(<SinglePageWorkbench {...baseProps} status="训练完成" snapshots={snapshots} />)
+
+    const items = screen.getAllByRole('listitem')
+    expect(items).toHaveLength(8)
+    expect(items[0]).toHaveTextContent('#93 · 0.3000')
+    expect(items[0]).toHaveAttribute('aria-label', '第 93 次迭代，损失 0.3000')
+  })
   it('训练中展示来自快照的当前迭代、进度和损失', () => {
     render(<SinglePageWorkbench {...baseProps} status="训练中…" capability={{ unit: 'iteration', total: 20, canPause: true, canStep: true, canStop: true }} snapshots={[{ iteration: 4, loss: 0.25, metrics: { accuracy: .8, precision: .75, recall: .7, f1: .72, labels: [0, 1], confusionMatrix: [[4, 1], [1, 4]] } }]} />)
     expect(screen.getByText('第 4 / 20 迭代')).toBeInTheDocument()

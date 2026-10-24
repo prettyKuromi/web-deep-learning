@@ -139,7 +139,21 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
             <div className="single-page-chart"><TrainingProgressChart snapshots={snapshots} status={status} /></div>
             {status === '训练失败' && snapshots.length > 0 && <details><summary>查看已收到的训练上下文（{snapshots.length} 个快照）</summary><p>最近迭代：{currentIteration}，损失：{lastSnapshot?.loss?.toFixed(4) ?? '无'}</p></details>}
           </section>
-          {snapshots.length > 0 && <section className="single-page-card single-page-timeline-card"><h3>训练时间线</h3><ol className="single-page-timeline">{snapshots.slice(-8).map((snapshot) => <li key={`${snapshot.iteration}-${snapshot.timestamp}`}>{snapshot.iteration === 0 && snapshot.loss == null ? status === '训练完成' ? '已完成拟合' : '已接收训练快照' : `第 ${snapshot.iteration} 次迭代${snapshot.loss != null ? ` · 损失 ${snapshot.loss.toFixed(4)}` : ''}`}</li>)}</ol></section>}
+          {snapshots.length > 0 && <section className="single-page-card single-page-timeline-card"><h3>训练时间线</h3><ol className="single-page-timeline">{snapshots.slice(-8).map((snapshot) => {
+              const isFitOnlySnapshot = snapshot.iteration === 0 && snapshot.loss == null
+              const label = isFitOnlySnapshot
+                ? status === '训练完成' ? '已完成拟合' : '已接收训练快照'
+                : '第 ' + snapshot.iteration + ' 次迭代' + (snapshot.loss != null ? '，损失 ' + snapshot.loss.toFixed(4) : '')
+              const compactLabel = isFitOnlySnapshot
+                ? label
+                : '#' + snapshot.iteration + (snapshot.loss != null ? ' · ' + snapshot.loss.toFixed(4) : '')
+
+              return (
+                <li key={snapshot.iteration + '-' + snapshot.timestamp} aria-label={label}>
+                  {compactLabel}
+                </li>
+              )
+            })}</ol></section>}
         </>}
         {activeCanvasView === 'results' && <section className="single-page-card single-page-explanation" aria-label="模型解释与结果">
           <header className="single-page-heading"><p className="eyebrow">模型解读</p><h2>模型解释与结果</h2><p>理解模型如何做出预测。</p></header>
