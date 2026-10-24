@@ -88,7 +88,11 @@ git commit -m "实现工作台按模型选择默认阶段"
 
 - [ ] **Step 1：补充完成及其他终态测试**
 
-新增 `训练完成后自动切到结果与解释` 和 `训练完成但保存失败仍自动切到结果与解释`：先以 `status="训练中…"` 渲染，再 `rerender` 为相应完成状态，断言结果 tab 被选中且结果面板出现本轮结果。随后手动切回训练页（CNN 也测试网络结构页），只修改 `datasetName` 或其他非模型/状态 prop 并 rerender，断言手动页仍选中。
+新增 `训练完成后自动切到结果与解释` 和 `训练完成但保存失败仍自动切到结果与解释`：先以 `status="训练中…"` 渲染，再 `rerender` 为相应完成状态，断言结果 tab 被选中且结果面板出现本轮结果。
+
+另新增 `保存失败异步更新不覆盖完成后手动选择`：从 `训练中…` 更新为 `训练完成` 并确认结果页自动打开；分别在普通模型手动切回“训练过程”、CNN 手动切回“网络结构”后，再将状态更新为 `训练完成，保存失败`，断言原手动页签仍选中，且结果内容仍可查看。该用例明确覆盖训练完成与异步保存结果之间的状态更新顺序。
+
+以上完成状态用例另需验证仅修改 `datasetName` 或其他非模型/状态 prop 并 rerender，不得覆盖手动选择。
 
 以 `it.each` 覆盖 `训练失败`、`训练已停止`、`训练已取消`：从训练中开始，CNN 先手动选网络结构，再 rerender 到各终态；断言仍选网络结构且没有自动选结果。保留未完成时可以手动打开结果页并显示空态的既有覆盖。
 
@@ -115,21 +119,23 @@ const previous = useRef({ model, status })
 
 useEffect(() => {
   const modelChanged = previous.current.model !== model
-  const statusChanged = previous.current.status !== status
+  const previousStatus = previous.current.status
+  const enteredCompleteStatus =
+    !isCompleteStatus(previousStatus) && isCompleteStatus(status)
   previous.current = { model, status }
 
   if (modelChanged) setCanvasView(defaultCanvasView(model))
-  if (statusChanged && isCompleteStatus(status)) setCanvasView('results')
+  if (enteredCompleteStatus) setCanvasView('results')
 }, [model, status])
 ```
 
-当模型与完成状态同时变化时，完成结果页优先。失败、停止、取消以及其他非完成状态不调用 `setCanvasView`；完成后的普通重渲染不会重新触发转换。开始训练仍显式选择训练过程，重置仍按当前模型选默认页。
+当模型与首次进入完成态同时变化时，完成结果页优先。`训练完成` 更新为 `训练完成，保存失败` 不满足 `enteredCompleteStatus`，因此不再次调用 `setCanvasView`；失败、停止、取消以及其他非完成状态也不调用它。普通重渲染不会重新触发转换。开始训练仍显式选择训练过程，重置仍按当前模型选默认页。
 
 - [ ] **Step 3：运行定向测试确认所有本类行为转绿**
 
 Run: `npm.cmd test -- src/features/workbench/SinglePageWorkbench.test.tsx`
 
-Expected: PASS，包含普通/CNN 默认阶段、完成及保存失败自动切结果、完成后手动选页保持、失败/停止/取消保持当前页、完成结果空态/时间线及键盘导航。
+Expected: PASS，包含普通/CNN 默认阶段、完成首次进入时自动切结果、`训练完成`→`训练完成，保存失败` 时保留用户在训练页或网络结构页的手动选择、完成结果仍可查看、失败/停止/取消保持当前页、结果空态/时间线及键盘导航。
 
 - [ ] **Step 4：提交本类行为的绿态变更**
 
