@@ -32,6 +32,30 @@ describe('工作台上下文帮助内容', () => {
     expect(architecture.paragraphs.join('')).toContain('卷积')
   })
 
+  it('完整流程帮助始终包含训练与任务结果，网络结构仅用于 CNN', () => {
+    const regularModel = getGuidanceContent({
+      page: 'setup',
+      task: 'classification',
+      model: 'knn',
+      capability: capability(false, false, 'fit'),
+    })
+    const cnn = getGuidanceContent({
+      page: 'setup',
+      task: 'classification',
+      model: 'visual-cnn',
+      capability: capability(true, true, 'epoch'),
+    })
+
+    expect(regularModel.chapters.map((chapter) => chapter.id)).toEqual([
+      'setup', 'workflow-training', 'workflow-results', 'history',
+    ])
+    expect(regularModel.chapters.find((chapter) => chapter.id === 'workflow-training')?.paragraphs.join('')).toContain('不支持暂停和单步')
+    expect(regularModel.chapters.find((chapter) => chapter.id === 'workflow-results')?.paragraphs.join('')).toContain('准确率')
+    expect(cnn.chapters.map((chapter) => chapter.id)).toEqual([
+      'setup', 'workflow-training', 'workflow-results', 'workflow-architecture', 'history',
+    ])
+  })
+
   it('拟合型 KNN 不显示暂停和单步建议', () => {
     const content = getGuidanceContent({
       page: 'workflow',

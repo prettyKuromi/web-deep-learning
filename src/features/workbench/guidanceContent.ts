@@ -209,12 +209,11 @@ function architectureChapter(context: GuidanceContext): GuidanceChapter {
 export function getGuidanceContent(context: GuidanceContext): GuidanceContent {
   const view = context.canvasView ?? 'training'
   const history = historyChapter(context)
-  const workflowChapter = view === 'results'
-    ? resultChapter(context)
-    : view === 'architecture'
-      ? architectureChapter(context)
-      : trainingChapter(context)
-  const chapters = [setupChapter, workflowChapter, history]
+  const training = trainingChapter(context)
+  const results = resultChapter(context)
+  const architecture = context.model === 'visual-cnn' ? architectureChapter(context) : undefined
+  const workflowChapter = view === 'results' ? results : view === 'architecture' && architecture ? architecture : training
+  const chapters = [setupChapter, training, results, ...(architecture ? [architecture] : []), history]
   const current = context.page === 'setup'
     ? setupChapter
     : context.page === 'history'
