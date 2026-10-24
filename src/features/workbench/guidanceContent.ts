@@ -142,14 +142,19 @@ function resultChapter(context: GuidanceContext): GuidanceChapter {
 }
 
 function trainingControlParagraph(context: GuidanceContext): string[] {
+  const status = context.trainingStatus
+  if (status === '训练完成' || status === '训练完成，保存失败') {
+    return ['本次训练已完成；可以查看本次生成的结果和已收到的训练快照。']
+  }
+  if (status === '训练已停止' || status === '训练已取消' || status === '训练失败') {
+    const ending = status === '训练已停止' ? '训练已停止' : status === '训练已取消' ? '训练已取消' : '训练失败'
+    return [`${ending}。如已收到训练快照，可回顾已完成的训练过程。`]
+  }
+
   const capability = context.capability
   if (!capability) return []
 
   const unit = trainingUnitLabel(capability.unit)
-  const status = context.trainingStatus
-  if (['训练完成', '训练完成，保存失败', '训练已停止', '训练已取消', '训练失败'].includes(status ?? '')) {
-    return ['本次训练已结束；可以查看已记录的结果和训练快照。']
-  }
   const active = status === '训练中…' || status === '训练已暂停' || status === '准备训练' || status === '初始化模型'
   const paragraphs: string[] = []
 
@@ -186,7 +191,7 @@ function trainingChapter(context: GuidanceContext): GuidanceChapter {
     ...trainingControlParagraph(context),
   ]
   if (context.trainingStatus === '训练失败') {
-    paragraphs.push('训练失败时先查看错误提示；已有训练快照仍可用于回顾已完成的过程。')
+    paragraphs.push('训练失败时先查看错误提示。')
   }
   return { id: 'workflow-training', title: '训练过程', paragraphs }
 }

@@ -73,17 +73,34 @@ describe('工作台上下文帮助内容', () => {
     expect(content).toContain('单步推进一个轮次')
   })
 
-  it('训练结束后不再建议暂停、继续或单步', () => {
+  it.each(['训练完成', '训练完成，保存失败'])('%s 后说明可查看本次实际生成的结果和快照', (trainingStatus) => {
     const content = getGuidanceContent({
       page: 'workflow',
       canvasView: 'training',
       capability: capability(true, true, 'iteration'),
-      trainingStatus: '训练完成',
+      trainingStatus,
     }).current.paragraphs.join('')
 
-    expect(content).toContain('本次训练已结束')
+    expect(content).toContain('本次训练已完成')
+    expect(content).toContain('本次生成的结果')
+    expect(content).toContain('训练快照')
     expect(content).not.toContain('暂停和继续')
     expect(content).not.toContain('单步')
+  })
+
+  it.each(['训练已停止', '训练已取消', '训练失败'])('%s 时只说明可回顾已收到的快照', (trainingStatus) => {
+    const content = getGuidanceContent({
+      page: 'workflow',
+      canvasView: 'training',
+      capability: capability(true, true, 'iteration'),
+      trainingStatus,
+    }).current.paragraphs.join('')
+
+    expect(content).toContain('如已收到训练快照，可回顾')
+    expect(content).not.toContain('本次生成的结果')
+    expect(content).not.toContain('已记录的结果')
+    expect(content).not.toContain('最终结果')
+    if (trainingStatus === '训练失败') expect(content).toContain('查看错误提示')
   })
 
   it('分类结果解释指标并只显示传入的评估来源', () => {
