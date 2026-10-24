@@ -50,7 +50,15 @@ export function WorkbenchGuidance({
       {showHint && (
         <aside className="workbench-guidance-hint" role="region" aria-label="页面操作提示">
           <p>{pageHints[context.page]}</p>
-          <button type="button" onClick={() => onDismissHint(hintId)}>我知道了</button>
+          <button
+            type="button"
+            onClick={() => {
+              onDismissHint(hintId)
+              triggerRef.current?.focus()
+            }}
+          >
+            我知道了
+          </button>
         </aside>
       )}
 

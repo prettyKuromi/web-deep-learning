@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GuidanceContext } from './guidanceContent'
 import { GUIDANCE_HINT_IDS } from './guidancePreferences'
@@ -53,6 +54,34 @@ describe('WorkbenchGuidance', () => {
     )
 
     expect(screen.queryByRole('region', { name: '页面操作提示' })).not.toBeInTheDocument()
+  })
+
+  it('收起当前提示后将焦点交给操作说明入口并可继续 Tab', async () => {
+    const user = userEvent.setup()
+    function ControlledHint() {
+      const [dismissedHintIds, setDismissedHintIds] = useState<string[]>([])
+      return (
+        <>
+          <WorkbenchGuidance
+            context={context('setup')}
+            dismissedHintIds={dismissedHintIds}
+            helpOpen={false}
+            onHelpOpenChange={vi.fn()}
+            onDismissHint={(hintId) => setDismissedHintIds((ids) => [...ids, hintId])}
+            onRestoreHints={vi.fn()}
+          />
+          <button type="button">下一个控件</button>
+        </>
+      )
+    }
+
+    render(<ControlledHint />)
+    await user.click(screen.getByRole('button', { name: '我知道了' }))
+
+    expect(screen.queryByRole('region', { name: '页面操作提示' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '操作说明' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: '下一个控件' })).toHaveFocus()
   })
 
   it('打开帮助显示当前章节和完整流程章节，焦点留在入口', async () => {
@@ -204,7 +233,7 @@ describe('WorkbenchGuidance', () => {
     trigger.focus()
 
     expect(screen.getByRole('region', { name: '操作说明面板' })).toHaveTextContent('训练过程')
-    rerender(<WorkbenchGuidance {...props} context={context('workflow', 'architecture')} />)
+    rerender(<WorkbenchGuidance {...props} context={{ ...context('workflow', 'architecture'), model: 'visual-cnn' }} />)
 
     expect(screen.getByRole('region', { name: '操作说明面板' })).toHaveTextContent('网络结构')
     expect(screen.getAllByRole('region', { name: '页面操作提示' })).toHaveLength(1)
