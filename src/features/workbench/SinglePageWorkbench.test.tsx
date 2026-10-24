@@ -25,14 +25,18 @@ describe('单页训练工作台', () => {
     for (const name of ['继续', '单步', '停止']) expect(screen.getByRole('button', { name })).toBeEnabled()
   })
 
-  it('非迭代模型完成时展示拟合完成时间线', () => {
+  it('非迭代模型完成时展示拟合完成时间线', async () => {
+    const user = userEvent.setup()
     render(<SinglePageWorkbench {...baseProps} model="knn" status="训练完成" snapshots={[{ iteration: 0 }]} />)
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
     expect(screen.queryByText('第 0 次迭代')).not.toBeInTheDocument()
     expect(screen.getByRole('listitem')).toHaveTextContent('已完成拟合')
   })
-  it('训练时间线紧凑展示快照并保留完整可访问名称', () => {
+  it('训练时间线紧凑展示快照并保留完整可访问名称', async () => {
+    const user = userEvent.setup()
     const snapshots = Array.from({ length: 8 }, (_, index) => ({ iteration: index + 93, loss: 0.3 - index * 0.001 }))
     render(<SinglePageWorkbench {...baseProps} status="训练完成" snapshots={snapshots} />)
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
 
     const items = screen.getAllByRole('listitem')
     expect(items).toHaveLength(8)
@@ -65,6 +69,63 @@ describe('单页训练工作台', () => {
     onParamsChange: vi.fn(),
     onStartTraining: vi.fn(),
   }
+
+  it.each(['训练完成', '训练完成，保存失败'])('以完成态 %s 挂载时初始显示结果页', (status) => {
+    render(<SinglePageWorkbench {...baseProps} status={status} />)
+    expect(screen.getByRole('tab', { name: '结果与解释' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it.each(['训练完成', '训练完成，保存失败'])('本轮首次进入 %s 时自动打开结果页', (status) => {
+    const resultPanel = <div>本轮分类结果</div>
+    const { rerender } = render(<SinglePageWorkbench {...baseProps} status="训练中…" snapshots={[]} resultPanel={resultPanel} />)
+
+    rerender(<SinglePageWorkbench {...baseProps} status={status} snapshots={[{ iteration: 1 }]} resultPanel={resultPanel} />)
+    expect(screen.getByRole('tab', { name: '结果与解释' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('region', { name: '模型解释与结果' })).toHaveTextContent('本轮分类结果')
+  })
+
+  it.each([
+    { model: 'logistic-regression' as const, view: '训练过程' },
+    { model: 'visual-cnn' as const, view: '网络结构' },
+  ])('保存失败状态异步到达时保留用户切回的 $view 页', async ({ model, view }) => {
+    const user = userEvent.setup()
+    const dataset = { features: [Array(64).fill(0)], labels: [0], dataType: 'image' as const, imageShape: { width: 8, height: 8, channels: 1 } }
+    const cnnProps = model === 'visual-cnn' ? { dataset, visualLayers: defaultVisualLayers() } : {}
+    const props = { ...baseProps, model, ...cnnProps, resultPanel: <div>本轮分类结果</div> }
+    const { rerender } = render(<SinglePageWorkbench {...props} status="训练中…" snapshots={[]} />)
+
+    rerender(<SinglePageWorkbench {...props} status="训练完成" snapshots={[{ iteration: 1 }]} />)
+    expect(screen.getByRole('tab', { name: '结果与解释' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('tab', { name: view }))
+    rerender(<SinglePageWorkbench {...props} status="训练完成，保存失败" snapshots={[{ iteration: 1 }]} datasetName="保存状态更新后的数据集" />)
+    expect(screen.getByRole('tab', { name: view })).toHaveAttribute('aria-selected', 'true')
+
+    await user.click(screen.getByRole('tab', { name: '结果与解释' }))
+    expect(screen.getByRole('region', { name: '模型解释与结果' })).toHaveTextContent('本轮分类结果')
+  })
+
+  it.each([
+    { status: '训练失败', model: 'logistic-regression' as const, view: '训练过程' },
+    { status: '训练已停止', model: 'logistic-regression' as const, view: '训练过程' },
+    { status: '训练已取消', model: 'logistic-regression' as const, view: '训练过程' },
+    { status: '训练失败', model: 'visual-cnn' as const, view: '网络结构' },
+    { status: '训练已停止', model: 'visual-cnn' as const, view: '网络结构' },
+    { status: '训练已取消', model: 'visual-cnn' as const, view: '网络结构' },
+  ])('$model 处于 $view 页时进入 $status 不自动跳页', async ({ status, model, view }) => {
+    const user = userEvent.setup()
+    const dataset = { features: [Array(64).fill(0)], labels: [0], dataType: 'image' as const, imageShape: { width: 8, height: 8, channels: 1 } }
+    const cnnProps = model === 'visual-cnn' ? { dataset, visualLayers: defaultVisualLayers() } : {}
+    const props = { ...baseProps, model, ...cnnProps, status: '等待训练', snapshots: [], onStartTraining: vi.fn() }
+    const { rerender } = render(<SinglePageWorkbench {...props} />)
+
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+    if (view === '网络结构') await user.click(screen.getByRole('tab', { name: view }))
+    rerender(<SinglePageWorkbench {...props} status="训练中…" snapshots={[{ iteration: 1 }]} />)
+    rerender(<SinglePageWorkbench {...props} status={status} snapshots={[{ iteration: 1 }]} />)
+
+    expect(screen.getByRole('tab', { name: view })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: '结果与解释' })).toHaveAttribute('aria-selected', 'false')
+  })
 
   it('将解释与结果放在画布页签，并使用两栏主布局', async () => {
     const user = userEvent.setup()
@@ -288,6 +349,9 @@ describe('单页训练工作台', () => {
     const user = userEvent.setup()
     render(<SinglePageWorkbench {...baseProps} model="knn" status="训练完成" snapshots={[{ iteration: 1 }]} resultPanel={<div>最终分类结果图</div>} />)
 
+    expect(screen.getByRole('tab', { name: '结果与解释' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('region', { name: '模型解释与结果' })).toHaveTextContent('最终分类结果图')
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
     expect(screen.getByRole('main', { name: '训练画布' })).not.toHaveTextContent('最终分类结果图')
     await user.click(screen.getByRole('tab', { name: '结果与解释' }))
     expect(screen.getByRole('region', { name: '模型解释与结果' })).toHaveTextContent('最终分类结果图')
@@ -297,8 +361,9 @@ describe('单页训练工作台', () => {
     const user = userEvent.setup()
     render(<SinglePageWorkbench {...baseProps} model="visual-cnn" status="训练完成" snapshots={[{ iteration: 1 }]} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} resultPanel={<div>图像分类结果</div>} />)
 
-    expect(screen.getByRole('main', { name: '训练画布' })).not.toHaveTextContent('图像分类结果')
+    expect(screen.getByRole('tab', { name: '结果与解释' })).toHaveAttribute('aria-selected', 'true')
     await user.click(screen.getByRole('tab', { name: '训练过程' }))
+    expect(screen.getByRole('main', { name: '训练画布' })).not.toHaveTextContent('图像分类结果')
     expect(screen.getByRole('main', { name: '训练画布' })).toHaveTextContent('已完成拟合')
     expect(screen.queryByLabelText('神经网络数据流')).not.toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: '结果与解释' }))

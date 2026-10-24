@@ -18,6 +18,7 @@ const modelNames: Partial<Record<ModelKind, string>> = { knn: 'KNN', 'logistic-r
 const modelName = (kind?: ModelKind) => kind ? modelNames[kind] ?? '未命名模型' : '尚未选择模型'
 type CanvasView = 'training' | 'results' | 'architecture'
 const defaultCanvasView = (model?: ModelKind): CanvasView => model === 'visual-cnn' ? 'architecture' : 'training'
+const isCompletedStatus = (status: string) => status === '训练完成' || status === '训练完成，保存失败'
 
 export interface SinglePageWorkbenchProps {
   parametersValid?: boolean; onParamsValidityChange?: (valid: boolean) => void;
@@ -41,13 +42,19 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
   const isVisualCnn = model === 'visual-cnn' && Boolean(activeDataset.imageShape)
   const visualNetworkValid = model !== 'visual-cnn' || Boolean(activeDataset.imageShape && describeVisualNetwork(activeVisualLayers, activeDataset.imageShape, new Set(activeDataset.labels).size).valid)
   const [task, setTask] = useState<TaskKind>(model ? modelTask[model] : 'classification')
-  const [canvasView, setCanvasView] = useState<CanvasView>(() => defaultCanvasView(model))
+  const [canvasView, setCanvasView] = useState<CanvasView>(() => isCompletedStatus(status) ? 'results' : defaultCanvasView(model))
   const previousModel = useRef(model)
+  const previousComplete = useRef(isCompletedStatus(status))
   useEffect(() => {
     if (previousModel.current === model) return
     previousModel.current = model
     setCanvasView(defaultCanvasView(model))
   }, [model])
+  useEffect(() => {
+    const isComplete = isCompletedStatus(status)
+    if (!previousComplete.current && isComplete) setCanvasView('results')
+    previousComplete.current = isComplete
+  }, [status])
   const isRunning = status === '训练中…'
   const isPaused = status === '训练已暂停'
   const isPreparing = status === '准备训练' || status === '初始化模型'
@@ -99,7 +106,7 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
     nextTab.focus()
   }
   const activeCanvasView = canvasView === 'architecture' && !isVisualCnn ? 'training' : canvasView
-  const isComplete = ['训练完成', '训练完成，保存失败'].includes(status)
+  const isComplete = isCompletedStatus(status)
   const canvasEyebrow = activeCanvasView === 'results' ? '模型解读' : activeCanvasView === 'architecture' ? '网络编辑' : '实时训练'
   const canvasTitle = activeCanvasView === 'results' ? '模型解释与结果' : activeCanvasView === 'architecture' ? 'CNN 网络结构' : '训练过程'
   const canvasDescription = activeCanvasView === 'results' ? '查看本轮实验的指标、预测表现和模型说明。' : activeCanvasView === 'architecture' ? '查看并调整卷积网络的层结构。' : '配置模型后开始训练，实时观察训练过程。'
