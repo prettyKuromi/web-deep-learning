@@ -123,6 +123,18 @@ describe('单页训练工作台', () => {
     expect(screen.getByRole('tab', { name: '网络结构' })).toHaveAttribute('aria-selected', 'true')
   })
 
+  it('CNN 从网络结构页开始训练后切回训练过程', async () => {
+    const user = userEvent.setup()
+    const onStartTraining = vi.fn()
+    render(<SinglePageWorkbench model="visual-cnn" params={{ epochs: 20 }} status="等待训练" snapshots={[]} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} onDatasetChange={vi.fn()} onModelChange={vi.fn()} onParamsChange={vi.fn()} onStartTraining={onStartTraining} />)
+
+    expect(screen.getByRole('tab', { name: '网络结构' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+
+    expect(onStartTraining).toHaveBeenCalledOnce()
+    expect(screen.getByRole('tab', { name: '训练过程' })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('训练画布空态不再显示数据投影，组件重入后回到训练页签', async () => {
     const user = userEvent.setup()
     const dataset = { features: [[0, 0], [1, 1]], labels: [0, 1], dataType: 'tabular' as const }
