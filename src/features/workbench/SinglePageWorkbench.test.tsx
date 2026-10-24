@@ -88,6 +88,41 @@ describe('单页训练工作台', () => {
     expect(screen.getByRole('region', { name: '模型解释与结果' })).toHaveTextContent('训练后将展示模型结构、关键参数和决策过程。')
   })
 
+  it('CNN 默认网络结构，模型变化应用默认页且同模型更新保留手动页', async () => {
+    const user = userEvent.setup()
+    const cnn = { model: 'visual-cnn' as const, params: { epochs: 20 }, dataset: { features: [Array(64).fill(0)], labels: [0], dataType: 'image' as const, imageShape: { width: 8, height: 8, channels: 1 } }, visualLayers: defaultVisualLayers() }
+    const { rerender } = render(<SinglePageWorkbench {...baseProps} />)
+
+    expect(screen.getByRole('tab', { name: '训练过程' })).toHaveAttribute('aria-selected', 'true')
+    rerender(<SinglePageWorkbench {...baseProps} {...cnn} />)
+    expect(screen.getByRole('tab', { name: '网络结构' })).toHaveAttribute('aria-selected', 'true')
+
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
+    rerender(<SinglePageWorkbench {...baseProps} {...cnn} params={{ epochs: 30 }} datasetName="更新后的数据集" />)
+    expect(screen.getByRole('tab', { name: '训练过程' })).toHaveAttribute('aria-selected', 'true')
+
+    await user.click(screen.getByRole('tab', { name: '网络结构' }))
+    rerender(<SinglePageWorkbench {...baseProps} />)
+    expect(screen.getByRole('tab', { name: '训练过程' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('CNN 重置和工作流重入回到网络结构默认页', async () => {
+    const user = userEvent.setup()
+    const onResetTraining = vi.fn()
+    const props = { model: 'visual-cnn' as const, params: { epochs: 20 }, status: '等待训练', snapshots: [], dataset: { features: [Array(64).fill(0)], labels: [0], dataType: 'image' as const, imageShape: { width: 8, height: 8, channels: 1 } }, visualLayers: defaultVisualLayers(), onVisualLayersChange: vi.fn(), onDatasetChange: vi.fn(), onModelChange: vi.fn(), onParamsChange: vi.fn(), onStartTraining: vi.fn(), onResetTraining }
+    const { rerender, unmount } = render(<SinglePageWorkbench {...props} status="训练完成" snapshots={[{ iteration: 1 }]} />)
+
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
+    await user.click(screen.getByRole('button', { name: '重置' }))
+    expect(onResetTraining).toHaveBeenCalledOnce()
+    expect(screen.getByRole('tab', { name: '网络结构' })).toHaveAttribute('aria-selected', 'true')
+
+    rerender(<SinglePageWorkbench {...props} />)
+    unmount()
+    render(<SinglePageWorkbench {...props} />)
+    expect(screen.getByRole('tab', { name: '网络结构' })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('训练画布空态不再显示数据投影，组件重入后回到训练页签', async () => {
     const user = userEvent.setup()
     const dataset = { features: [[0, 0], [1, 1]], labels: [0, 1], dataType: 'tabular' as const }
@@ -126,7 +161,7 @@ describe('单页训练工作台', () => {
     const training = screen.getByRole('tab', { name: '训练过程' })
     const results = screen.getByRole('tab', { name: '结果与解释' })
     const architecture = screen.getByRole('tab', { name: '网络结构' })
-    expect(training).toHaveAttribute('tabindex', '0')
+    expect(architecture).toHaveAttribute('tabindex', '0')
     expect(results).toHaveAttribute('tabindex', '-1')
     await user.click(training)
     await user.keyboard('{ArrowRight}')
@@ -195,7 +230,9 @@ describe('单页训练工作台', () => {
 
     const canvas = screen.getByRole('main', { name: '训练画布' })
     const config = screen.getByRole('complementary', { name: '实验配置' })
-    expect(within(canvas).getByRole('tab', { name: '训练过程' })).toHaveAttribute('aria-selected', 'true')
+    expect(within(canvas).getByRole('tab', { name: '网络结构' })).toHaveAttribute('aria-selected', 'true')
+    expect(within(canvas).getByLabelText('神经网络数据流')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
     expect(within(canvas).getByText('开始训练后，这里会显示损失变化。')).toBeInTheDocument()
     expect(within(canvas).queryByLabelText('神经网络数据流')).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '网络结构' })).toBeInTheDocument()
@@ -213,12 +250,14 @@ describe('单页训练工作台', () => {
     expect(within(canvas).getByLabelText('神经网络数据流').parentElement).toHaveClass('single-page-architecture')
   })
 
-  it('只有收到快照后才在训练页显示时间线', () => {
+  it('只有收到快照后才在训练页显示时间线', async () => {
+    const user = userEvent.setup()
     const cnn = <SinglePageWorkbench model="visual-cnn" params={{ epochs: 40 }} status="等待训练" snapshots={[]} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} onDatasetChange={vi.fn()} onModelChange={vi.fn()} onParamsChange={vi.fn()} onStartTraining={vi.fn()} />
     const { rerender } = render(cnn)
 
     const canvas = screen.getByRole('main', { name: '训练画布' })
     expect(canvas).toHaveClass('single-page-canvas--two-columns')
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
     expect(within(canvas).queryByRole('heading', { name: '训练时间线' })).not.toBeInTheDocument()
 
     rerender(<SinglePageWorkbench {...baseProps} model="visual-cnn" status="训练中…" snapshots={[{ iteration: 1, loss: 0.4 }]} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} />)
@@ -247,6 +286,7 @@ describe('单页训练工作台', () => {
     render(<SinglePageWorkbench {...baseProps} model="visual-cnn" status="训练完成" snapshots={[{ iteration: 1 }]} dataset={{ features: [Array(64).fill(0)], labels: [0], dataType: 'image', imageShape: { width: 8, height: 8, channels: 1 } }} visualLayers={defaultVisualLayers()} onVisualLayersChange={vi.fn()} resultPanel={<div>图像分类结果</div>} />)
 
     expect(screen.getByRole('main', { name: '训练画布' })).not.toHaveTextContent('图像分类结果')
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
     expect(screen.getByRole('main', { name: '训练画布' })).toHaveTextContent('已完成拟合')
     expect(screen.queryByLabelText('神经网络数据流')).not.toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: '结果与解释' }))

@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { Dataset } from '../datasets/dataset'
 import { isModelCompatible } from '../../app/workbenchTypes'
 import { ModelParameterPanel } from '../training/ModelParameterPanel'
@@ -17,6 +17,7 @@ import './SinglePageWorkbench.layout.css'
 const modelNames: Partial<Record<ModelKind, string>> = { knn: 'KNN', 'logistic-regression': '逻辑回归', 'linear-svm': '线性 SVM', perceptron: '感知机', 'decision-tree': '决策树', 'random-forest': '随机森林', adaboost: 'AdaBoost', 'naive-bayes': '朴素贝叶斯', mlp: '多层感知机（MLP）', 'visual-cnn': '可视化卷积神经网络', lstm: 'LSTM', transformer: 'Transformer', 'linear-regression': '线性回归', 'ridge-regression': '岭回归', 'k-means': 'K-Means', dbscan: 'DBSCAN', pca: 'PCA' }
 const modelName = (kind?: ModelKind) => kind ? modelNames[kind] ?? '未命名模型' : '尚未选择模型'
 type CanvasView = 'training' | 'results' | 'architecture'
+const defaultCanvasView = (model?: ModelKind): CanvasView => model === 'visual-cnn' ? 'architecture' : 'training'
 
 export interface SinglePageWorkbenchProps {
   parametersValid?: boolean; onParamsValidityChange?: (valid: boolean) => void;
@@ -40,7 +41,13 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
   const isVisualCnn = model === 'visual-cnn' && Boolean(activeDataset.imageShape)
   const visualNetworkValid = model !== 'visual-cnn' || Boolean(activeDataset.imageShape && describeVisualNetwork(activeVisualLayers, activeDataset.imageShape, new Set(activeDataset.labels).size).valid)
   const [task, setTask] = useState<TaskKind>(model ? modelTask[model] : 'classification')
-  const [canvasView, setCanvasView] = useState<CanvasView>('training')
+  const [canvasView, setCanvasView] = useState<CanvasView>(() => defaultCanvasView(model))
+  const previousModel = useRef(model)
+  useEffect(() => {
+    if (previousModel.current === model) return
+    previousModel.current = model
+    setCanvasView(defaultCanvasView(model))
+  }, [model])
   const isRunning = status === '训练中…'
   const isPaused = status === '训练已暂停'
   const isPreparing = status === '准备训练' || status === '初始化模型'
@@ -60,7 +67,7 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
   }
   const chooseModel = (nextModel: ModelKind) => { setTask(modelTask[nextModel]); onModelChange(nextModel) }
   const startTraining = () => { setCanvasView('training'); onStartTraining() }
-  const resetTraining = () => { setCanvasView('training'); onResetTraining?.() }
+  const resetTraining = () => { setCanvasView(defaultCanvasView(model)); onResetTraining?.() }
   const handleTaskTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     const tabs = Array.from(event.currentTarget.closest('[role="tablist"]')?.querySelectorAll<HTMLButtonElement>('[role="tab"]:not(:disabled)') ?? [])
     const currentIndex = tabs.indexOf(event.currentTarget)
