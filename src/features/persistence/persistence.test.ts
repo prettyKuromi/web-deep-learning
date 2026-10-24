@@ -5,6 +5,8 @@ import {
   exportExperiments,
   importExperiments,
   listExperiments,
+  migrateLegacyExperiments,
+  LEGACY_STORAGE_KEY,
   saveExperiment,
 } from './persistence'
 
@@ -27,7 +29,12 @@ const record = (id: string, createdAt = 1): ExperimentRecord => ({
 describe('实验持久化', () => {
   beforeEach(async () => {
     storage.fail = false; storage.records.clear()
-    for (const item of await listExperiments()) await deleteExperiment(item.id)
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+    while (true) {
+      const items = await listExperiments()
+      if (!items.length) break
+      await Promise.all(items.map(item => deleteExperiment(item.id)))
+    }
   })
 
   it('保存后可按创建时间倒序查询并删除', async () => {
@@ -73,6 +80,41 @@ describe('实验持久化', () => {
     expect(JSON.parse(json).version).toBe(1)
     await deleteExperiment('a')
     expect((await importExperiments(json)).map((item) => item.id)).toEqual(['a'])
+  })
+
+  it('导入超过 20 条或合并后超过容量时原子拒绝，不裁掉任何历史', async () => {
+    const imported = Array.from({ length: 21 }, (_, index) => record(`incoming-${index}`, index + 100))
+    await expect(importExperiments(JSON.stringify({ version: 1, experiments: imported }))).rejects.toThrow(/20 条/)
+    expect(await listExperiments()).toEqual([])
+
+    const current = Array.from({ length: 20 }, (_, index) => record(`saved-${index}`, index + 1))
+    for (const item of current) await saveExperiment(item)
+    const before = await listExperiments()
+    await expect(importExperiments(JSON.stringify({ version: 1, experiments: [record('one-more', 1000)] }))).rejects.toThrow(/20 条/)
+    expect(await listExperiments()).toEqual(before)
+  })
+
+  it('超量旧历史迁移失败时保留 localStorage 原始来源和已有记录', async () => {
+    const existing = record('existing', 1)
+    await saveExperiment(existing)
+    const legacy = Array.from({ length: 21 }, (_, index) => record(`legacy-${index}`, index + 100))
+    const raw = JSON.stringify({ experiments: legacy })
+    localStorage.setItem(LEGACY_STORAGE_KEY, raw)
+
+    await expect(migrateLegacyExperiments()).rejects.toThrow(/20 条/)
+
+    expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBe(raw)
+    expect(await listExperiments()).toEqual([existing])
+  })
+
+  it('容量内旧历史迁移成功后才移除 localStorage 来源', async () => {
+    const legacy = [record('legacy-old', 1), record('legacy-new', 2)]
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ experiments: legacy }))
+
+    await migrateLegacyExperiments()
+
+    expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull()
+    expect((await listExperiments()).map(item => item.id)).toEqual(['legacy-new', 'legacy-old'])
   })
 
   it('拒绝错误版本或缺失必填字段，并返回中文错误', async () => {

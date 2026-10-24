@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -41,7 +41,7 @@ class ControlledTrainingWorker {
 }
 
 describe('训练运行记录', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks() })
   beforeEach(() => { localStorage.clear(); useWorkbenchStore.getState().reset() })
 
   it('暂停与单步确认会刷新最后快照，停止后保存不完整运行记录', async () => {
@@ -104,5 +104,66 @@ describe('训练运行记录', () => {
     expect(record).toMatchObject({ modelKind: 'lstm', dataset: { dataType: 'sequence', sequenceShape: { steps: 32, channels: 1 } } })
     expect(record?.metrics?.labels).toHaveLength(4)
     expect(record?.snapshots).toHaveLength(1)
+  })
+
+  it('Worker 缺失时测试回退让出事件队列并响应停止', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('Worker', undefined)
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'logistic-regression')
+    await user.clear(screen.getByRole('spinbutton', { name: '迭代次数' }))
+    await user.type(screen.getByRole('spinbutton', { name: '迭代次数' }), '5000')
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+    await waitFor(() => expect(document.querySelector('.single-page-status')).toHaveTextContent('训练中…'))
+
+    await user.click(screen.getByRole('button', { name: '停止' }))
+
+    await waitFor(() => expect(document.querySelector('.single-page-status')).toHaveTextContent('训练已停止'))
+    await waitFor(() => expect(useWorkbenchStore.getState().experiments.at(-1)?.runMetadata?.status).toBe('stopped'))
+  })
+
+  it('训练期间从历史记录返回实验流程会保留当前运行', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('Worker', ControlledTrainingWorker)
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'logistic-regression')
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+    await waitFor(() => expect(document.querySelector('.single-page-status')).toHaveTextContent('训练中…'))
+    const initialRun = useWorkbenchStore.getState().training
+    expect(initialRun.snapshots.length).toBeGreaterThan(0)
+    expect(screen.getByRole('tab', { name: '模型与数据' })).toBeDisabled()
+
+    await user.click(screen.getByRole('tab', { name: '历史记录' }))
+    await user.click(screen.getByRole('tab', { name: '实验流程' }))
+
+    expect(useWorkbenchStore.getState().training).toMatchObject({
+      status: '训练中…', runId: 'controlled-run', snapshots: initialRun.snapshots,
+    })
+    expect(screen.getByRole('button', { name: '停止' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: '停止' }))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('训练已停止'))
+  })
+
+  it('正式运行缺少 Worker 时拒绝在主线程训练', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('Worker', undefined)
+    vi.stubEnv('MODE', 'development')
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'logistic-regression')
+    act(() => useWorkbenchStore.getState().setTraining({
+      status: '训练完成', progress: 100, runId: 'old-run', snapshots: [{ iteration: 1, loss: 0.2 }],
+      metrics: { accuracy: 1, precision: 1, recall: 1, f1: 1, labels: ['A', 'B'], confusionMatrix: [[1, 0], [0, 1]] },
+    }))
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+
+    await waitFor(() => expect(document.querySelector('.single-page-status')).toHaveTextContent('训练失败'))
+    expect(screen.getByText(/当前浏览器不支持 Web Worker/)).toBeInTheDocument()
+    expect(useWorkbenchStore.getState().training).toMatchObject({ status: '训练失败', progress: 0, snapshots: [], error: expect.stringMatching(/不支持 Web Worker/) })
+    expect(useWorkbenchStore.getState().training.metrics).toBeUndefined()
+    expect(useWorkbenchStore.getState().training.runId).toBeUndefined()
+    expect(useWorkbenchStore.getState().experiments).toHaveLength(0)
   })
 })

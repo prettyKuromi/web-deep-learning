@@ -24,8 +24,10 @@ export function createVisualCnnTrainer(): Trainer<VisualCnnTrainConfig, VisualCn
           const gradients = zeroGradients(parameters); const batch = order.slice(start, start + batchSize)
           for (const index of batch) backward(config.samples[index], labels.indexOf(config.labels[index]), config.layers, config.imageShape, parameters, gradients, random)
           Object.keys(parameters).forEach((key) => { parameters[key].weights.forEach((_, i) => { parameters[key].weights[i] -= rate * gradients[key].weights[i] / batch.length }); parameters[key].biases.forEach((_, i) => { parameters[key].biases[i] -= rate * gradients[key].biases[i] / batch.length }) })
+          assertFiniteParameters(parameters)
         }
         const loss = config.samples.reduce((total, sample, index) => total - Math.log(Math.max(forward(sample, config.layers, config.imageShape, parameters, false, random).probabilities[labels.indexOf(config.labels[index])], 1e-12)), 0) / config.samples.length
+        if (!Number.isFinite(loss)) throw new Error('训练数值异常：损失出现非有限值')
         if (control || epoch === 0 || epoch === epochs - 1 || (epoch + 1) % Math.max(1, Math.floor(epochs / 10)) === 0) {
           const runs = config.samples.map((sample) => forward(sample, config.layers, config.imageShape, parameters, false, random))
           const predicted = runs.map((run) => labels[run.probabilities.reduce((best, value, index) => value > run.probabilities[best] ? index : best, 0)])
@@ -82,4 +84,15 @@ function derivative(value: number, name: 'relu' | 'tanh' | 'sigmoid') { const ou
 function softmax(values: number[]) { const max = Math.max(...values); const exp = values.map((value) => Math.exp(value - max)); const sum = exp.reduce((a, b) => a + b, 0); return exp.map((value) => value / sum) }
 function rng(seed: number) { let value = seed >>> 0; return () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 4294967296 } }
 function shuffle(values: number[], random: () => number) { for (let i = values.length - 1; i > 0; i -= 1) { const j = Math.floor(random() * (i + 1)); [values[i], values[j]] = [values[j], values[i]] } }
-function validate(config: VisualCnnTrainConfig) { if (!config.imageShape || !Number.isInteger(config.imageShape.width) || !Number.isInteger(config.imageShape.height) || !Number.isInteger(config.imageShape.channels) || config.imageShape.width < 1 || config.imageShape.height < 1 || config.imageShape.channels < 1) throw new Error('图像尺寸无效'); if (new Set(config.labels).size < 2) throw new Error('至少需要两个不同的类别'); const description = describeVisualNetwork(config.layers, config.imageShape, new Set(config.labels).size); if (!description.valid) throw new Error(description.errors.join('；')); const size = config.imageShape.width * config.imageShape.height * config.imageShape.channels; if (!config.samples.length || config.samples.length !== config.labels.length || config.samples.some((sample) => sample.length !== size || sample.some((value) => !Number.isFinite(value)))) throw new Error('图像特征、标签或尺寸无效') }
+function validate(config: VisualCnnTrainConfig) {
+  const epochs = config.epochs ?? 40
+  const batchSize = config.batchSize ?? 20
+  const learningRate = config.learningRate ?? .03
+  const seed = config.seed ?? 1
+  if (!Number.isSafeInteger(epochs) || epochs < 1) throw new Error('训练轮数必须为正的安全整数')
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1) throw new Error('批大小必须为正的安全整数')
+  if (!Number.isFinite(learningRate) || learningRate <= 0) throw new Error('学习率必须为正的有限数值')
+  if (!Number.isSafeInteger(seed)) throw new Error('随机种子必须为安全整数')
+  if (!config.imageShape || !Number.isInteger(config.imageShape.width) || !Number.isInteger(config.imageShape.height) || !Number.isInteger(config.imageShape.channels) || config.imageShape.width < 1 || config.imageShape.height < 1 || config.imageShape.channels < 1) throw new Error('图像尺寸无效'); if (new Set(config.labels).size < 2) throw new Error('至少需要两个不同的类别'); const description = describeVisualNetwork(config.layers, config.imageShape, new Set(config.labels).size); if (!description.valid) throw new Error(description.errors.join('；')); const size = config.imageShape.width * config.imageShape.height * config.imageShape.channels; if (!config.samples.length || config.samples.length !== config.labels.length || config.samples.some((sample) => sample.length !== size || sample.some((value) => !Number.isFinite(value)))) throw new Error('图像特征、标签或尺寸无效')
+}
+function assertFiniteParameters(parameters: Parameters) { if (Object.values(parameters).some(({ weights, biases }) => weights.some((value) => !Number.isFinite(value)) || biases.some((value) => !Number.isFinite(value)))) throw new Error('训练数值异常：模型参数出现非有限值') }

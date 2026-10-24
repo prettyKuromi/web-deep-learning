@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { buildScatterPlotData, createDecisionBoundaryGrid, normalizePoint, type PlotFeature, type PlotLabel } from './plotData'
 
 export interface DecisionBoundaryChartProps {
@@ -23,6 +23,11 @@ export function DecisionBoundaryChart({
   resolution = 60,
 }: DecisionBoundaryChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const descriptionId = useId()
+  const classCounts = new Map<PlotLabel, number>()
+  labels.forEach((label) => classCounts.set(label, (classCounts.get(label) ?? 0) + 1))
+  const distribution = [...classCounts].map(([label, count]) => `${typeof label === 'string' ? `“${label}”` : label} ${count} 个`).join('，') || '无'
+  const description = `样本数：${features.length}。类别数：${classCounts.size}。类别分布：${distribution}。二维投影：横轴为特征 1，纵轴为特征 2。`
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -63,13 +68,24 @@ export function DecisionBoundaryChart({
   }, [features, labels, predictions, predict, width, height, resolution])
 
   return (
-    <div className="scatter-chart"><canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
-      role="img"
-      aria-label="二维数据散点图与决策边界"
-      style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 12, background: '#f8fafc' }}
-    /><div className="scatter-legend" aria-label="类别图例">{[...new Set(labels)].map((label, index) => <span key={String(label)}><i aria-hidden="true" style={{ background: palette[index % palette.length] }} />{String(label)}</span>)}</div></div>
+    <div className="scatter-chart">
+      <canvas
+        ref={canvasRef}
+        width={width}
+        height={height}
+        role="img"
+        aria-label={predict ? '二维数据散点图与决策边界' : '二维数据散点图'}
+        aria-describedby={descriptionId}
+        style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 12, background: '#f8fafc' }}
+      />
+      <div className="scatter-legend" aria-label="类别图例">
+        {[...new Set(labels)].map((label, index) => <span key={`${typeof label}:${String(label)}`}>
+          <i aria-hidden="true" style={{ background: palette[index % palette.length] }} />{String(label)}
+        </span>)}
+      </div>
+      <p id={descriptionId} className="scatter-chart-summary" style={{ margin: '8px 0 0', color: 'var(--muted)', fontSize: '.74rem', lineHeight: 1.5 }}>
+        {description}
+      </p>
+    </div>
   )
 }

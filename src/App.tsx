@@ -33,6 +33,8 @@ import { asRegressionDataset, generateBuiltinDataset } from './features/datasets
 import { SinglePageWorkbench } from './features/workbench/SinglePageWorkbench'
 import { ModelExplanationPanel } from './features/visualization/ModelExplanationPanel'
 import { normalizeTrainSnapshot } from './features/training/snapshots'
+import { createTrainingControl, supportsTrainingControl } from './features/training/trainingControl'
+import { getTrainingCapability } from './features/training/trainingCapabilities'
 import { defaultVisualLayers } from './features/training/visualNetwork'
 import './App.css'
 
@@ -60,6 +62,8 @@ export default function App() {
   useEffect(() => { if (typeof indexedDB !== 'undefined') void useWorkbenchStore.getState().loadExperiments().catch(error => setHistoryError(error instanceof Error ? error.message : '历史记录加载失败')) }, [])
   const abortRef = useRef<AbortController | null>(null)
   const workerClientRef = useRef<ReturnType<typeof createTrainInWorkerClient> | null>(null)
+  const localControlRef = useRef<ReturnType<typeof createTrainingControl> | null>(null)
+  const localStopRef = useRef<(() => void) | null>(null)
   const stopRequestedRef = useRef(false)
   const activeRunIdRef = useRef<string | undefined>(undefined)
   const trainers = useMemo(() => Object.fromEntries((Object.keys(defaults) as ModelKind[]).map((kind) => [kind, createTrainer(kind)])) as Record<string, any>, [])
@@ -81,10 +85,14 @@ export default function App() {
     }
     if (!parametersValid || validateParameters(kind, modelConfig.params)) { setTraining({ error: '请先修正模型参数' }); return }
     if (!isModelCompatible(kind, trainingDataset).compatible) { setTraining({ status: '训练失败', error: isModelCompatible(kind, trainingDataset).reason }); return }
+    if (typeof Worker === 'undefined' && import.meta.env.MODE !== 'test') { resetTraining(); setTraining({ status: '训练失败', error: '当前浏览器不支持 Web Worker，无法安全执行训练。请使用支持 Web Worker 的浏览器后重试。' }); return }
+    localControlRef.current?.send('cancel')
     abortRef.current?.abort()
     const controller = new AbortController()
     const startedAt = Date.now()
     abortRef.current = controller
+    localControlRef.current = null
+    localStopRef.current = null
     stopRequestedRef.current = false
     setSelectedStep(undefined)
     setCurrentExperimentId(undefined)
@@ -143,9 +151,43 @@ export default function App() {
         else if (event.type === 'cancelled') setTraining({ status: '训练已取消', runId: event.runId, capability: event.capability })
         else if (event.type === 'failed') setTraining({ status: '训练失败', runId: event.runId, error: event.message, capability: event.capability })
       }
-      const result = typeof Worker === 'undefined'
-        ? await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted)
-        : await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal, paused => setTraining({ status: paused ? '训练已暂停' : '训练中…' }), onEvent)
+      let result: Awaited<ReturnType<typeof runTrainingInHandler>>
+      if (typeof Worker === 'undefined') {
+        const runId = `local-${startedAt}`
+        const capability = getTrainingCapability(kind, config as unknown as Record<string, unknown>)
+        activeRunIdRef.current = runId
+        const emitLocalEvent = (type: 'preparing' | 'initializing' | 'started' | 'paused' | 'resumed' | 'step-completed' | 'stopped' | 'completed') => onEvent({ type, runId, capability })
+        let stepRequested = false
+        let stepInProgress = false
+        const localControl = supportsTrainingControl(kind) ? createTrainingControl(
+          paused => emitLocalEvent(paused ? 'paused' : 'resumed'),
+          () => { stepRequested = true },
+        ) : null
+        localControlRef.current = localControl
+        const control = localControl ? {
+          async checkpoint() {
+            if (stepInProgress) { emitLocalEvent('step-completed'); stepInProgress = false }
+            await localControl.checkpoint()
+            if (stepRequested) { stepRequested = false; stepInProgress = true }
+          },
+          async yield() {
+            await localControl.yield?.()
+            if (controller.signal.aborted || stopRequestedRef.current) throw new DOMException('训练已取消', 'AbortError')
+          },
+        } : undefined
+        localStopRef.current = () => {
+          if (localControl) { stopConfirmed = true; emitLocalEvent('stopped'); localControl.send('stop') }
+          else controller.abort()
+        }
+        emitLocalEvent('preparing')
+        emitLocalEvent('initializing')
+        emitLocalEvent('started')
+        result = await runTrainingInHandler(config, onSnapshot, () => controller.signal.aborted, control)
+        if (stepInProgress) emitLocalEvent('step-completed')
+        emitLocalEvent('completed')
+      } else {
+        result = await (workerClientRef.current = createTrainInWorkerClient()).trainInWorker(config, onSnapshot, controller.signal, paused => setTraining({ status: paused ? '训练已暂停' : '训练中…' }), onEvent)
+      }
       if (controller.signal.aborted || abortRef.current !== controller) return
       flushSnapshot()
       const predictions = trainer.predict(result.model, trainingDataset.features)
@@ -190,22 +232,26 @@ export default function App() {
         setTraining({ status: '训练已停止', progress, snapshots: [...snapshots], metrics: lastSnapshot?.metrics })
       } else setTraining({ status: error instanceof DOMException && error.name === 'AbortError' ? '训练已取消' : '训练失败', error: error instanceof Error && /[\u4e00-\u9fff]/.test(error.message) ? error.message : '训练失败：请检查数据维度、标签及参数范围，或降低学习率后重试。' })
     } finally {
-      if (abortRef.current === controller) workerClientRef.current = null
+      if (abortRef.current === controller) { workerClientRef.current = null; localControlRef.current = null; localStopRef.current = null }
     }
   }
 
-  const pauseTraining = () => { if (!workerClientRef.current || training.status !== '训练中…') return; workerClientRef.current.sendControl('pause') }
-  const resumeTraining = () => { if (!workerClientRef.current || training.status !== '训练已暂停') return; workerClientRef.current.sendControl('resume') }
+  const sendTrainingControl = (control: 'pause' | 'resume' | 'step') => { if (workerClientRef.current) workerClientRef.current.sendControl(control); else localControlRef.current?.send(control) }
+  const pauseTraining = () => { if (training.status !== '训练中…') return; sendTrainingControl('pause') }
+  const resumeTraining = () => { if (training.status !== '训练已暂停') return; sendTrainingControl('resume') }
   const stepTraining = () => {
-    if (training.status === '训练已暂停') workerClientRef.current?.sendControl('step')
+    if (training.status === '训练已暂停') sendTrainingControl('step')
   }
-  const stopTraining = () => { stopRequestedRef.current = true; workerClientRef.current?.sendControl('stop'); setCurrentExperimentId(undefined) }
-  const resetTraining = () => { stopRequestedRef.current = false; activeRunIdRef.current = undefined; abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; setCurrentExperimentId(undefined); setSelectedStep(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined, runId: undefined, capability: undefined }) }
+  const stopTraining = () => { stopRequestedRef.current = true; if (localStopRef.current) localStopRef.current(); else workerClientRef.current?.sendControl('stop'); setCurrentExperimentId(undefined) }
+  const resetTraining = () => { stopRequestedRef.current = false; activeRunIdRef.current = undefined; localControlRef.current?.send('cancel'); abortRef.current?.abort(); abortRef.current = null; workerClientRef.current = null; localControlRef.current = null; localStopRef.current = null; setCurrentExperimentId(undefined); setSelectedStep(undefined); setTraining({ status: '等待训练', progress: 0, snapshots: [], error: undefined, metrics: undefined, runId: undefined, capability: undefined }) }
   const invalidateConfiguration = () => { resetTraining(); setTraining({ status: '配置已修改，请重新训练' }) }
   const handleDatasetChange = (nextDataset: typeof dataset) => {
+    localControlRef.current?.send('cancel')
     abortRef.current?.abort()
     abortRef.current = null
     workerClientRef.current = null
+    localControlRef.current = null
+    localStopRef.current = null
     setDatasetConfirmed(false)
     setDatasetImportState({ pending: false, error: '' })
     setSelectedStep(undefined)
@@ -217,9 +263,12 @@ export default function App() {
 
   const handleModelSelection = (kind: ModelKind) => {
     if (modelConfig.kind === kind) return
+    localControlRef.current?.send('cancel')
     abortRef.current?.abort()
     abortRef.current = null
     workerClientRef.current = null
+    localControlRef.current = null
+    localStopRef.current = null
     setParametersValid(true)
     setDatasetConfirmed(false)
     setDatasetImportState({ pending: false, error: '' })
@@ -233,10 +282,14 @@ export default function App() {
   }
 
   const enterWorkflow = () => { resetTraining(); setTopPage('workflow') }
+  const trainingActive = ['准备训练', '初始化模型', '训练中…', '训练已暂停'].includes(training.status)
   const handleTopPageChange = (page: TopLevelPage) => {
     if (page === 'workflow' && !datasetConfirmed) return
-    if (page !== 'history' && ['训练中…', '训练已暂停'].includes(training.status)) return
-    if (page === 'workflow' && topPage !== 'workflow') { enterWorkflow(); return }
+    if (page === 'setup' && trainingActive) return
+    if (page === 'workflow' && topPage !== 'workflow') {
+      if (trainingActive) { setTopPage('workflow'); return }
+      enterWorkflow(); return
+    }
     setTopPage(page)
   }
 
@@ -245,10 +298,10 @@ export default function App() {
   const explanationPanel = <ModelExplanationPanel kind={activeModel} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.dataType === 'sequence' ? undefined : dataset.features[0]?.length} />
   return <main className="app-shell">
     <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">web-deep-learning</p><h1>机器学习实验工作台</h1><p className="header-subtitle">选择模型与数据后，观察训练过程和结果。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
-    <TopLevelNavigation activePage={topPage} configurationDisabled={['训练中…', '训练已暂停'].includes(training.status)} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
+    <TopLevelNavigation activePage={topPage} configurationDisabled={trainingActive} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
     <section className="app-content">{topPage === 'setup' ? <ExperimentSetupPage model={activeModel} onModelChange={handleModelSelection} initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; if (!modelConfig.kind) handleModelSelection(activeModel); setDatasetConfirmed(true); enterWorkflow() }} /> : topPage === 'workflow' ? <SinglePageWorkbench
       dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={layers => { invalidateConfiguration(); setVisualLayers(layers) }} model={activeModel} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots} capability={training.capability} evaluationConfig={evaluationConfig} onEvaluationConfigChange={config => { invalidateConfiguration(); setEvaluationConfig(config) }}
-      onDatasetChange={handleDatasetChange} onChangeDataset={() => setTopPage('setup')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
+      onDatasetChange={handleDatasetChange} onChangeDataset={() => handleTopPageChange('setup')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
       parametersValid={parametersValid} onParamsValidityChange={valid => { setParametersValid(valid); if (!valid) invalidateConfiguration() }}
       onModelChange={(kind) => { resetTraining(); setParametersValid(true); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => { invalidateConfiguration(); setModelConfig({ params }) }}
       onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining}

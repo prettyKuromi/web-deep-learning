@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { DatasetPanel, type DatasetImportState } from '../datasets/DatasetPanel'
 import type { Dataset } from '../datasets/dataset'
 import { isModelCompatible, modelGroups, modelTask, taskLabels, workbenchStages, type ModelKind, type TaskKind, type WorkbenchStage } from '../../app/workbenchTypes'
@@ -53,9 +53,27 @@ export function ExperimentSetupPage({ model, onModelChange, onDatasetChange, onE
 
 function ModelSelector({ value, onChange }: { value: ModelKind; onChange: (model: ModelKind) => void }) {
   const task = modelTask[value]
+  const handleTaskKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const tabs = Array.from(event.currentTarget.closest('[role="tablist"]')?.querySelectorAll<HTMLButtonElement>('[role="tab"]:not(:disabled)') ?? [])
+    const currentIndex = tabs.indexOf(event.currentTarget)
+    if (currentIndex < 0 || tabs.length === 0) return
+
+    let nextIndex: number | undefined
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = tabs.length - 1
+    if (nextIndex === undefined) return
+
+    event.preventDefault()
+    const nextTab = tabs[nextIndex]
+    const nextTask = nextTab.dataset.taskKind as TaskKind | undefined
+    if (nextTask) onChange(modelGroups[nextTask][0])
+    nextTab.focus()
+  }
   return <section className="setup-model-selector" aria-label="模型选择">
     <p className="eyebrow">选择模型</p>
-    <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" aria-selected={task === kind} className={task === kind ? 'active' : ''} onClick={() => onChange(modelGroups[kind][0])}>{taskLabels[kind]}</button>)}</div>
+    <div className="task-tabs" role="tablist" aria-label="任务类型">{(Object.keys(taskLabels) as TaskKind[]).map((kind) => <button key={kind} type="button" role="tab" data-task-kind={kind} tabIndex={task === kind ? 0 : -1} aria-selected={task === kind} className={task === kind ? 'active' : ''} onKeyDown={handleTaskKeyDown} onClick={() => onChange(modelGroups[kind][0])}>{taskLabels[kind]}</button>)}</div>
     <label className="single-page-label">具体模型<select aria-label="具体模型" value={value} onChange={(event) => onChange(event.target.value as ModelKind)}>{modelGroups[task].map((kind) => <option key={kind} value={kind}>{modelInfo[kind].name}</option>)}</select></label>
     <p className="model-selection-description">{modelInfo[value].description}</p>
     {value === 'mlp' && <p className="model-suitability-notice">MLP 适合数值特征和较复杂的非线性关系；样本较少、类别不平衡或特征尺度差异较大时，结果可能不稳定。</p>}

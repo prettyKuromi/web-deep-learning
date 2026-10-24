@@ -64,7 +64,7 @@
 ### 4.4 集成
 
 - 在 ModelKind、modelGroups、参数定义、训练能力、WorkerTrainConfig、runTrainingInHandler、App trainer/predict 分派中注册新模型。
-- 保持训练经 Web Worker 执行；无 Worker 环境仍可通过 runTrainingInHandler 执行以支持测试。
+- 浏览器有 Worker 时序列模型经 Web Worker 执行；非测试运行环境缺 Worker 时工作台以中文错误拒绝训练，并清除当前运行的快照、指标、进度和运行 ID。Vitest 测试模式仅对支持控制的模型使用带真实任务队列让步的本地 handler；直接 `runTrainingInHandler` API 保留供测试及 Worker 复用。
 - 持久化校验接受 sequence 数据结构、新模型配置和模型参数；旧版本 tabular/image 实验继续有效。
 - 结果仍使用现有 classificationMetrics 和历史结果面板。
 
@@ -84,6 +84,7 @@
 - 模型不兼容的数据集在选择控件中禁用；训练入口再次验证并给出中文错误。
 - Transformer 的模型维度、头数、前馈宽度、学习率、批大小和轮数越界时禁止开始训练。
 - 数值不稳定或 Worker 失败时沿用现有中文训练错误，并保留本轮已收到的快照。
+- 非测试运行环境没有 Worker 时，序列模型显示中文错误、清除旧运行结果并拒绝开始训练；测试模式下本地序列模型的批次让步交还任务队列，并在批次间响应停止/取消。
 - 持久化导入时校验 sequenceShape 和模型参数，不合法的实验记录拒绝导入。
 
 ## 7. 验收标准
@@ -93,7 +94,7 @@
 3. LSTM 和 Transformer 均可在内置数据集上完成二分类和多分类，并输出有限损失、预测类别和分类指标。
 4. 相同数据、模型参数与随机种子产生一致模型参数、快照及预测。
 5. Transformer 不满足模型维度整除注意力头数时显示可理解的中文错误并阻止训练。
-6. 两种模型通过 Web Worker 执行，训练中主线程仍能响应暂停/单步/继续/停止。
+6. 两种模型在 Worker 可用时通过 Worker 执行；非测试运行环境缺 Worker 时明确拒绝训练。测试模式下协作式回退让出任务队列并响应暂停/单步/继续/停止。
 7. 序列模型的实验可保存、导出、导入和再次查看；原有实验格式继续兼容。
 8. 时序模型不显示二维决策边界。
 
@@ -101,15 +102,16 @@
 
 - Vitest：序列数据确定性、形状与标签分布；模型兼容矩阵；LSTM 门控与分类收敛、种子复现和异常输入；Transformer 注意力形状、参数校验、分类收敛与种子复现。
 - Worker 测试：两种模型路由、epoch 快照，以及 LSTM/Transformer 的暂停、单步和停止控制。
+- App 测试：验证非测试模式缺少 Worker 时中文拒绝及旧结果清除；测试模式模拟 Worker 缺失时验证本地任务队列让步、停止响应和停止快照。
 - React Testing Library：序列数据筛选与预览、模型参数、训练曲线、指标和无决策边界。
 - 持久化测试：序列形状和两种模型配置的 JSON 往返及非法输入拒绝。
 - 验证命令：相关 Vitest、npm test -- --run、npm run build、npm run lint、git diff --check。
 
 ## 9. 实现记录
 
-- 实现状态：已完成。已接入固定 32 步、单通道的内置波形分类数据集；完成 LSTM 与 Transformer 的模型兼容和参数配置、Worker 路由、实验流程及指标展示、实验历史和 JSON 持久化校验。
-- 验证命令与结果：`npm test -- --run`（40 个测试文件、296 项通过）；`npm run build`（通过）；`npm run lint`（0 警告、0 错误）；`git diff --check`（通过）。App 流程定向检查：`npx vitest run src/App.test.tsx src/App.training.test.tsx --reporter=dot`（2 个文件、17 项通过）。Worker 控制定向检查覆盖两种序列模型的暂停、单步和停止。
-- 已知限制：首版仅支持固定长度的内置序列分类数据，暂不支持 CSV 序列、序列预测和注意力热力图。
+- 实现状态：已完成。已接入固定 32 步、单通道的内置波形分类数据集；完成 LSTM 与 Transformer 的模型兼容和参数配置、Worker 路由、实验流程及指标展示、实验历史和 JSON 持久化校验。非测试环境缺 Worker 时工作台拒绝主线程训练；测试模式的协作式 handler 回退会让出任务队列并支持停止。
+- 验证命令与结果：本次定向 Vitest（App、App.training、workflow-reset、workerClient、trainingControl、visualCnn）6 个文件、53 项通过，覆盖 Worker 缺失拒绝及旧结果清除、测试模式停止与控制、导航保持及 CNN 数值校验；`npm run build`（TypeScript 检查与 Vite 构建通过）。
+- 已知限制：首版仅支持固定长度的内置序列分类数据，暂不支持 CSV 序列、序列预测和注意力热力图；生产环境缺 Worker 时工作台拒绝所有训练。
 
 ## 10. 未决问题
 

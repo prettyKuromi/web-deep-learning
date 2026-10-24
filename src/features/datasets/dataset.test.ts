@@ -79,6 +79,14 @@ describe('CSV 数据集', () => {
     expect(result.skippedRows).toBe(2)
   })
 
+  it('字段数多于表头时拒绝 CSV，避免把多余字段错配为标签', () => {
+    expect(() => parseCsvDataset('x,y,label\n1,2,999,A\n3,4,B')).toThrow('CSV 结构解析失败')
+  })
+
+  it('结构解析错误给出中文提示', () => {
+    expect(() => parseCsvDataset('x,y,label\n1,2,"A\n3,4,B')).toThrow('CSV 结构解析失败：请检查引号闭合及每行字段数是否与表头一致')
+  })
+
   it('回归模式将有限数值目标转为 number，默认分类标签仍为字符串', () => {
     const csv = 'x1,x2,target\n1,2,3\n2,1,5\n3,4,7\n4,2,8\n5,6,11\n6,3,12\n7,8,15\n8,4,17'
     expect(parseCsvDataset(csv).dataset.labels).toEqual(['3', '5', '7', '8', '11', '12', '15', '17'])

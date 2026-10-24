@@ -26,4 +26,39 @@ describe('可视化卷积网络训练器', () => {
     const trainer = createVisualCnnTrainer()
     expect(await trainer.train(config)).toEqual(await trainer.train(config))
   })
+
+  it.each([
+    ['epochs', 0],
+    ['epochs', 1.5],
+    ['batchSize', 0],
+    ['batchSize', Number.POSITIVE_INFINITY],
+    ['learningRate', 0],
+    ['learningRate', Number.NaN],
+    ['seed', 1.5],
+    ['seed', Number.MAX_SAFE_INTEGER + 1],
+  ])('拒绝非法训练参数 %s=%s', async (key, value) => {
+    const trainer = createVisualCnnTrainer()
+    const dataset = generateBuiltinDataset('digits', { samples: 20, seed: 4 })
+    const config = { samples: dataset.features, labels: dataset.labels, imageShape: dataset.imageShape!, layers: defaultVisualLayers(), [key]: value }
+
+    await expect(trainer.train(config)).rejects.toThrow(/训练轮数|批大小|学习率|随机种子/)
+  })
+
+  it('检测批量更新后的非有限权重，不发出非有限损失快照', async () => {
+    const trainer = createVisualCnnTrainer()
+    const samples = [Array(64).fill(1), Array(64).fill(-1)]
+    const snapshots: Array<{ loss?: number }> = []
+
+    await expect(trainer.train({
+      samples,
+      labels: ['positive', 'negative'],
+      imageShape: { width: 8, height: 8, channels: 1 },
+      layers: defaultVisualLayers(),
+      epochs: 1,
+      batchSize: 2,
+      learningRate: Number.MAX_VALUE,
+      seed: 1,
+    }, snapshot => snapshots.push(snapshot))).rejects.toThrow(/非有限|数值/)
+    expect(snapshots).toHaveLength(0)
+  })
 })

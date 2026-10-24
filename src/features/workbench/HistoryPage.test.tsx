@@ -125,6 +125,47 @@ describe('HistoryPage', () => {
     expect(comparison.textContent).not.toContain('MAE')
   })
 
+  it('旧记录同名但缺少数据集指纹时不叠加损失曲线', async () => {
+    const user = userEvent.setup()
+    const records: ExperimentRecord[] = [
+      { id: 'old-a', datasetName: '同名数据集', model: '逻辑回归', modelKind: 'logistic-regression', timestamp: '2026-10-22', snapshots: [{ loss: .8 }], metrics: {} },
+      { id: 'old-b', datasetName: '同名数据集', model: '逻辑回归', modelKind: 'logistic-regression', timestamp: '2026-10-22', snapshots: [{ loss: .4 }], metrics: {} },
+    ]
+    render(<HistoryPage records={records} />)
+    await user.click(screen.getAllByRole('checkbox', { name: '比较' })[0])
+    await user.click(screen.getAllByRole('checkbox', { name: '比较' })[1])
+
+    expect(screen.queryByRole('img', { name: '同一模型与数据集下的训练损失趋势比较' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('history-comparison')).toHaveTextContent('数据集身份未记录')
+  })
+
+  it('只有相同且非空的数据集指纹才允许叠加损失曲线', async () => {
+    const user = userEvent.setup()
+    const records: ExperimentRecord[] = [
+      { id: 'same-a', datasetName: '导入数据', model: '逻辑回归', modelKind: 'logistic-regression', timestamp: '2026-10-22', snapshots: [{ loss: .8 }], metrics: {}, runMetadata: { datasetFingerprint: 'sha256:abc' } },
+      { id: 'same-b', datasetName: '导入数据', model: '逻辑回归', modelKind: 'logistic-regression', timestamp: '2026-10-22', snapshots: [{ loss: .4 }], metrics: {}, runMetadata: { datasetFingerprint: 'sha256:abc' } },
+    ]
+    render(<HistoryPage records={records} />)
+    await user.click(screen.getAllByRole('checkbox', { name: '比较' })[0])
+    await user.click(screen.getAllByRole('checkbox', { name: '比较' })[1])
+
+    expect(screen.getByRole('img', { name: '同一模型与数据集下的训练损失趋势比较' })).toBeInTheDocument()
+  })
+
+  it('数据集指纹不同的实验不叠加损失曲线', async () => {
+    const user = userEvent.setup()
+    const records: ExperimentRecord[] = [
+      { id: 'different-a', datasetName: '导入数据', model: '逻辑回归', modelKind: 'logistic-regression', timestamp: '2026-10-22', snapshots: [{ loss: .8 }], metrics: {}, runMetadata: { datasetFingerprint: 'sha256:abc' } },
+      { id: 'different-b', datasetName: '导入数据', model: '逻辑回归', modelKind: 'logistic-regression', timestamp: '2026-10-22', snapshots: [{ loss: .4 }], metrics: {}, runMetadata: { datasetFingerprint: 'sha256:def' } },
+    ]
+    render(<HistoryPage records={records} />)
+    await user.click(screen.getAllByRole('checkbox', { name: '比较' })[0])
+    await user.click(screen.getAllByRole('checkbox', { name: '比较' })[1])
+
+    expect(screen.queryByRole('img', { name: '同一模型与数据集下的训练损失趋势比较' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('history-comparison')).toHaveTextContent('数据集不同')
+  })
+
   it('shows a detail hint when no record is selected', () => {
     render(<HistoryPage records={[]} />)
 

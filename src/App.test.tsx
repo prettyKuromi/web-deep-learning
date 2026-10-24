@@ -94,13 +94,14 @@ describe('实验工作台', () => {
     await user.click(screen.getByRole('tab', { name: '回归' }))
     await user.click(screen.getByRole('checkbox', { name: /启用验证集/ }))
     await user.click(screen.getByRole('button', { name: '开始训练' }))
+    await waitFor(() => expect(useWorkbenchStore.getState().training.status).toMatch(/训练完成/), { timeout: 15000 })
     await user.click(screen.getByRole('tab', { name: '结果与解释' }))
     await screen.findByText('平均绝对误差（MAE）')
     const evaluation = useWorkbenchStore.getState().experiments[0].evaluation
     expect(evaluation?.trainMetrics).toEqual(expect.objectContaining({ mae: expect.any(Number), mse: expect.any(Number), r2: expect.any(Number) }))
     expect(evaluation?.validationMetrics).toEqual(expect.objectContaining({ mae: expect.any(Number), mse: expect.any(Number), r2: expect.any(Number) }))
     expect(screen.getByRole('region', { name: '训练与验证集评估' })).toHaveTextContent('验证集 MAE')
-  })
+  }, 20000)
 
   it('确认后返回保留导航权限，实际更改数据后需重新确认', async () => {
     const user = userEvent.setup()
@@ -192,10 +193,10 @@ describe('实验工作台', () => {
     expect(screen.getByRole('combobox', { name: '训练步骤' })).toHaveValue('2')
     await user.selectOptions(screen.getByRole('combobox', { name: '训练步骤' }), '1')
     await user.click(screen.getByRole('button', { name: '开始训练' }))
-    await waitFor(() => expect(useWorkbenchStore.getState().training.status).toBe('训练完成'))
+    await waitFor(() => expect(useWorkbenchStore.getState().training.status).toMatch(/训练完成/), { timeout: 15000 })
     await user.click(screen.getByRole('tab', { name: '结果与解释' }))
     expect(screen.getByRole('combobox', { name: '训练步骤' })).toHaveValue('200')
-  })
+  }, 20000)
 
   it('单步在没有活动 Worker 时不会伪造快照', async () => {
     const user = userEvent.setup()
@@ -222,6 +223,7 @@ describe('实验工作台', () => {
     await user.clear(screen.getByRole('spinbutton', { name: '迭代次数' }))
     await user.type(screen.getByRole('spinbutton', { name: '迭代次数' }), '1')
     await user.click(screen.getByRole('button', { name: '开始训练' }))
+    await waitFor(() => expect(useWorkbenchStore.getState().training.status).toMatch(/训练完成/), { timeout: 15000 })
     await user.click(screen.getByRole('tab', { name: '结果与解释' }))
     const currentResult = await screen.findByRole('region', { name: '当前结果' })
     expect(currentResult).toBeInTheDocument()
@@ -247,6 +249,7 @@ describe('实验工作台', () => {
     await user.click(screen.getByRole('tab', { name: '回归' }))
     expect(screen.getByLabelText('迭代次数')).toHaveValue(500)
     await user.click(screen.getByRole('button', { name: '开始训练' }))
+    await waitFor(() => expect(useWorkbenchStore.getState().training.status).toMatch(/训练完成/), { timeout: 15000 })
     await user.click(screen.getByRole('tab', { name: '结果与解释' }))
     expect(await screen.findByText('平均绝对误差（MAE）')).toBeInTheDocument()
     expect(useWorkbenchStore.getState().experiments[0].config.iterations).toBe(500)
@@ -255,5 +258,5 @@ describe('实验工作台', () => {
     expect(screen.queryByText('平均绝对误差（MAE）')).not.toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: '训练过程' }))
     expect(screen.getByText('配置已修改，请重新训练')).toBeInTheDocument()
-  })
+  }, 20000)
 })

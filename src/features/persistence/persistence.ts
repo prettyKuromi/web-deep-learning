@@ -3,6 +3,7 @@ import type { ExperimentRecord } from '../../app/workbenchTypes'
 import { validateExperiment } from './validateExperiment'
 export const EXPERIMENT_JSON_VERSION = 1
 export const LEGACY_STORAGE_KEY = 'web-deep-learning-workbench'
+const MAX_EXPERIMENTS = 20
 class ExperimentDatabase extends Dexie {
   experiments!: Table<ExperimentRecord, string>
   constructor() { super('web-deep-learning-experiments'); this.version(1).stores({ experiments: 'id, createdAt' }) }
@@ -10,19 +11,36 @@ class ExperimentDatabase extends Dexie {
 const database = new ExperimentDatabase()
 const memoryStore = new Map<string, ExperimentRecord>()
 const useMemory = typeof indexedDB === 'undefined'
-const newest = (records: ExperimentRecord[]) => records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 20)
-async function storageOperation<T>(operation: () => Promise<T>): Promise<T> {
-  try { return await operation() } catch { throw new Error('本地存储操作失败，请检查浏览器存储权限或空间；可先导出 JSON 备份。') }
+const newest = (records: ExperimentRecord[]) => records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, MAX_EXPERIMENTS)
+class HistoryCapacityError extends Error {}
+function ensureHistoryCapacity(existing: readonly ExperimentRecord[], incoming: readonly ExperimentRecord[], action: string) {
+  const ids = new Set([...existing, ...incoming].map(record => record.id))
+  if (ids.size > MAX_EXPERIMENTS) throw new HistoryCapacityError(`${action}失败：合并后将超过 ${MAX_EXPERIMENTS} 条历史记录，请先删除部分记录后重试。`)
 }
-async function writeRecords(records: ExperimentRecord[]) {
+function mergeById(existing: readonly ExperimentRecord[], incoming: readonly ExperimentRecord[]) {
+  return [...new Map([...existing, ...incoming].map(record => [record.id, record])).values()]
+}
+function replaceMemoryRecords(records: readonly ExperimentRecord[]) {
+  memoryStore.clear()
+  newest([...records]).forEach(record => memoryStore.set(record.id, record))
+}
+async function storageOperation<T>(operation: () => Promise<T>): Promise<T> {
+  try { return await operation() } catch (error) {
+    if (error instanceof HistoryCapacityError) throw error
+    throw new Error('本地存储操作失败，请检查浏览器存储权限或空间；可先导出 JSON 备份。')
+  }
+}
+async function writeRecords(records: ExperimentRecord[], capacityAction?: string) {
   await storageOperation(() => database.transaction('rw', database.experiments, async () => {
-    await database.experiments.bulkPut(records)
     const all = await database.experiments.toArray()
-    const retained = new Set(newest(all).map(item => item.id))
-    await database.experiments.bulkDelete(all.filter(item => !retained.has(item.id)).map(item => item.id))
+    if (capacityAction) ensureHistoryCapacity(all, records, capacityAction)
+    await database.experiments.bulkPut(records)
+    const updated = await database.experiments.toArray()
+    const retained = new Set(newest(updated).map(item => item.id))
+    await database.experiments.bulkDelete(updated.filter(item => !retained.has(item.id)).map(item => item.id))
   }))
 }
-export async function saveExperiment(experiment: ExperimentRecord): Promise<void> { validateExperiment(experiment); if (useMemory) { memoryStore.set(experiment.id, experiment); return } await writeRecords([experiment]) }
+export async function saveExperiment(experiment: ExperimentRecord): Promise<void> { validateExperiment(experiment); if (useMemory) { replaceMemoryRecords(mergeById([...memoryStore.values()], [experiment])); return } await writeRecords([experiment]) }
 export async function listExperiments(): Promise<ExperimentRecord[]> {
   const records = useMemory ? [...memoryStore.values()] : await storageOperation(() => database.experiments.toArray())
   records.forEach(validateExperiment)
@@ -46,8 +64,13 @@ export function parseExperiments(json: string): ExperimentRecord[] {
 }
 export async function importExperiments(json: string): Promise<ExperimentRecord[]> {
   const records = parseExperiments(json)
-  if (useMemory) { records.forEach(item => memoryStore.set(item.id, item)); return listExperiments() }
-  await writeRecords(records)
+  if (useMemory) {
+    const merged = mergeById([...memoryStore.values()], records)
+    ensureHistoryCapacity([], merged, '导入')
+    replaceMemoryRecords(merged)
+    return listExperiments()
+  }
+  await writeRecords(records, '导入')
   return listExperiments()
 }
 export async function migrateLegacyExperiments(): Promise<void> {
@@ -61,10 +84,15 @@ export async function migrateLegacyExperiments(): Promise<void> {
     records = parsed.state?.experiments ?? parsed.experiments
     if (!Array.isArray(records)) throw new Error()
     records.forEach(validateExperiment)
+    if (new Set(records.map(item => item.id)).size !== records.length) throw new Error()
   } catch { throw new Error('旧历史格式无法自动迁移，原数据保留在 localStorage 的 ' + LEGACY_STORAGE_KEY + ' 键中，请先备份。') }
   const existing = new Set((await listExperiments()).map(item => item.id))
-  if (useMemory) records.filter(item => !existing.has(item.id)).forEach(item => memoryStore.set(item.id, item))
-  else await writeRecords(records.filter(item => !existing.has(item.id)))
+  const pending = records.filter(item => !existing.has(item.id))
+  if (useMemory) {
+    const merged = mergeById([...memoryStore.values()], pending)
+    ensureHistoryCapacity([], merged, '旧历史迁移')
+    replaceMemoryRecords(merged)
+  } else await writeRecords(pending, '旧历史迁移')
   // 只有事务成功后才移除旧来源；迁移失败始终保留原数据。
   try { localStorage.removeItem(LEGACY_STORAGE_KEY) } catch { throw new Error('旧历史已复制到本地数据库，但旧来源清理失败。') }
 }

@@ -266,7 +266,7 @@ export interface CsvParseResult {
 
 export function parseCsvDataset(csv: string, options: CsvParseOptions = {}): CsvParseResult {
   const parsed = Papa.parse<Record<string, string>>(csv.trim(), { header: true, skipEmptyLines: true })
-  if (parsed.errors.length > 0 && parsed.data.length === 0) throw new Error(`CSV 解析失败：${parsed.errors[0]?.message ?? '格式错误'}`)
+  if (parsed.errors.length > 0) throw new Error('CSV 结构解析失败：请检查引号闭合及每行字段数是否与表头一致')
   const columns = parsed.meta.fields ?? []
   const labelColumn = options.labelColumn ?? columns[columns.length - 1] ?? ''
   const featureColumns = options.featureColumns ?? columns.filter((column) => column !== labelColumn)

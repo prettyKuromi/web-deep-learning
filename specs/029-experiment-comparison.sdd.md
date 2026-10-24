@@ -69,3 +69,12 @@ interface RunMetadata {
 - 实现内容：历史记录支持 2–4 条选择、移除、指标/模型/数据集/种子/耗时并排比较；旧元数据显示“历史记录未保存”；只有同数据集、同模型且快照损失完整时叠加曲线；窄屏比较表支持横向滚动。
 - 验证命令：`npm test -- --run`（28 个测试文件、177 项通过）；`npm run build`；`npm run lint`。
 - 已知限制：当前比较界面主要展示分类指标，回归/聚类指标仍需按任务扩展；完整历史比较 Playwright 场景待补。
+
+## 后续改进：损失曲线严格数据集可比性（2026-10-24）
+
+- 背景与目标：旧实验可能没有数据集 fingerprint；同名数据集不保证内容相同，不能据名称推断损失曲线可比较。
+- 技术方案：只有所有被选实验都带有相同且非空的 `datasetFingerprint` 时，才将损失曲线叠加。缺少 fingerprint 时明确显示数据集身份未记录；数据集名称只用于界面展示。
+- 验收标准：同名但 fingerprint 缺失或不同的实验不显示叠加曲线；全部具有相同 fingerprint、模型和完整损失快照时仍正常显示曲线。
+- 测试策略：组件测试覆盖同名缺 fingerprint、不同 fingerprint、同 fingerprint 三种情况。
+- 实现状态：已实现。历史损失曲线仅在所有记录具有相同且非空的 `datasetFingerprint` 时叠加；缺少 fingerprint 时明确提示数据集身份未记录。
+- 验证命令：`npm test -- --run`（41 个测试文件、324 项通过）；`npm run build`；`npm run lint`；`git diff --check`。

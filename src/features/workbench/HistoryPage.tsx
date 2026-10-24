@@ -52,8 +52,11 @@ function compareValue(record: ExperimentRecord, label: string) {
 function ComparisonPanel({ records, onRemove }: { records: readonly ExperimentRecord[]; onRemove: (id: string) => void }) {
   if (records.length < 2) return <p className="comparison-selection-hint" role="status">已选择 {records.length} 条，请再选择一条记录开始比较。</p>
   const curveComparable = records.every((record) => record.snapshots?.length && record.snapshots.every((snapshot) => typeof snapshot.loss === 'number'))
-  const sameDataset = new Set(records.map((record) => record.runMetadata?.datasetFingerprint ?? record.datasetName)).size === 1
-  const sameModel = new Set(records.map((record) => record.modelKind)).size === 1
+  const fingerprints = records.map((record) => record.runMetadata?.datasetFingerprint)
+  const fingerprintsAvailable = fingerprints.every((fingerprint) => typeof fingerprint === 'string' && fingerprint.trim().length > 0)
+  const sameDataset = fingerprintsAvailable && new Set(fingerprints).size === 1
+  const modelKinds = records.map((record) => record.modelKind)
+  const sameModel = modelKinds.every((kind) => typeof kind === 'string' && kind.length > 0) && new Set(modelKinds).size === 1
   const showCurve = curveComparable && sameDataset && sameModel
   const losses = records.map((record) => (record.snapshots ?? []).map((snapshot) => snapshot.loss!))
   const allLosses = losses.flat()
@@ -78,7 +81,7 @@ function ComparisonPanel({ records, onRemove }: { records: readonly ExperimentRe
       {rows.map(([label, format]) => <tr key={label}><th>{label}</th>{records.map(record => <td key={record.id}>{format(record)}</td>)}</tr>)}
       {metricRows.map(label => <tr key={label}><th>{label}</th>{records.map(record => <td key={record.id}>{compareValue(record, label)}</td>)}</tr>)}
     </tbody></table></div>
-    {showCurve ? <div className="comparison-chart"><h4>训练损失趋势</h4><svg viewBox="0 0 600 180" role="img" aria-label="同一模型与数据集下的训练损失趋势比较"><line x1="48" y1="12" x2="48" y2="145" /><line x1="48" y1="145" x2="588" y2="145" /><text x="8" y="18">损失</text><text x="280" y="174">训练快照序号</text>{losses.map((series, index) => { const points = series.map((loss, point) => `${48 + point / Math.max(1, series.length - 1) * 540},${135 - (loss - minLoss) / Math.max(.000001, maxLoss - minLoss) * 112}`).join(' '); return <polyline key={records[index].id} points={points} fill="none" stroke={colors[index]} strokeWidth="2" /> })}</svg><ul>{records.map((record, index) => <li key={record.id} style={{ color: colors[index] }}>{record.datasetName} · {record.modelKind}</li>)}</ul></div> : <p className="comparison-note">训练曲线：{!curveComparable ? '快照或损失值不完整，无法绘制。' : !sameDataset ? '数据集不同，不叠加损失曲线。' : '模型不同，损失定义可能不同，不叠加曲线。'}指标仍可并列查看，但请结合数据集和任务理解。</p>}
+    {showCurve ? <div className="comparison-chart"><h4>训练损失趋势</h4><svg viewBox="0 0 600 180" role="img" aria-label="同一模型与数据集下的训练损失趋势比较"><line x1="48" y1="12" x2="48" y2="145" /><line x1="48" y1="145" x2="588" y2="145" /><text x="8" y="18">损失</text><text x="280" y="174">训练快照序号</text>{losses.map((series, index) => { const points = series.map((loss, point) => `${48 + point / Math.max(1, series.length - 1) * 540},${135 - (loss - minLoss) / Math.max(.000001, maxLoss - minLoss) * 112}`).join(' '); return <polyline key={records[index].id} points={points} fill="none" stroke={colors[index]} strokeWidth="2" /> })}</svg><ul>{records.map((record, index) => <li key={record.id} style={{ color: colors[index] }}>{record.datasetName} · {record.modelKind}</li>)}</ul></div> : <p className="comparison-note">训练曲线：{!curveComparable ? '快照或损失值不完整，无法绘制。' : !fingerprintsAvailable ? '数据集身份未记录，无法确认数据集可比性，不叠加损失曲线。' : !sameDataset ? '数据集不同，不叠加损失曲线。' : '模型不同或未记录，损失定义可能不同，不叠加曲线。'}指标仍可并列查看，但请结合数据集和任务理解。</p>}
   </section>
 }
 

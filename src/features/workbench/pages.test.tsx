@@ -1,10 +1,16 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { workbenchStages, type WorkbenchStage } from '../../app/workbenchTypes'
+import { useState } from 'react'
+import { workbenchStages, type ModelKind, type WorkbenchStage } from '../../app/workbenchTypes'
 import { DatasetPage, ExperimentSetupPage, ModelPage, ResultsPage, TrainingPage, WorkbenchNavigation, WorkbenchStageView, type ExperimentRecord } from './pages'
 
 afterEach(() => cleanup())
+
+function ControlledExperimentSetup() {
+  const [model, setModel] = useState<ModelKind>('knn')
+  return <ExperimentSetupPage model={model} onModelChange={setModel} onDatasetChange={() => {}} />
+}
 
 describe('工作台子页面', () => {
   it('在合并准备页同时显示紧凑模型选择和数据预览', () => {
@@ -36,6 +42,68 @@ describe('工作台子页面', () => {
 
     rerender(<ExperimentSetupPage model="linear-regression" onModelChange={onModelChange} onDatasetChange={vi.fn()} />)
     expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('linear-regression')
+  })
+
+  it('准备页任务标签用左右方向键循环移动焦点并同步任务和首个模型', async () => {
+    const user = userEvent.setup()
+    render(<ControlledExperimentSetup />)
+    const tabs = within(screen.getByRole('tablist', { name: '任务类型' })).getAllByRole('tab')
+    expect(tabs.map((tab) => tab.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1'])
+
+    tabs[0].focus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: '回归' })).toHaveFocus()
+    expect(screen.getByRole('tab', { name: '回归' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('linear-regression')
+
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: '聚类' })).toHaveFocus()
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('k-means')
+
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getByRole('tab', { name: '回归' })).toHaveFocus()
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('linear-regression')
+
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getByRole('tab', { name: '分类' })).toHaveFocus()
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('knn')
+
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getByRole('tab', { name: '降维' })).toHaveFocus()
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('pca')
+
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: '分类' })).toHaveFocus()
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('knn')
+  })
+
+  it('准备页任务标签支持 Home 和 End 聚焦并选择首末任务', async () => {
+    const user = userEvent.setup()
+    render(<ControlledExperimentSetup />)
+    const tabs = within(screen.getByRole('tablist', { name: '任务类型' })).getAllByRole('tab')
+    tabs[0].focus()
+
+    await user.keyboard('{End}')
+    expect(screen.getByRole('tab', { name: '降维' })).toHaveFocus()
+    expect(screen.getByRole('tab', { name: '降维' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('pca')
+
+    await user.keyboard('{Home}')
+    expect(screen.getByRole('tab', { name: '分类' })).toHaveFocus()
+    expect(screen.getByRole('tab', { name: '分类' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('knn')
+  })
+
+  it('准备页任务标签用键盘移动时跳过禁用项', async () => {
+    const user = userEvent.setup()
+    render(<ControlledExperimentSetup />)
+    const tabs = within(screen.getByRole('tablist', { name: '任务类型' })).getAllByRole('tab')
+    tabs[1].setAttribute('disabled', '')
+    tabs[0].focus()
+
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: '聚类' })).toHaveFocus()
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('k-means')
   })
 
   it('数据集页面显示选择和 CSV 上传入口', () => {
