@@ -176,6 +176,19 @@ describe('工作台上下文帮助内容', () => {
     expect(content).not.toContain('训练集指标使用训练集；验证集指标使用验证集')
   })
 
+  it('历史实验缺少模型和来源时不串用当前实验上下文', () => {
+    const content = getGuidanceContent({
+      page: 'history',
+      model: 'dbscan',
+      evaluationSources: { result: '当前 DBSCAN 结果来源' },
+      selectedHistoryExperiment: { task: 'clustering' },
+    }).current.paragraphs.join('')
+
+    expect(content).not.toContain('噪声标签 -1')
+    expect(content).not.toContain('当前 DBSCAN 结果来源')
+    expect(content).toContain('聚类结果来源：未记录')
+  })
+
   it('没有选中历史实验时保留通用历史帮助', () => {
     const content = getGuidanceContent({
       page: 'history',

@@ -83,7 +83,12 @@ function historyChapter(context: GuidanceContext): GuidanceChapter {
 
   const selected = context.selectedHistoryExperiment
   if (selected) {
-    const selectedContext: GuidanceContext = { ...context, ...selected }
+    const selectedContext: GuidanceContext = {
+      ...context,
+      task: selected.task,
+      model: selected.model,
+      evaluationSources: selected.evaluationSources,
+    }
     const description = selected.model
       ? `所选实验：${taskNames[selected.task]} · ${modelNames[selected.model]}。`
       : `所选实验任务：${taskNames[selected.task]}。`
