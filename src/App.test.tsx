@@ -205,7 +205,7 @@ describe('实验工作台', () => {
     act(() => useWorkbenchStore.getState().setTraining({ status: '训练已暂停', snapshots: [{ iteration: 1, loss: 1 }] }))
     await user.click(screen.getByRole('button', { name: '单步' }))
     expect(useWorkbenchStore.getState().training.snapshots).toEqual([{ iteration: 1, loss: 1 }])
-    expect(within(screen.getByRole('main', { name: '训练画布' })).getByText('第 1 次迭代 · 损失 1.0000')).toBeInTheDocument()
+    expect(within(screen.getByRole('main', { name: '训练画布' })).getByRole('listitem', { name: '第 1 次迭代，损失 1.0000' })).toHaveTextContent('#1 · 1.0000')
   })
 
   it('重新进入实验流程时清空当前结果且历史记录仍可查看', async () => {
