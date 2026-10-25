@@ -230,6 +230,38 @@ describe('工作台上下文帮助内容', () => {
     expect(content).toContain('聚类结果来源：未记录')
   })
 
+  it('历史页完整章节只使用所选实验的任务、模型和来源上下文', () => {
+    const guidance = getGuidanceContent({
+      page: 'history',
+      task: 'classification',
+      model: 'dbscan',
+      trainingStatus: '训练中…',
+      capability: capability(true, true, 'iteration'),
+      evaluationSources: { result: '当前 DBSCAN 来源' },
+      selectedHistoryExperiment: { task: 'clustering' },
+    })
+    const content = guidance.chapters.flatMap((chapter) => [chapter.title, ...chapter.paragraphs]).join('')
+
+    expect(content).not.toContain('噪声标签 -1')
+    expect(content).not.toContain('当前 DBSCAN 来源')
+    expect(content).not.toContain('训练中可以暂停')
+    expect(content).toContain('聚类结果来源：未记录')
+  })
+
+  it('无选中历史记录时完整流程不显示当前实验来源或 CNN 结构章节', () => {
+    const guidance = getGuidanceContent({
+      page: 'history',
+      task: 'classification',
+      model: 'visual-cnn',
+      evaluationSources: { train: '当前训练集来源', validation: '当前验证集来源' },
+    })
+    const content = guidance.chapters.flatMap((chapter) => [chapter.title, ...chapter.paragraphs]).join('')
+
+    expect(content).not.toContain('当前训练集来源')
+    expect(content).not.toContain('当前验证集来源')
+    expect(guidance.chapters.map((chapter) => chapter.id)).not.toContain('workflow-architecture')
+  })
+
   it('没有选中历史实验时保留通用历史帮助', () => {
     const content = getGuidanceContent({
       page: 'history',

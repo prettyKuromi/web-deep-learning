@@ -75,6 +75,17 @@ const setupChapter: GuidanceChapter = {
   ],
 }
 
+function getSelectedHistoryGuidanceContext(context: GuidanceContext): GuidanceContext | undefined {
+  const selected = context.selectedHistoryExperiment
+  if (!selected) return undefined
+  return {
+    page: 'workflow',
+    task: selected.task,
+    model: selected.model,
+    evaluationSources: selected.evaluationSources,
+  }
+}
+
 function historyChapter(context: GuidanceContext): GuidanceChapter {
   const paragraphs = [
     '这里保存已完成的实验。选择记录可查看详情，勾选多条记录可比较适用指标、参数和训练信息。',
@@ -82,13 +93,8 @@ function historyChapter(context: GuidanceContext): GuidanceChapter {
   ]
 
   const selected = context.selectedHistoryExperiment
-  if (selected) {
-    const selectedContext: GuidanceContext = {
-      ...context,
-      task: selected.task,
-      model: selected.model,
-      evaluationSources: selected.evaluationSources,
-    }
+  const selectedContext = getSelectedHistoryGuidanceContext(context)
+  if (selected && selectedContext) {
     const description = selected.model
       ? `所选实验：${taskNames[selected.task]} · ${modelNames[selected.model]}。`
       : `所选实验任务：${taskNames[selected.task]}。`
@@ -208,10 +214,13 @@ function architectureChapter(context: GuidanceContext): GuidanceChapter {
 
 export function getGuidanceContent(context: GuidanceContext): GuidanceContent {
   const view = context.canvasView ?? 'training'
+  const workflowContext = context.page === 'history'
+    ? getSelectedHistoryGuidanceContext(context) ?? { page: 'workflow' as const }
+    : context
   const history = historyChapter(context)
-  const training = trainingChapter(context)
-  const results = resultChapter(context)
-  const architecture = context.model === 'visual-cnn' ? architectureChapter(context) : undefined
+  const training = trainingChapter(workflowContext)
+  const results = resultChapter(workflowContext)
+  const architecture = workflowContext.model === 'visual-cnn' ? architectureChapter(workflowContext) : undefined
   const workflowChapter = view === 'results' ? results : view === 'architecture' && architecture ? architecture : training
   const chapters = [setupChapter, training, results, ...(architecture ? [architecture] : []), history]
   const current = context.page === 'setup'
