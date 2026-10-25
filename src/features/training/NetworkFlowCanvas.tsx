@@ -7,6 +7,13 @@ import './NetworkFlowCanvas.css'
 type LayerType = VisualLayer['type']
 type InsertPosition = { index: number; label: string }
 
+const layerParameterHelp: Partial<Record<LayerType, string>> = {
+  conv2d: '滤波器数量决定卷积层能学习多少种局部特征。',
+  dense: '神经元数量决定全连接层组合特征的能力。',
+  activation: '激活函数为网络加入非线性，影响它能学习的关系。',
+  dropout: '训练时随机停用部分神经元，帮助减轻过拟合。',
+}
+
 function createLayer(type: LayerType, layers: readonly VisualLayer[]): VisualLayer {
   const prefix = { conv2d: 'conv', 'max-pool': 'pool', dense: 'dense', activation: 'activation', dropout: 'dropout' }[type]
   const ids = new Set(layers.map(layer => layer.id))
@@ -65,6 +72,7 @@ export function NetworkFlowCanvas({ layers, imageShape, status, snapshots, onCha
 
   return <section className={`network-flow-canvas ${status === '训练中…' ? 'is-flowing' : ''}`} aria-label="神经网络数据流">
     <header><div><p className="eyebrow">网络数据流</p><h3>神经网络数据流</h3></div><span role="status">{status}</span></header>
+    {editable && <p id="network-flow-insertion-help" className="network-flow-help">点击“＋”可在网络层前后插入新层；拖动层卡片可调整顺序。</p>}
     {!network.valid && <ul className="network-flow-errors" role="alert">{network.errors.map((error, index) => <li key={`${error}-${index}`}>{error}</li>)}</ul>}
     <div className="network-flow-viewport">
       <div className="network-flow-track">
@@ -74,6 +82,8 @@ export function NetworkFlowCanvas({ layers, imageShape, status, snapshots, onCha
         </div>
         {network.layers.slice(0, -1).map((description, index) => {
           const layer = layers[index]
+          const parameterHelpId = `network-flow-parameter-help-${index}`
+          const parameterHelp = layerParameterHelp[layer.type]
           return <div className="network-flow-step" key={layer.id}>
             <div className="network-flow-link" style={{ '--flow-delay': `${index * 180}ms` } as CSSProperties}>
               <i />
@@ -81,10 +91,11 @@ export function NetworkFlowCanvas({ layers, imageShape, status, snapshots, onCha
                 <strong>{description.name}</strong>
                 <small>{description.shape} · {description.parameters.toLocaleString()} 参数{latest?.[index] ? ` · 激活 ${latest[index].activation.toFixed(2)}` : ''}</small>
                 {editable && <div className="network-flow-controls" onClick={event => event.stopPropagation()}>
-                  {layer.type === 'conv2d' && <label>滤波器 <input aria-label="卷积滤波器数" type="number" min="1" max="32" step="1" value={layer.filters} onChange={event => update(index, { filters: Number(event.target.value) })} /></label>}
-                  {layer.type === 'dense' && <label>神经元 <input aria-label="全连接神经元数" type="number" min="1" max="128" step="1" value={layer.units} onChange={event => update(index, { units: Number(event.target.value) })} /></label>}
-                  {layer.type === 'activation' && <label>函数 <select aria-label="激活函数" value={layer.activation} onChange={event => update(index, { activation: event.target.value as VisualActivation })}><option value="relu">ReLU</option><option value="tanh">Tanh</option><option value="sigmoid">Sigmoid</option></select></label>}
-                  {layer.type === 'dropout' && <label>丢弃率 <input aria-label="Dropout 丢弃率" type="number" min="0" max="0.8" step="0.05" value={layer.rate} onChange={event => update(index, { rate: Number(event.target.value) })} /></label>}
+                  {layer.type === 'conv2d' && <label>滤波器 <input aria-label="卷积滤波器数" aria-describedby={parameterHelpId} type="number" min="1" max="32" step="1" value={layer.filters} onChange={event => update(index, { filters: Number(event.target.value) })} /></label>}
+                  {layer.type === 'dense' && <label>神经元 <input aria-label="全连接神经元数" aria-describedby={parameterHelpId} type="number" min="1" max="128" step="1" value={layer.units} onChange={event => update(index, { units: Number(event.target.value) })} /></label>}
+                  {layer.type === 'activation' && <label>函数 <select aria-label="激活函数" aria-describedby={parameterHelpId} value={layer.activation} onChange={event => update(index, { activation: event.target.value as VisualActivation })}><option value="relu">ReLU</option><option value="tanh">Tanh</option><option value="sigmoid">Sigmoid</option></select></label>}
+                  {layer.type === 'dropout' && <label>丢弃率 <input aria-label="Dropout 丢弃率" aria-describedby={parameterHelpId} type="number" min="0" max="0.8" step="0.05" value={layer.rate} onChange={event => update(index, { rate: Number(event.target.value) })} /></label>}
+                  {parameterHelp && <small id={parameterHelpId} className="network-flow-control-help">{parameterHelp}</small>}
                 </div>}
               </article>
             </div>
@@ -103,5 +114,5 @@ export function NetworkFlowCanvas({ layers, imageShape, status, snapshots, onCha
 }
 
 function InsertionControl({ label, onClick }: { label: string; onClick: () => void }) {
-  return <button className="network-flow-insert" type="button" aria-label={`在${label}插入`} onClick={onClick}>＋</button>
+  return <button className="network-flow-insert" type="button" aria-label={`在${label}插入`} aria-describedby="network-flow-insertion-help" onClick={onClick}>＋</button>
 }

@@ -181,6 +181,39 @@ describe('WorkbenchGuidance', () => {
     expect(screen.queryByRole('region', { name: '操作说明面板' })).not.toBeInTheDocument()
   })
 
+  it('焦点留在帮助入口时按 Escape 关闭帮助', async () => {
+    const user = userEvent.setup()
+    const onHelpOpenChange = vi.fn()
+    const { rerender } = render(
+      <WorkbenchGuidance
+        context={context('setup')}
+        dismissedHintIds={[]}
+        helpOpen
+        onHelpOpenChange={onHelpOpenChange}
+        onDismissHint={vi.fn()}
+        onRestoreHints={vi.fn()}
+      />,
+    )
+
+    const trigger = screen.getByRole('button', { name: '操作说明' })
+    trigger.focus()
+    await user.keyboard('{Escape}')
+
+    expect(onHelpOpenChange).toHaveBeenCalledWith(false)
+    expect(document.activeElement).toBe(trigger)
+    rerender(
+      <WorkbenchGuidance
+        context={context('setup')}
+        dismissedHintIds={[]}
+        helpOpen={false}
+        onHelpOpenChange={onHelpOpenChange}
+        onDismissHint={vi.fn()}
+        onRestoreHints={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('region', { name: '操作说明面板' })).not.toBeInTheDocument()
+  })
+
   it('点击关闭帮助后将焦点返回入口', async () => {
     const user = userEvent.setup()
     const onHelpOpenChange = vi.fn()

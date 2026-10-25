@@ -370,6 +370,39 @@ describe('单页训练工作台', () => {
     expect(screen.getByRole('region', { name: '模型解释与结果' })).toHaveTextContent('图像分类结果')
   })
 
+  it('向上层报告 CNN 默认结构视图、手动切换和训练完成后的自动结果视图', async () => {
+    const user = userEvent.setup()
+    const onCanvasViewChange = vi.fn()
+    const imageDataset = {
+      features: [Array(64).fill(0)],
+      labels: [0],
+      dataType: 'image' as const,
+      imageShape: { width: 8, height: 8, channels: 1 },
+    }
+    const { rerender } = render(<SinglePageWorkbench
+      {...baseProps}
+      model="visual-cnn"
+      dataset={imageDataset}
+      visualLayers={defaultVisualLayers()}
+      status="训练中…"
+      onCanvasViewChange={onCanvasViewChange}
+    />)
+
+    expect(onCanvasViewChange).toHaveBeenLastCalledWith('architecture')
+    await user.click(screen.getByRole('tab', { name: '训练过程' }))
+    expect(onCanvasViewChange).toHaveBeenLastCalledWith('training')
+
+    rerender(<SinglePageWorkbench
+      {...baseProps}
+      model="visual-cnn"
+      dataset={imageDataset}
+      visualLayers={defaultVisualLayers()}
+      status="训练完成"
+      onCanvasViewChange={onCanvasViewChange}
+    />)
+    expect(onCanvasViewChange).toHaveBeenLastCalledWith('results')
+  })
+
   it('移除实验步骤卡片并保留配置与数据集上下文', () => {
     render(<SinglePageWorkbench {...baseProps} />)
 

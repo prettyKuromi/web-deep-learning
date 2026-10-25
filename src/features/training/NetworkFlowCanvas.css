@@ -2,6 +2,7 @@
 .network-flow-canvas header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .network-flow-canvas h3, .network-flow-canvas p { margin: 0; }
 .network-flow-canvas header span { color: var(--muted); font-size: .72rem; }
+.network-flow-help { color: var(--muted); font-size: .76rem; line-height: 1.45; }
 .network-flow-viewport { min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-color: rgba(112,238,255,.32) transparent; }
 .network-flow-track { display: flex; align-items: center; width: max-content; min-height: 164px; gap: 0; padding: 12px 6px 22px; }
 .network-flow-step { display: flex; align-items: center; gap: 8px; }
@@ -16,6 +17,7 @@
 .network-flow-link > i { position: relative; flex: none; display: block; width: 28px; height: 2px; background: rgba(112,238,255,.45); overflow: hidden; }
 .network-flow-link > i::after { content: ''; position: absolute; top: -3px; left: -8px; width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 9px var(--cyan); }
 .network-flow-controls { display: grid; gap: 5px; margin-top: 2px; }
+.network-flow-control-help { color: var(--muted); font-size: .61rem; line-height: 1.35; }
 .network-flow-controls label { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 7px; color: var(--muted); font-size: .64rem; }
 .network-flow-controls input, .network-flow-controls select { width: 100%; min-width: 0; border: 1px solid rgba(112,238,255,.28); border-radius: 6px; padding: 4px 6px; color: var(--text, #eff7ff); background: rgba(4,14,35,.72); font: inherit; }
 .network-flow-insertions { display: flex; align-items: center; gap: 5px; }

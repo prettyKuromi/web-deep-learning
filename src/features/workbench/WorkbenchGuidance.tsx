@@ -38,7 +38,7 @@ export function WorkbenchGuidance({
   }
 
   const handlePanelKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && helpOpen) {
       event.preventDefault()
       event.stopPropagation()
       closeHelp()
@@ -70,6 +70,7 @@ export function WorkbenchGuidance({
           aria-expanded={helpOpen}
           aria-controls={helpOpen ? panelId : undefined}
           onClick={() => helpOpen ? closeHelp() : onHelpOpenChange(true)}
+          onKeyDown={handlePanelKeyDown}
         >
           操作说明
         </button>

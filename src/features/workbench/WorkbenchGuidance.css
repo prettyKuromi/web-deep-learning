@@ -74,6 +74,11 @@
   margin: 0;
 }
 
+.workbench-guidance-panel h2,
+.workbench-guidance-panel h3 {
+  color: #273449;
+}
+
 .workbench-guidance-panel h2 {
   font-size: 1.1rem;
 }

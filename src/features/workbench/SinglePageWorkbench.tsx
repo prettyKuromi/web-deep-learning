@@ -34,9 +34,10 @@ export interface SinglePageWorkbenchProps {
   onStopTraining?: () => void; onResetTraining?: () => void; currentResult?: CurrentResult
   resultPanel?: ReactNode;
   explanation?: ReactNode; error?: string
+  onCanvasViewChange?: (view: CanvasView) => void
 }
 
-export function SinglePageWorkbench({ parametersValid = true, onParamsValidityChange, model, params, status, snapshots, dataset, visualLayers, onVisualLayersChange, datasetName, onChangeDataset, onModelChange, onParamsChange, onStartTraining, onPauseTraining, onStepTraining, onResumeTraining, onStopTraining, onResetTraining, currentResult, resultPanel, explanation, error, capability, evaluationConfig = { enabled: false, validationSplit: .2, seed: 42 }, onEvaluationConfigChange }: SinglePageWorkbenchProps) {
+export function SinglePageWorkbench({ parametersValid = true, onParamsValidityChange, model, params, status, snapshots, dataset, visualLayers, onVisualLayersChange, datasetName, onChangeDataset, onModelChange, onParamsChange, onStartTraining, onPauseTraining, onStepTraining, onResumeTraining, onStopTraining, onResetTraining, currentResult, resultPanel, explanation, error, capability, evaluationConfig = { enabled: false, validationSplit: .2, seed: 42 }, onEvaluationConfigChange, onCanvasViewChange }: SinglePageWorkbenchProps) {
   const activeDataset = dataset ?? { features: [], labels: [], dataType: 'tabular' as const }
   const activeVisualLayers = visualLayers ?? []
   const isVisualCnn = model === 'visual-cnn' && Boolean(activeDataset.imageShape)
@@ -106,6 +107,7 @@ export function SinglePageWorkbench({ parametersValid = true, onParamsValidityCh
     nextTab.focus()
   }
   const activeCanvasView = canvasView === 'architecture' && !isVisualCnn ? 'training' : canvasView
+  useEffect(() => { onCanvasViewChange?.(activeCanvasView) }, [activeCanvasView, onCanvasViewChange])
   const isComplete = isCompletedStatus(status)
   const canvasEyebrow = activeCanvasView === 'results' ? '模型解读' : activeCanvasView === 'architecture' ? '网络编辑' : '实时训练'
   const canvasTitle = activeCanvasView === 'results' ? '模型解释与结果' : activeCanvasView === 'architecture' ? 'CNN 网络结构' : '训练过程'

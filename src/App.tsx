@@ -26,6 +26,9 @@ import { saveExperiment, exportExperiments, importExperiments, deleteExperiment 
 import { datasetFingerprint, createRunMetadata, serializeExperimentReport, reportFilename } from './features/persistence/reproducibility'
 import { experimentMetricGroups } from './features/persistence/experimentMetrics'
 import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/workbench/HistoryPage'
+import { WorkbenchGuidance } from './features/workbench/WorkbenchGuidance'
+import { dismissGuidanceHint, readGuidancePreferences, restoreGuidanceHints, type GuidancePreferences } from './features/workbench/guidancePreferences'
+import type { GuidanceCanvasView, GuidanceContext, GuidanceEvaluationSources } from './features/workbench/guidanceContent'
 import { formatParameterLabel, formatParameterValue } from './features/workbench/experimentParameterFormat'
 import { ExperimentSetupPage } from './features/workbench/pages'
 import type { DatasetImportState } from './features/datasets/DatasetPanel'
@@ -46,11 +49,26 @@ const predictionLabel = (kind: ModelKind, model: unknown, point: readonly number
   return Array.isArray(value) ? value[0] : value
 }
 
+function evaluationSourcesForGuidance(record?: ExperimentRecord): GuidanceEvaluationSources | undefined {
+  if (!record) return undefined
+  const sources: GuidanceEvaluationSources = {}
+  for (const group of experimentMetricGroups(record)) {
+    if (group.metrics.length === 0) continue
+    if (group.source === '训练集') sources.train = group.source
+    else if (group.source === '验证集') sources.validation = group.source
+    else sources.result ??= group.source
+  }
+  return sources
+}
+
 export default function App() {
   const { dataset, setDataset, modelConfig, setModelConfig, training, setTraining, experiments, addExperiment } = useWorkbenchStore()
   const [currentExperimentId, setCurrentExperimentId] = useState<string>()
   const [historySelectedId, setHistorySelectedId] = useState<string>()
   const [topPage, setTopPage] = useState<TopLevelPage>('setup')
+  const [guidancePreferences, setGuidancePreferences] = useState<GuidancePreferences>(readGuidancePreferences)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [canvasView, setCanvasView] = useState<GuidanceCanvasView>('training')
   const [persistenceNotice, setPersistenceNotice] = useState('')
   const [historyError, setHistoryError] = useState('')
   const [datasetConfirmed, setDatasetConfirmed] = useState(false)
@@ -69,6 +87,17 @@ export default function App() {
   const trainers = useMemo(() => Object.fromEntries((Object.keys(defaults) as ModelKind[]).map((kind) => [kind, createTrainer(kind)])) as Record<string, any>, [])
   const currentExperiment = experiments.find((record) => record.id === currentExperimentId)
   const historySelected = experiments.find((record) => record.id === historySelectedId)
+  const currentEvaluationSources = useMemo(() => evaluationSourcesForGuidance(currentExperiment), [currentExperiment])
+  const historyEvaluationSources = useMemo(() => evaluationSourcesForGuidance(historySelected), [historySelected])
+  const handleCanvasViewChange = useCallback((view: GuidanceCanvasView) => {
+    setCanvasView((current) => current === view ? current : view)
+  }, [])
+  const handleGuidanceDismiss = useCallback((hintId: string) => {
+    setGuidancePreferences((current) => dismissGuidanceHint(hintId, current))
+  }, [])
+  const handleGuidanceRestore = useCallback(() => {
+    setGuidancePreferences(restoreGuidanceHints())
+  }, [])
   const handleImportStateChange = useCallback((state: DatasetImportState) => {
     setDatasetImportState(state)
     if (state.pending || state.error) setDatasetConfirmed(false)
@@ -295,16 +324,34 @@ export default function App() {
 
   const records = experiments.map((record) => ({ id: record.id, datasetName: record.dataset.name ?? '未命名数据集', model: modelNames[record.modelKind], modelKind: record.modelKind, task: modelTask[record.modelKind], snapshots: record.snapshots, runMetadata: record.runMetadata, timestamp: new Date(record.createdAt).toLocaleString('zh-CN'), summary: experimentSummary(record), metrics: record.metrics ?? {}, sampleCount: record.dataset.features.length, featureCount: record.dataset.features[0]?.length ?? 0, sequenceShape: record.dataset.sequenceShape, config: record.config, evaluation: record.evaluation, metricGroups: experimentMetricGroups(record) }))
   const activeModel = modelConfig.kind ?? recommendedModel(dataset)
+  const guidanceContext: GuidanceContext = topPage === 'history'
+    ? {
+      page: 'history',
+      selectedHistoryExperiment: historySelected ? {
+        task: modelTask[historySelected.modelKind],
+        model: historySelected.modelKind,
+        evaluationSources: historyEvaluationSources,
+      } : undefined,
+    }
+    : {
+      page: topPage,
+      ...(topPage === 'workflow' ? { canvasView } : {}),
+      task: modelTask[activeModel],
+      model: activeModel,
+      trainingStatus: training.status,
+      capability: training.capability ?? getTrainingCapability(activeModel, { ...defaults[activeModel], ...modelConfig.params }),
+      evaluationSources: currentEvaluationSources,
+    }
   const explanationPanel = <ModelExplanationPanel kind={activeModel} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.dataType === 'sequence' ? undefined : dataset.features[0]?.length} />
   return <main className="app-shell">
     <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">web-deep-learning</p><h1>机器学习实验工作台</h1><p className="header-subtitle">选择模型与数据后，观察训练过程和结果。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
-    <TopLevelNavigation activePage={topPage} configurationDisabled={trainingActive} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} />
+    <TopLevelNavigation activePage={topPage} configurationDisabled={trainingActive} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} guidanceContent={<WorkbenchGuidance context={guidanceContext} dismissedHintIds={guidancePreferences.dismissedHintIds} helpOpen={helpOpen} onHelpOpenChange={setHelpOpen} onDismissHint={handleGuidanceDismiss} onRestoreHints={handleGuidanceRestore} />} />
     <section className="app-content">{topPage === 'setup' ? <ExperimentSetupPage model={activeModel} onModelChange={handleModelSelection} initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; if (!modelConfig.kind) handleModelSelection(activeModel); setDatasetConfirmed(true); enterWorkflow() }} /> : topPage === 'workflow' ? <SinglePageWorkbench
       dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={layers => { invalidateConfiguration(); setVisualLayers(layers) }} model={activeModel} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots} capability={training.capability} evaluationConfig={evaluationConfig} onEvaluationConfigChange={config => { invalidateConfiguration(); setEvaluationConfig(config) }}
       onDatasetChange={handleDatasetChange} onChangeDataset={() => handleTopPageChange('setup')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}
       parametersValid={parametersValid} onParamsValidityChange={valid => { setParametersValid(valid); if (!valid) invalidateConfiguration() }}
       onModelChange={(kind) => { resetTraining(); setParametersValid(true); setModelConfig({ kind, params: defaults[kind] }) }} onParamsChange={(params) => { invalidateConfiguration(); setModelConfig({ params }) }}
-      onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining}
+      onStartTraining={runTraining} onPauseTraining={pauseTraining} onStepTraining={stepTraining} onResumeTraining={resumeTraining} onStopTraining={stopTraining} onResetTraining={resetTraining} onCanvasViewChange={handleCanvasViewChange}
       explanation={explanationPanel} resultPanel={currentExperiment ? <ExperimentResultPanel record={currentExperiment} predict={(point) => predictionLabel(currentExperiment.modelKind, currentExperiment.model, point)} /> : undefined} error={training.error}
     /> : <HistoryPage records={records} selectedId={historySelectedId} onSelect={(item) => setHistorySelectedId(item.id)} selectedDetail={historySelected ? <ExperimentDetail record={historySelected} /> : undefined} importError={historyError || persistenceNotice} onExport={async () => { const json = await exportExperiments(useWorkbenchStore.getState().experiments); const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'web-deep-learning-experiments.json'; anchor.click(); URL.revokeObjectURL(url) }} onExportReport={async (format) => { if (!historySelected) return; try { const content = await serializeExperimentReport(historySelected, format); anchorDownload(content, format === 'html' ? 'text/html;charset=utf-8' : 'text/markdown;charset=utf-8', reportFilename(historySelected, format)); setHistoryError('') } catch (error) { setHistoryError(error instanceof Error ? error.message : '报告导出失败：请稍后重试') } }} onImport={async (file: File) => { try { const records = await importExperiments(await file.text()); useWorkbenchStore.getState().mergeExperiments(records); setHistoryError('') } catch (error) { setHistoryError(error instanceof Error ? error.message : '导入失败') } }} onDelete={(id) => { void Promise.resolve(deleteExperiment(id)).then(() => { useWorkbenchStore.getState().removeExperiment(id); if (historySelectedId === id) setHistorySelectedId(undefined) }).catch(() => setHistoryError('删除失败：本地存储不可用')) }} />}</section>
   </main>

@@ -52,6 +52,34 @@ describe('网络数据流画布', () => {
     expect(buttons[0]).toHaveAccessibleName('在输入后插入')
   })
 
+  it('在插入按钮附近可见说明并为键盘控件提供关联描述', () => {
+    render(<NetworkFlowCanvas layers={defaultVisualLayers()} imageShape={imageShape} status="就绪" snapshots={snapshots} onChange={vi.fn()} />)
+    const help = screen.getByText('点击“＋”可在网络层前后插入新层；拖动层卡片可调整顺序。')
+    const button = screen.getAllByRole('button', { name: /在.*插入/ })[0]
+
+    expect(help).toBeVisible()
+    expect(button).toHaveAttribute('aria-describedby', help.id)
+  })
+
+  it('为 CNN 可编辑层参数就近解释并关联辅助说明', () => {
+    render(<NetworkFlowCanvas layers={defaultVisualLayers()} imageShape={imageShape} status="就绪" snapshots={snapshots} onChange={vi.fn()} />)
+    const cases = [
+      ['卷积滤波器数', '滤波器数量决定卷积层能学习多少种局部特征。'],
+      ['全连接神经元数', '神经元数量决定全连接层组合特征的能力。'],
+      ['激活函数', '激活函数为网络加入非线性，影响它能学习的关系。'],
+      ['Dropout 丢弃率', '训练时随机停用部分神经元，帮助减轻过拟合。'],
+    ]
+
+    for (const [label, expectedText] of cases) {
+      const input = screen.getAllByLabelText(label)[0]
+      const helpId = input.getAttribute('aria-describedby')
+      const help = helpId ? document.getElementById(helpId) : null
+
+      expect(help).toBeVisible()
+      expect(help).toHaveTextContent(expectedText)
+    }
+  })
+
   it('通过拖放重排用户层', () => {
     const onChange = vi.fn()
     render(<NetworkFlowCanvas layers={defaultVisualLayers()} imageShape={imageShape} status="就绪" snapshots={snapshots} onChange={onChange} />)

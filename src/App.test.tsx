@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { formatParameterLabel, formatParameterValue } from './features/workbench/experimentParameterFormat'
 import { useWorkbenchStore } from './app/workbenchStore'
+import type { ExperimentRecord } from './app/workbenchTypes'
+import { generateBuiltinDataset } from './features/datasets/dataset'
 
 describe('实验工作台', () => {
   afterEach(() => cleanup())
@@ -261,4 +263,119 @@ describe('实验工作台', () => {
     await user.click(screen.getByRole('tab', { name: '训练过程' }))
     expect(screen.getByText('配置已修改，请重新训练')).toBeInTheDocument()
   }, 20000)
+
+  it('在页面切换时保留共享帮助面板和各页提示收起状态', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(screen.getAllByRole('region', { name: '页面操作提示' })).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: '我知道了' }))
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
+    expect(screen.getByRole('region', { name: '当前章节' })).toHaveTextContent('模型与数据')
+
+    await user.click(screen.getByRole('tab', { name: '历史记录' }))
+    expect(screen.getByRole('region', { name: '操作说明面板' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '当前章节' })).toHaveTextContent('历史记录')
+    expect(screen.getAllByRole('region', { name: '页面操作提示' })).toHaveLength(1)
+
+    await user.click(screen.getByRole('tab', { name: '模型与数据' }))
+    expect(screen.queryByRole('region', { name: '页面操作提示' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    expect(screen.getByRole('region', { name: '页面操作提示' })).toHaveTextContent('配置模型参数')
+    expect(screen.getByRole('region', { name: '操作说明面板' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '我知道了' }))
+    await user.click(screen.getByRole('button', { name: '开始训练' }))
+    await screen.findByRole('region', { name: '当前结果' })
+    await user.click(screen.getByRole('button', { name: '重置' }))
+    expect(screen.queryByRole('region', { name: '页面操作提示' })).not.toBeInTheDocument()
+
+    await user.click(within(screen.getByRole('region', { name: '操作说明面板' })).getByRole('button', { name: '恢复页面提示' }))
+    expect(screen.getAllByRole('region', { name: '页面操作提示' })).toHaveLength(1)
+  })
+
+  it('历史帮助只展示所选记录的实际指标来源，缺失来源不按评估配置推断', async () => {
+    const user = userEvent.setup()
+    const dataset = generateBuiltinDataset('moons')
+    const baseRecord: ExperimentRecord = {
+      id: 'history-metrics',
+      createdAt: 200,
+      dataset,
+      modelKind: 'knn',
+      config: { k: 5 },
+      metrics: { accuracy: 0.9, precision: 0.9, recall: 0.9, f1: 0.9, labels: [0, 1], confusionMatrix: [[9, 1], [1, 9]] },
+      snapshots: [],
+      predictions: dataset.labels,
+    }
+    const missingSourcesRecord: ExperimentRecord = {
+      id: 'history-no-sources',
+      createdAt: 100,
+      dataset,
+      modelKind: 'logistic-regression',
+      config: { iterations: 100 },
+      snapshots: [],
+      predictions: [],
+      evaluation: { config: { enabled: true, validationSplit: 0.25, seed: 7 }, trainSampleCount: 150, validationSampleCount: 50 },
+      runMetadata: { status: 'stopped' },
+    }
+    useWorkbenchStore.getState().addExperiment(baseRecord)
+    useWorkbenchStore.getState().addExperiment(missingSourcesRecord)
+    render(<App />)
+
+    await user.click(screen.getByRole('tab', { name: '历史记录' }))
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
+    let panel = screen.getByRole('region', { name: '操作说明面板' })
+    expect(panel).not.toHaveTextContent('训练集指标使用训练集')
+    expect(panel).not.toHaveTextContent('KNN')
+
+    const records = screen.getAllByRole('button', { name: /选择实验记录/ })
+    await user.click(records[0])
+    panel = screen.getByRole('region', { name: '操作说明面板' })
+    expect(panel).toHaveTextContent('所选实验：分类 · KNN')
+    expect(panel).toHaveTextContent('训练集指标使用训练集')
+
+    await user.click(screen.getAllByRole('button', { name: /选择实验记录/ })[1])
+    panel = screen.getByRole('region', { name: '操作说明面板' })
+    expect(panel).toHaveTextContent('所选实验：分类 · 逻辑回归')
+    expect(panel).toHaveTextContent('训练集指标使用未记录；验证集指标使用未记录。')
+  })
+
+  it('工作流帮助随画布视图和模型训练能力更新且不抢走焦点', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
+    const panel = screen.getByRole('region', { name: '操作说明面板' })
+    expect(within(panel).getByRole('region', { name: '当前章节' })).toHaveTextContent('训练过程')
+    expect(panel).toHaveTextContent('不支持暂停或单步')
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'logistic-regression')
+    expect(panel).toHaveTextContent('开始训练后可暂停')
+    expect(panel).toHaveTextContent('单步会完成一个迭代')
+
+    const resultsTab = screen.getByRole('tab', { name: '结果与解释' })
+    await user.click(resultsTab)
+    expect(within(panel).getByRole('region', { name: '当前章节' })).toHaveTextContent('结果与解释')
+    expect(panel).toHaveTextContent('训练集指标使用未记录')
+    expect(resultsTab).toHaveFocus()
+
+    const trainingTab = screen.getByRole('tab', { name: '训练过程' })
+    await user.click(trainingTab)
+    expect(within(panel).getByRole('region', { name: '当前章节' })).toHaveTextContent('训练过程')
+    expect(trainingTab).toHaveFocus()
+  })
+
+  it('进入 CNN 工作流时将默认网络结构视图同步到共享帮助', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'visual-cnn')
+    await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
+
+    const panel = screen.getByRole('region', { name: '操作说明面板' })
+    expect(within(panel).getByRole('region', { name: '当前章节' })).toHaveTextContent('网络结构')
+    expect(panel).toHaveTextContent('卷积、池化和全连接等网络层')
+  })
 })
