@@ -16,6 +16,24 @@ const context = (page: GuidanceContext['page'], canvasView: GuidanceContext['can
 })
 
 describe('WorkbenchGuidance', () => {
+  it('将页面提示与操作说明入口并排放置，并在同一行下方展开面板', () => {
+    render(
+      <WorkbenchGuidance
+        context={context('setup')}
+        dismissedHintIds={[]}
+        helpOpen
+        onHelpOpenChange={vi.fn()}
+        onDismissHint={vi.fn()}
+        onRestoreHints={vi.fn()}
+      />,
+    )
+
+    const row = document.querySelector('.workbench-guidance-row')
+    expect(row).toContainElement(screen.getByRole('region', { name: '页面操作提示' }))
+    expect(row).toContainElement(screen.getByRole('button', { name: '操作说明' }))
+    expect(row?.nextElementSibling).toHaveClass('workbench-guidance-panel')
+  })
+
   it.each([
     ['setup', '先选择要解决的任务和模型', GUIDANCE_HINT_IDS.setup],
     ['workflow', '配置模型参数并启动训练', GUIDANCE_HINT_IDS.workflow],

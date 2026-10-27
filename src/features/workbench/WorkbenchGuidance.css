@@ -1,40 +1,84 @@
 .workbench-guidance {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.workbench-guidance-row {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
+  align-items: stretch;
+  gap: 0.65rem;
   min-width: 0;
 }
 
 .workbench-guidance-hint {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #d7e4ff;
-  border-radius: 0.75rem;
-  background: #f5f8ff;
-  color: #26344d;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(88, 221, 255, 0.25);
+  border-radius: 0.7rem;
+  background: linear-gradient(120deg, rgba(18, 41, 70, 0.92), rgba(13, 29, 53, 0.88));
+  box-shadow: inset 0 1px 0 rgba(174, 224, 255, 0.04);
+  color: var(--ink-strong);
+}
+
+.workbench-guidance-hint-mark,
+.workbench-guidance-trigger-mark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(88, 221, 255, 0.34);
+  color: var(--cyan);
+  background: rgba(4, 20, 37, 0.58);
+  font-weight: 800;
+}
+
+.workbench-guidance-hint-mark {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.6rem;
+}
+
+.workbench-guidance-hint-content {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.workbench-guidance-hint-label {
+  color: var(--cyan);
+  font-size: 0.64rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
 }
 
 .workbench-guidance-hint p {
   margin: 0;
+  color: var(--ink-strong);
+  font-size: 0.76rem;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .workbench-guidance-hint button,
 .workbench-guidance-trigger,
 .workbench-guidance-panel button {
-  min-height: 2.5rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #ccd5e3;
-  border-radius: 0.5rem;
-  background: #fff;
-  color: #24334a;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--line-bright);
+  border-radius: 0.55rem;
+  color: var(--cyan-soft);
+  background: rgba(13, 31, 54, 0.86);
   font: inherit;
+  font-size: 0.74rem;
+  font-weight: 650;
+  white-space: nowrap;
   cursor: pointer;
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
 }
 
 .workbench-guidance-hint button,
@@ -42,23 +86,46 @@
   flex: 0 0 auto;
 }
 
-.workbench-guidance-help {
-  width: 100%;
+.workbench-guidance-hint button:hover,
+.workbench-guidance-trigger:hover,
+.workbench-guidance-panel button:hover {
+  border-color: var(--cyan);
+  color: var(--ink-strong);
+  background: rgba(39, 112, 160, 0.3);
+}
+
+.workbench-guidance-trigger {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.55rem;
+  margin-left: auto;
+  padding-inline: 0.85rem;
+  border-radius: 0.65rem;
+}
+
+.workbench-guidance-trigger-mark {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  line-height: 1;
 }
 
 .workbench-guidance-panel {
   display: grid;
-  gap: 1rem;
-  width: min(100%, 38rem);
+  gap: 0.85rem;
+  width: 100%;
   max-height: min(70vh, 38rem);
-  margin-top: 0.5rem;
   padding: 1rem;
   overflow: auto;
-  border: 1px solid #d8deea;
-  border-radius: 0.75rem;
-  background: #fff;
-  color: #273449;
-  box-shadow: 0 8px 24px rgb(25 42 70 / 10%);
+  overscroll-behavior: contain;
+  border: 1px solid var(--line-bright);
+  border-radius: 0.8rem;
+  background: linear-gradient(145deg, rgba(18, 35, 62, 0.97), rgba(10, 23, 44, 0.97));
+  color: var(--muted);
+  box-shadow: inset 0 1px 0 rgba(174, 224, 255, 0.05), 0 16px 36px rgba(0, 0, 0, 0.22);
 }
 
 .workbench-guidance-panel-header {
@@ -74,50 +141,96 @@
   margin: 0;
 }
 
-.workbench-guidance-panel h2,
-.workbench-guidance-panel h3 {
-  color: #273449;
-}
-
 .workbench-guidance-panel h2 {
-  font-size: 1.1rem;
+  color: var(--ink-strong);
+  font-size: 1rem;
+  letter-spacing: -0.015em;
 }
 
 .workbench-guidance-panel h3 {
-  margin-bottom: 0.5rem;
-  font-size: 0.98rem;
+  color: var(--cyan-soft);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
-.workbench-guidance-current,
+.workbench-guidance-current {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem 0.95rem;
+  border-left: 3px solid var(--cyan);
+  border-radius: 0.6rem;
+  background: rgba(88, 221, 255, 0.07);
+  line-height: 1.6;
+}
+
+.workbench-guidance-current p,
+.workbench-guidance-other-chapters p {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .workbench-guidance-other-chapters {
   display: grid;
-  gap: 0.5rem;
-  line-height: 1.55;
-}
-
-.workbench-guidance-other-chapters {
-  padding-top: 0.75rem;
-  border-top: 1px solid #e5e9f0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
 }
 
 .workbench-guidance-other-chapters article {
   display: grid;
+  align-content: start;
   gap: 0.4rem;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: rgba(4, 15, 30, 0.28);
 }
 
-.workbench-guidance button:focus-visible {
-  outline: 3px solid #537bdd;
-  outline-offset: 2px;
+.workbench-guidance-panel .workbench-guidance-restore {
+  justify-self: start;
 }
 
 @media (max-width: 40rem) {
+  .workbench-guidance-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.5rem;
+  }
+
   .workbench-guidance-hint {
-    align-items: flex-start;
-    flex-direction: column;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: 1.9rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.35rem 0.65rem;
+    padding: 0.7rem;
+  }
+
+  .workbench-guidance-hint-mark {
+    grid-row: 1 / span 2;
+  }
+
+  .workbench-guidance-hint button {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .workbench-guidance-trigger {
+    grid-column: 2;
+    justify-self: end;
   }
 
   .workbench-guidance-panel {
-    max-height: 65vh;
-    padding: 0.875rem;
+    max-height: min(65vh, calc(100dvh - 21rem));
+    padding: 0.75rem;
+  }
+
+  .workbench-guidance-other-chapters {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
