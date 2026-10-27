@@ -18,6 +18,7 @@ test.describe('工作台关键流程', () => {
 
   test('训练后可查看模型解释与损失曲线', async ({ page }) => {
     await page.goto('/')
+    await page.getByLabel('内置数据集').selectOption('moons')
     await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
     await page.getByRole('combobox', { name: '具体模型' }).selectOption('logistic-regression')
     await page.getByRole('button', { name: '开始训练' }).click()
@@ -31,6 +32,7 @@ test.describe('工作台关键流程', () => {
 
   test('暂停确认刷新快照、单步前进一单位，停止记录不显示最终结果', async ({ page }) => {
     await page.goto('/')
+    await page.getByLabel('内置数据集').selectOption('moons')
     await page.getByRole('combobox', { name: '具体模型' }).selectOption('logistic-regression')
     await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
     await page.getByRole('spinbutton', { name: '迭代次数' }).fill('5000')
@@ -82,6 +84,7 @@ test.describe('工作台关键流程', () => {
 
   test('KNN 使用验证集训练后将训练集指标成功持久化', async ({ page }) => {
     await page.goto('/')
+    await page.getByLabel('内置数据集').selectOption('moons')
     await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
     await page.getByRole('combobox', { name: '具体模型' }).selectOption('knn')
     await page.getByRole('checkbox', { name: /启用验证集/ }).check()
@@ -107,6 +110,7 @@ test.describe('工作台关键流程', () => {
 
   test('回归任务导入数值 CSV 后可启用验证集训练', async ({ page }) => {
     await page.goto('/')
+    await page.getByLabel('内置数据集').selectOption('moons')
     await page.getByRole('tab', { name: '回归' }).click()
     await page.getByLabel('上传 CSV').setInputFiles({
       name: 'linear-regression.csv',
@@ -186,6 +190,7 @@ test.describe('工作台关键流程', () => {
 
   test('历史查看旧模型不会覆盖当前模型的指标和解释', async ({ page }) => {
     await page.goto('/')
+    await page.getByLabel('内置数据集').selectOption('moons')
     await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
     const model = page.getByRole('combobox', { name: '具体模型' })
     await model.selectOption('knn')
@@ -257,10 +262,59 @@ test.describe('工作台关键流程', () => {
     await expect(page.getByRole('button', { name: '开始训练', exact: true })).toBeEnabled()
   })
 
+  test('窄屏时间线可断行，历史列表与详情可独立滚动', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await expect(page.getByRole('combobox', { name: '具体模型' })).toHaveValue('visual-cnn')
+    await expect(page.getByLabel('内置数据集')).toHaveValue('digits')
+    await page.getByRole('button', { name: '确认数据集并进入实验流程' }).click()
+    await page.getByRole('tab', { name: '训练过程' }).click()
+
+    const timeline = await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLElement>('.workbench-canvas-panel--training')!
+      const card = document.createElement('section')
+      card.className = 'single-page-card single-page-timeline-card'
+      const list = document.createElement('ol')
+      list.className = 'single-page-timeline'
+      for (let index = 0; index < 8; index += 1) {
+        const item = document.createElement('li')
+        item.textContent = `#${'9'.repeat(60)} · 0.1234`
+        list.append(item)
+      }
+      card.append(list)
+      canvas.append(card)
+      return { width: list.clientWidth, scrollWidth: list.scrollWidth }
+    })
+    expect(timeline.scrollWidth).toBeLessThanOrEqual(timeline.width + 1)
+
+    await page.getByRole('tab', { name: '历史记录' }).click()
+    const scrolling = await page.evaluate(() => {
+      const list = document.querySelector<HTMLElement>('.history-list-scroll')!
+      const results = list.querySelector<HTMLElement>('.results-panel')!
+      const detail = document.querySelector<HTMLElement>('.history-detail-panel')!
+      for (let index = 0; index < 30; index += 1) {
+        const row = document.createElement('article')
+        row.className = 'result-row'
+        row.style.height = '56px'
+        row.textContent = `测试记录 ${index}`
+        results.append(row)
+      }
+      const content = document.createElement('div')
+      content.style.height = '1200px'
+      detail.append(content)
+      list.scrollTop = list.scrollHeight
+      detail.scrollTop = detail.scrollHeight
+      return { list: list.scrollTop, detail: detail.scrollTop }
+    })
+    expect(scrolling.list).toBeGreaterThan(0)
+    expect(scrolling.detail).toBeGreaterThan(0)
+  })
+
   for (const width of [375, 768, 1366, 1920]) {
     test(`${width}px 下数据与训练结果不溢出或截断`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })
       await page.goto('/')
+      await page.getByLabel('内置数据集').selectOption('moons')
       await expect(page.getByRole('heading', { name: '数据集', exact: true })).toBeVisible()
       const overflow = () => page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
       expect(await overflow()).toBe(false)

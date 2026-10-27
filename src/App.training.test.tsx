@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { useWorkbenchStore } from './app/workbenchStore'
+import { generateBuiltinDataset } from './features/datasets/dataset'
 
 class ControlledTrainingWorker {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -42,7 +43,11 @@ class ControlledTrainingWorker {
 
 describe('训练运行记录', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks() })
-  beforeEach(() => { localStorage.clear(); useWorkbenchStore.getState().reset() })
+  beforeEach(() => {
+    localStorage.clear()
+    useWorkbenchStore.getState().reset()
+    useWorkbenchStore.getState().setDataset(generateBuiltinDataset('moons'))
+  })
 
   it('暂停与单步确认会刷新最后快照，停止后保存不完整运行记录', async () => {
     const user = userEvent.setup()

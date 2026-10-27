@@ -177,3 +177,6 @@
   .setup-page .dataset-workspace { height: auto; min-height: 0; grid-template-rows: auto auto auto; }
   .setup-page .dataset-controls, .setup-page .dataset-preview { height: auto; min-height: 0; overflow: visible; }
 }
+
+.history-list-scroll > .workbench-page { height: auto; min-height: 0; overflow: visible; }
+.history-list-scroll .results-panel { min-height: 0; overflow: visible; }

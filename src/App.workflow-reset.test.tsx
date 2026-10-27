@@ -3,12 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { useWorkbenchStore } from './app/workbenchStore'
+import { generateBuiltinDataset } from './features/datasets/dataset'
 
 describe('实验流程重新进入', () => {
   afterEach(() => cleanup())
   beforeEach(() => {
     localStorage.clear()
     useWorkbenchStore.getState().reset()
+    useWorkbenchStore.getState().setDataset(generateBuiltinDataset('moons'))
   })
 
   it('从其他导航页返回实验流程时清空上一轮运行状态', async () => {

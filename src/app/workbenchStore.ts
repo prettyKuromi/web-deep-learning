@@ -3,7 +3,7 @@ import { generateBuiltinDataset, type Dataset } from '../features/datasets/datas
 import { listExperiments, migrateLegacyExperiments, LEGACY_STORAGE_KEY } from '../features/persistence/persistence'
 import type { Labels } from '../features/training/types'
 import { type ExperimentRecord, type ModelConfig, type ModelKind, type TrainingState, type WorkbenchStage } from './workbenchTypes'
-const defaultDataset = (): Dataset => generateBuiltinDataset('moons')
+const defaultDataset = (): Dataset => generateBuiltinDataset('digits')
 const defaultModelConfig = (): ModelConfig => ({ params: {} })
 const defaultTraining = (): TrainingState => ({ status: '等待训练', progress: 0, snapshots: [] })
 export interface WorkbenchStore {

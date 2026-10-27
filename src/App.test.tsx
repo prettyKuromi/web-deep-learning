@@ -12,6 +12,7 @@ describe('实验工作台', () => {
   beforeEach(() => {
     localStorage.clear()
     useWorkbenchStore.getState().reset()
+    useWorkbenchStore.getState().setDataset(generateBuiltinDataset('moons'))
   })
 
   it('将 CNN 历史参数格式化为中文层说明和图像尺寸', () => {
@@ -23,10 +24,11 @@ describe('实验工作台', () => {
 
   it('默认在同一准备页选择模型和数据集并进入实验流程', async () => {
     const user = userEvent.setup()
+    useWorkbenchStore.getState().reset()
     render(<App />)
     expect(screen.getByRole('heading', { name: '模型与数据' })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('knn')
-    expect(screen.getByRole('combobox', { name: '内置数据集' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: '具体模型' })).toHaveValue('visual-cnn')
+    expect(screen.getByRole('combobox', { name: '内置数据集' })).toHaveValue('digits')
     expect(screen.getByRole('heading', { name: '数据集预览' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     expect(screen.getByRole('main', { name: '训练画布' })).toBeInTheDocument()
