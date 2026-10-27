@@ -1,7 +1,7 @@
 import { ExperimentResultPanel } from './features/workbench/ExperimentResultPanel'
 import { experimentSummary } from './features/workbench/resultUtils'
 import { defaultParameters, validateParameters } from './features/training/modelParameters'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { isModelCompatible, modelTask, recommendedModel, type ExperimentRecord, type ModelKind } from './app/workbenchTypes'
 import { useWorkbenchStore } from './app/workbenchStore'
 import { classificationMetrics } from './features/training/metrics'
@@ -26,7 +26,7 @@ import { saveExperiment, exportExperiments, importExperiments, deleteExperiment 
 import { datasetFingerprint, createRunMetadata, serializeExperimentReport, reportFilename } from './features/persistence/reproducibility'
 import { experimentMetricGroups } from './features/persistence/experimentMetrics'
 import { HistoryPage, TopLevelNavigation, type TopLevelPage } from './features/workbench/HistoryPage'
-import { WorkbenchGuidance } from './features/workbench/WorkbenchGuidance'
+import { WorkbenchGuidance, WorkbenchGuidanceHint, WorkbenchGuidanceTrigger } from './features/workbench/WorkbenchGuidance'
 import { dismissGuidanceHint, readGuidancePreferences, restoreGuidanceHints, type GuidancePreferences } from './features/workbench/guidancePreferences'
 import type { GuidanceCanvasView, GuidanceContext, GuidanceEvaluationSources } from './features/workbench/guidanceContent'
 import { formatParameterLabel, formatParameterValue } from './features/workbench/experimentParameterFormat'
@@ -68,6 +68,8 @@ export default function App() {
   const [topPage, setTopPage] = useState<TopLevelPage>('setup')
   const [guidancePreferences, setGuidancePreferences] = useState<GuidancePreferences>(readGuidancePreferences)
   const [helpOpen, setHelpOpen] = useState(false)
+  const guidanceTriggerRef = useRef<HTMLButtonElement>(null)
+  const guidancePanelId = `workbench-guidance-panel-${useId()}`
   const [canvasView, setCanvasView] = useState<GuidanceCanvasView>('training')
   const [persistenceNotice, setPersistenceNotice] = useState('')
   const [historyError, setHistoryError] = useState('')
@@ -345,7 +347,7 @@ export default function App() {
   const explanationPanel = <ModelExplanationPanel kind={activeModel} model={currentExperiment?.model} snapshots={training.snapshots} selectedStep={training.status === '训练中…' ? undefined : selectedStep} onStepChange={setSelectedStep} status={training.status} dimensions={dataset.dataType === 'sequence' ? undefined : dataset.features[0]?.length} />
   return <main className="app-shell">
     <header className="app-header"><div className="brand-lockup"><div className="brand-mark">✦</div><div><p className="eyebrow">web-deep-learning</p><h1>机器学习实验工作台</h1><p className="header-subtitle">选择模型与数据后，观察训练过程和结果。</p></div></div><div className="header-meta"><span className="live-dot" /><span>浏览器端运行</span><span className="status-badge">实验版</span></div></header>
-    <TopLevelNavigation activePage={topPage} configurationDisabled={trainingActive} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} guidanceContent={<WorkbenchGuidance context={guidanceContext} dismissedHintIds={guidancePreferences.dismissedHintIds} helpOpen={helpOpen} onHelpOpenChange={setHelpOpen} onDismissHint={handleGuidanceDismiss} onRestoreHints={handleGuidanceRestore} />} />
+    <TopLevelNavigation activePage={topPage} configurationDisabled={trainingActive} workflowDisabled={!datasetConfirmed} onPageChange={handleTopPageChange} guidanceTrigger={<WorkbenchGuidanceTrigger helpOpen={helpOpen} panelId={guidancePanelId} triggerRef={guidanceTriggerRef} onHelpOpenChange={setHelpOpen} />} guidancePanel={<WorkbenchGuidance context={guidanceContext} helpOpen={helpOpen} panelId={guidancePanelId} triggerRef={guidanceTriggerRef} onHelpOpenChange={setHelpOpen} onRestoreHints={handleGuidanceRestore} />} guidanceHint={<WorkbenchGuidanceHint context={guidanceContext} dismissedHintIds={guidancePreferences.dismissedHintIds} onDismissHint={handleGuidanceDismiss} triggerRef={guidanceTriggerRef} />} />
     <section className="app-content">{topPage === 'setup' ? <ExperimentSetupPage model={activeModel} onModelChange={handleModelSelection} initialDataset={dataset} importState={datasetImportState} onImportStateChange={handleImportStateChange} onDatasetChange={handleDatasetChange} onValidityChange={(valid) => { if (!valid) setDatasetConfirmed(false) }} onError={(message) => setTraining({ status: '数据集错误', error: message })} onContinue={() => { if (datasetImportState.pending || datasetImportState.error) return; if (!modelConfig.kind) handleModelSelection(activeModel); setDatasetConfirmed(true); enterWorkflow() }} /> : topPage === 'workflow' ? <SinglePageWorkbench
       dataset={dataset} visualLayers={visualLayers} onVisualLayersChange={layers => { invalidateConfiguration(); setVisualLayers(layers) }} model={activeModel} params={modelConfig.params} datasetName={dataset.name} status={training.status} snapshots={training.snapshots} capability={training.capability} evaluationConfig={evaluationConfig} onEvaluationConfigChange={config => { invalidateConfiguration(); setEvaluationConfig(config) }}
       onDatasetChange={handleDatasetChange} onChangeDataset={() => handleTopPageChange('setup')} onDatasetError={(message) => setTraining({ status: '数据集错误', error: message })}

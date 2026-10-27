@@ -4,9 +4,11 @@
 .page-heading h2 { margin: 0 0 5px; font-size: 1.25rem; }
 .page-heading > p:last-child { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.6; }
 .top-level-navigation-wrap { margin: 13px 0 18px; }
-.top-level-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 11px; padding: 4px; background: rgba(7, 18, 35, .68); }
-.top-level-navigation button { min-height: 38px; border: 1px solid transparent; border-radius: 7px; padding: 7px 14px; color: var(--muted); background: transparent; font-size: .8rem; cursor: pointer; transition: .18s ease; }
-.top-level-navigation button:hover:not(:disabled), .top-level-navigation button.active { border-color: rgba(88, 221, 255, .28); color: var(--cyan-soft); background: rgba(39, 112, 160, .25); }
+.top-level-navigation-anchor { position: relative; z-index: 2; }
+.top-level-navigation { display: flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 11px; padding: 4px; background: rgba(7, 18, 35, .68); }
+.top-level-navigation-tabs { display: flex; flex: 1 1 auto; align-items: center; gap: 5px; min-width: 0; }
+.top-level-navigation-tabs button { min-height: 38px; flex: 1 1 auto; border: 1px solid transparent; border-radius: 7px; padding: 7px 14px; color: var(--muted); background: transparent; font-size: .8rem; cursor: pointer; transition: .18s ease; white-space: nowrap; }
+.top-level-navigation-tabs button:hover:not(:disabled), .top-level-navigation-tabs button.active { border-color: rgba(88, 221, 255, .28); color: var(--cyan-soft); background: rgba(39, 112, 160, .25); }
 .navigation-hint { margin: 8px 4px 0; color: var(--muted); font-size: .74rem; }
 
 .dataset-page { width: min(100%, 1320px); margin-inline: auto; }
@@ -103,7 +105,7 @@
   .history-workspace { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 767px) {
-  .top-level-navigation button { flex: 1; padding-inline: 8px; white-space: nowrap; }
+  .top-level-navigation-tabs button { min-width: 0; padding-inline: 6px; }
   .dataset-page .dataset-controls, .dataset-page .dataset-preview, .history-detail-panel { padding: 16px; }
   .result-row { grid-template-columns: minmax(0, 1fr) auto; }
   .result-metric { grid-column: 1; }

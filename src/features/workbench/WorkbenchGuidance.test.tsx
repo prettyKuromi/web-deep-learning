@@ -1,12 +1,31 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GuidanceContext } from './guidanceContent'
 import { GUIDANCE_HINT_IDS } from './guidancePreferences'
-import { WorkbenchGuidance } from './WorkbenchGuidance'
+import { WorkbenchGuidance, WorkbenchGuidanceHint, WorkbenchGuidanceTrigger, type WorkbenchGuidanceHintProps, type WorkbenchGuidanceProps } from './WorkbenchGuidance'
 
 afterEach(() => cleanup())
+
+type GuidanceFixtureProps = Omit<WorkbenchGuidanceProps & WorkbenchGuidanceHintProps, "panelId" | "triggerRef">
+
+function GuidanceFixture(props: GuidanceFixtureProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelId = "workbench-guidance-panel-" + useId()
+  return (
+    <>
+      <div className="top-level-navigation-anchor">
+        <nav className="top-level-navigation" aria-label="工作台主导航">
+          <div role="tablist" aria-label="主导航"><button type="button" role="tab">模型与数据</button></div>
+          <WorkbenchGuidanceTrigger helpOpen={props.helpOpen} panelId={panelId} triggerRef={triggerRef} onHelpOpenChange={props.onHelpOpenChange} />
+        </nav>
+        <WorkbenchGuidance {...props} panelId={panelId} triggerRef={triggerRef} />
+      </div>
+      <WorkbenchGuidanceHint {...props} triggerRef={triggerRef} />
+    </>
+  )
+}
 
 const context = (page: GuidanceContext['page'], canvasView: GuidanceContext['canvasView'] = 'training'): GuidanceContext => ({
   page,
@@ -16,9 +35,9 @@ const context = (page: GuidanceContext['page'], canvasView: GuidanceContext['can
 })
 
 describe('WorkbenchGuidance', () => {
-  it('将页面提示与操作说明入口并排放置，并在同一行下方展开面板', () => {
+  it('提示位于导航下方，入口位于导航最右侧，打开的面板在入口之后', () => {
     render(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('setup')}
         dismissedHintIds={[]}
         helpOpen
@@ -28,12 +47,18 @@ describe('WorkbenchGuidance', () => {
       />,
     )
 
-    const row = document.querySelector('.workbench-guidance-row')
-    expect(row).toContainElement(screen.getByRole('region', { name: '页面操作提示' }))
-    expect(row).toContainElement(screen.getByRole('button', { name: '操作说明' }))
-    expect(row?.nextElementSibling).toHaveClass('workbench-guidance-panel')
+    const navigation = document.querySelector('.top-level-navigation')
+    const tablist = screen.getByRole('tablist', { name: '主导航' })
+    const trigger = screen.getByRole('button', { name: '操作说明' })
+    const panel = screen.getByRole('region', { name: '操作说明面板' })
+    const anchor = document.querySelector('.top-level-navigation-anchor')
+    expect(navigation).toContainElement(trigger)
+    expect(navigation?.lastElementChild).toBe(trigger)
+    expect(trigger.closest("[role=tablist]")).not.toBe(tablist)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(panel).toHaveAttribute('id', trigger.getAttribute('aria-controls'))
+    expect(anchor?.nextElementSibling).toHaveClass('workbench-guidance-hint')
   })
-
   it.each([
     ['setup', '先选择要解决的任务和模型', GUIDANCE_HINT_IDS.setup],
     ['workflow', '配置模型参数并启动训练', GUIDANCE_HINT_IDS.workflow],
@@ -42,7 +67,7 @@ describe('WorkbenchGuidance', () => {
     const user = userEvent.setup()
     const onDismissHint = vi.fn()
     render(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context(page)}
         dismissedHintIds={[]}
         helpOpen={false}
@@ -61,7 +86,7 @@ describe('WorkbenchGuidance', () => {
 
   it('已收起的页面提示不渲染', () => {
     render(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('workflow')}
         dismissedHintIds={[GUIDANCE_HINT_IDS.workflow]}
         helpOpen={false}
@@ -80,7 +105,7 @@ describe('WorkbenchGuidance', () => {
       const [dismissedHintIds, setDismissedHintIds] = useState<string[]>([])
       return (
         <>
-          <WorkbenchGuidance
+          <GuidanceFixture
             context={context('setup')}
             dismissedHintIds={dismissedHintIds}
             helpOpen={false}
@@ -106,7 +131,7 @@ describe('WorkbenchGuidance', () => {
     const user = userEvent.setup()
     const onHelpOpenChange = vi.fn()
     const { rerender } = render(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('workflow', 'results')}
         dismissedHintIds={[]}
         helpOpen={false}
@@ -120,7 +145,7 @@ describe('WorkbenchGuidance', () => {
     await user.click(trigger)
     expect(onHelpOpenChange).toHaveBeenCalledWith(true)
     rerender(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('workflow', 'results')}
         dismissedHintIds={[]}
         helpOpen
@@ -142,7 +167,7 @@ describe('WorkbenchGuidance', () => {
     const user = userEvent.setup()
     render(
       <>
-        <WorkbenchGuidance
+        <GuidanceFixture
           context={context('setup')}
           dismissedHintIds={[]}
           helpOpen
@@ -163,6 +188,8 @@ describe('WorkbenchGuidance', () => {
 
     screen.getByRole('button', { name: '恢复页面提示' }).focus()
     await user.tab()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '我知道了' }))
+    await user.tab()
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '帮助之后的操作' }))
   })
 
@@ -170,7 +197,7 @@ describe('WorkbenchGuidance', () => {
     const user = userEvent.setup()
     const onHelpOpenChange = vi.fn()
     const { rerender } = render(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('setup')}
         dismissedHintIds={[]}
         helpOpen
@@ -187,7 +214,7 @@ describe('WorkbenchGuidance', () => {
     expect(document.activeElement).toBe(trigger)
 
     rerender(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('setup')}
         dismissedHintIds={[]}
         helpOpen={false}
@@ -203,7 +230,7 @@ describe('WorkbenchGuidance', () => {
     const user = userEvent.setup()
     const onHelpOpenChange = vi.fn()
     const { rerender } = render(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('setup')}
         dismissedHintIds={[]}
         helpOpen
@@ -220,7 +247,7 @@ describe('WorkbenchGuidance', () => {
     expect(onHelpOpenChange).toHaveBeenCalledWith(false)
     expect(document.activeElement).toBe(trigger)
     rerender(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('setup')}
         dismissedHintIds={[]}
         helpOpen={false}
@@ -236,7 +263,7 @@ describe('WorkbenchGuidance', () => {
     const user = userEvent.setup()
     const onHelpOpenChange = vi.fn()
     render(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('setup')}
         dismissedHintIds={[]}
         helpOpen
@@ -253,11 +280,58 @@ describe('WorkbenchGuidance', () => {
     expect(document.activeElement).toBe(trigger)
   })
 
+  it('面板外点击关闭帮助并继续原操作，不把焦点移回入口', async () => {
+    const user = userEvent.setup()
+    const onAction = vi.fn()
+    function ControlledHelp() {
+      const [helpOpen, setHelpOpen] = useState(true)
+      return (
+        <>
+          <GuidanceFixture
+            context={context('setup')}
+            dismissedHintIds={[]}
+            helpOpen={helpOpen}
+            onHelpOpenChange={setHelpOpen}
+            onDismissHint={vi.fn()}
+            onRestoreHints={vi.fn()}
+          />
+          <button type="button" onClick={onAction}>页面操作</button>
+        </>
+      )
+    }
+
+    render(<ControlledHelp />)
+    const action = screen.getByRole('button', { name: '页面操作' })
+    await user.click(action)
+
+    expect(onAction).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('region', { name: '操作说明面板' })).not.toBeInTheDocument()
+    expect(action).toHaveFocus()
+  })
+
+  it('面板内部点击不会触发外部点击关闭', async () => {
+    const user = userEvent.setup()
+    const onHelpOpenChange = vi.fn()
+    render(
+      <GuidanceFixture
+        context={context('setup')}
+        dismissedHintIds={[]}
+        helpOpen
+        onHelpOpenChange={onHelpOpenChange}
+        onDismissHint={vi.fn()}
+        onRestoreHints={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('heading', { name: '操作说明' }))
+    expect(onHelpOpenChange).not.toHaveBeenCalledWith(false)
+    expect(screen.getByRole('region', { name: '操作说明面板' })).toBeInTheDocument()
+  })
   it('恢复提示时调用父级偏好回调', async () => {
     const user = userEvent.setup()
     const onRestoreHints = vi.fn()
     render(
-      <WorkbenchGuidance
+      <GuidanceFixture
         context={context('history')}
         dismissedHintIds={[GUIDANCE_HINT_IDS.history]}
         helpOpen
@@ -279,12 +353,12 @@ describe('WorkbenchGuidance', () => {
       onDismissHint: vi.fn(),
       onRestoreHints: vi.fn(),
     }
-    const { rerender } = render(<WorkbenchGuidance {...props} context={context('workflow', 'training')} />)
+    const { rerender } = render(<GuidanceFixture {...props} context={context('workflow', 'training')} />)
     const trigger = screen.getByRole('button', { name: '操作说明' })
     trigger.focus()
 
     expect(screen.getByRole('region', { name: '操作说明面板' })).toHaveTextContent('训练过程')
-    rerender(<WorkbenchGuidance {...props} context={{ ...context('workflow', 'architecture'), model: 'visual-cnn' }} />)
+    rerender(<GuidanceFixture {...props} context={{ ...context('workflow', 'architecture'), model: 'visual-cnn' }} />)
 
     expect(screen.getByRole('region', { name: '操作说明面板' })).toHaveTextContent('网络结构')
     expect(screen.getAllByRole('region', { name: '页面操作提示' })).toHaveLength(1)

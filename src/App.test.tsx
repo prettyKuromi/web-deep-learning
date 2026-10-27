@@ -266,7 +266,7 @@ describe('实验工作台', () => {
     expect(screen.getByText('配置已修改，请重新训练')).toBeInTheDocument()
   }, 20000)
 
-  it('在页面切换时保留共享帮助面板和各页提示收起状态', async () => {
+  it('页面切换时关闭帮助面板并保留各页提示收起状态', async () => {
     const user = userEvent.setup()
     render(<App />)
 
@@ -276,7 +276,8 @@ describe('实验工作台', () => {
     expect(screen.getByRole('region', { name: '当前章节' })).toHaveTextContent('模型与数据')
 
     await user.click(screen.getByRole('tab', { name: '历史记录' }))
-    expect(screen.getByRole('region', { name: '操作说明面板' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '操作说明面板' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
     expect(screen.getByRole('region', { name: '当前章节' })).toHaveTextContent('历史记录')
     expect(screen.getAllByRole('region', { name: '页面操作提示' })).toHaveLength(1)
 
@@ -284,7 +285,7 @@ describe('实验工作台', () => {
     expect(screen.queryByRole('region', { name: '页面操作提示' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     expect(screen.getByRole('region', { name: '页面操作提示' })).toHaveTextContent('配置模型参数')
-    expect(screen.getByRole('region', { name: '操作说明面板' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '操作说明面板' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '我知道了' }))
     await user.click(screen.getByRole('button', { name: '开始训练' }))
@@ -292,6 +293,7 @@ describe('实验工作台', () => {
     await user.click(screen.getByRole('button', { name: '重置' }))
     expect(screen.queryByRole('region', { name: '页面操作提示' })).not.toBeInTheDocument()
 
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
     await user.click(within(screen.getByRole('region', { name: '操作说明面板' })).getByRole('button', { name: '恢复页面提示' }))
     expect(screen.getAllByRole('region', { name: '页面操作提示' })).toHaveLength(1)
   })
@@ -332,11 +334,13 @@ describe('实验工作台', () => {
 
     const records = screen.getAllByRole('button', { name: /选择实验记录/ })
     await user.click(records[0])
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
     panel = screen.getByRole('region', { name: '操作说明面板' })
     expect(panel).toHaveTextContent('所选实验：分类 · KNN')
     expect(panel).toHaveTextContent('训练集指标使用训练集')
 
     await user.click(screen.getAllByRole('button', { name: /选择实验记录/ })[1])
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
     panel = screen.getByRole('region', { name: '操作说明面板' })
     expect(panel).toHaveTextContent('所选实验：分类 · 逻辑回归')
     expect(panel).toHaveTextContent('训练集指标使用未记录；验证集指标使用未记录。')
@@ -348,24 +352,30 @@ describe('实验工作台', () => {
 
     await user.click(screen.getByRole('button', { name: '确认数据集并进入实验流程' }))
     await user.click(screen.getByRole('button', { name: '操作说明' }))
-    const panel = screen.getByRole('region', { name: '操作说明面板' })
+    let panel = screen.getByRole('region', { name: '操作说明面板' })
     expect(within(panel).getByRole('region', { name: '当前章节' })).toHaveTextContent('训练过程')
     expect(panel).toHaveTextContent('不支持暂停或单步')
 
     await user.selectOptions(screen.getByRole('combobox', { name: '具体模型' }), 'logistic-regression')
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
+    panel = screen.getByRole('region', { name: '操作说明面板' })
     expect(panel).toHaveTextContent('开始训练后可暂停')
     expect(panel).toHaveTextContent('单步会完成一个迭代')
 
     const resultsTab = screen.getByRole('tab', { name: '结果与解释' })
     await user.click(resultsTab)
+    expect(resultsTab).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
+    panel = screen.getByRole('region', { name: '操作说明面板' })
     expect(within(panel).getByRole('region', { name: '当前章节' })).toHaveTextContent('结果与解释')
     expect(panel).toHaveTextContent('训练集指标使用未记录')
-    expect(resultsTab).toHaveFocus()
 
     const trainingTab = screen.getByRole('tab', { name: '训练过程' })
     await user.click(trainingTab)
-    expect(within(panel).getByRole('region', { name: '当前章节' })).toHaveTextContent('训练过程')
     expect(trainingTab).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: '操作说明' }))
+    panel = screen.getByRole('region', { name: '操作说明面板' })
+    expect(within(panel).getByRole('region', { name: '当前章节' })).toHaveTextContent('训练过程')
   })
 
   it('进入 CNN 工作流时将默认网络结构视图同步到共享帮助', async () => {

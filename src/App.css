@@ -89,7 +89,7 @@ h1, h2, h3, h4, p { margin-top: 0; } h1 { margin-bottom: 3px; color: var(--ink-s
 .app-content > * { width: 100%; min-height: 0; }
 .top-level-navigation-wrap { margin: 8px 0 10px; }
 .top-level-navigation { flex-wrap: nowrap; }
-.top-level-navigation button { min-height: 34px; }
+.top-level-navigation-tabs button { min-height: 34px; }
 .training-chart-empty { display: grid; justify-items: center; gap: 9px; width: 100%; padding: 18px; color: var(--muted); text-align: center; }
 .training-chart-empty strong { color: var(--ink-strong); font-size: .9rem; }
 .training-chart-empty > span { color: var(--muted); font-size: .75rem; }
@@ -110,6 +110,6 @@ h1, h2, h3, h4, p { margin-top: 0; } h1 { margin-bottom: 3px; color: var(--ink-s
   .app-header { gap: 10px; }
   .header-meta { gap: 6px; font-size: .62rem; }
   .status-badge { display: none; }
-  .top-level-navigation button { padding-inline: 6px; font-size: .68rem; }
+  .top-level-navigation-tabs button { padding-inline: 6px; font-size: .68rem; }
   .experiment-parameters { grid-template-columns: minmax(0, 1fr); }
 }

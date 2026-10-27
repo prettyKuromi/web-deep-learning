@@ -19,6 +19,20 @@ describe('HistoryPage', () => {
     expect(onPageChange).toHaveBeenCalledWith('history')
   })
 
+  it('将操作说明入口渲染在主导航内，并把提示留在导航下方', () => {
+    render(<TopLevelNavigation activePage="setup" onPageChange={vi.fn()} guidanceTrigger={<button type="button">操作说明</button>} guidancePanel={<section className="workbench-guidance-panel">帮助内容</section>} guidanceHint={<p className="workbench-guidance-hint">当前页面提示</p>} />)
+
+    const navigation = screen.getByRole('navigation', { name: '工作台主导航' })
+    const anchor = navigation.parentElement
+    const trigger = screen.getByRole('button', { name: '操作说明' })
+    const tablist = screen.getByRole('tablist', { name: '主导航' })
+    expect(navigation).toContainElement(trigger)
+    expect(navigation.lastElementChild).toBe(trigger)
+    expect(trigger.closest('[role=tablist]')).not.toBe(tablist)
+    expect(anchor?.lastElementChild).toHaveClass('workbench-guidance-panel')
+    expect(anchor?.nextElementSibling).toHaveClass('workbench-guidance-hint')
+  })
+
   it('shows a helpful empty state when there are no saved experiments', () => {
     render(<HistoryPage records={[]} />)
 
